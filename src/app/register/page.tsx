@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import toast from "react-hot-toast";
 
 
 function Loginpage() {
@@ -27,7 +28,7 @@ function Loginpage() {
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         if (password !== confirmPassword) {
-            alert("Password does not match")
+            toast.error("Passwords do not match")
             return
         }
         try {
@@ -47,6 +48,7 @@ function Loginpage() {
                 throw new Error(data.error || "Registration failed")
             } else {
                 console.log(data)
+                toast.success("Registration successfuly")
                 router.push("/login");
             }
         } catch (error) {

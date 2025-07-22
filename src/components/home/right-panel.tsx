@@ -5,14 +5,16 @@ import MessageInput from "./message-input";
 import MessageContainer from "./message-container";
 import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import GroupMembersDialog from "./group-members-dialog";
+import { useConversationStore } from "@/store/chat-store";
+//import { useConversationId } from "@/hooks/useConversationId";
+import { useParams } from "next/navigation";
 
 const RightPanel = () => {
-    const selectedConversation = true;
+    const params = useParams();
+    const { selectedConversation, setSelectedConversation } = useConversationStore()
     if (!selectedConversation) return <ChatPlaceHolder />;
-
-    const conversationName = "John Doe";
-    const isGroup = false
-
+    // console.log(selectedConversation)
+    const conversationName = selectedConversation.groupName || selectedConversation.participants[0].email?.split("@")[0];
     return (
         <div className='w-3/4 flex flex-col'>
             <div className='w-full sticky top-0 z-50'>
@@ -27,7 +29,7 @@ const RightPanel = () => {
                         </Avatar>
                         <div className='flex flex-col'>
                             <p>{conversationName}</p>
-                            {isGroup && <GroupMembersDialog />}
+                            {selectedConversation.isGroup && <GroupMembersDialog />}
                         </div>
                     </div>
 
@@ -35,7 +37,7 @@ const RightPanel = () => {
                         <a href='/video-call' target='_blank'>
                             <Video size={23} />
                         </a>
-                        <X size={16} className='cursor-pointer' />
+                        <X size={16} className='cursor-pointer' onClick={() => setSelectedConversation(null)} />
                     </div>
                 </div>
             </div>

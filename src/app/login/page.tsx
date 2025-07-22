@@ -16,6 +16,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import toast from "react-hot-toast";
 
 function Loginpage() {
     const [email, setEmail] = useState("");
@@ -30,6 +31,7 @@ function Loginpage() {
         });
         if (result?.error) {
             console.error(result.error);
+            toast.error(result.error);
         } else {
             console.log("Login successfuly");
             router.push("/");

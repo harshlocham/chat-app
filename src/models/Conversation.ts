@@ -13,6 +13,7 @@ export interface ILastMessage {
 export interface IConversation extends Document {
     _id: mongoose.Types.ObjectId
     _creationTime: Date | undefined;
+    admin: string
     participants: IUser[];
     type: 'direct' | 'group';
     isGroup: boolean;
@@ -31,6 +32,7 @@ const conversationSchema = new Schema<IConversation>({
     participants: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     type: { type: String, enum: ['direct', 'group'], default: 'direct' },
     isGroup: { type: Boolean, default: false },
+    admin: { type: String },
     name: { type: String },         // direct name fallback
     image: { type: String },        // direct image fallback
     groupName: { type: String },

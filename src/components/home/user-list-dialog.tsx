@@ -16,6 +16,7 @@ import { ImageIcon, MessageSquareDiff } from "lucide-react";
 import toast from "react-hot-toast";
 import { useConversationStore } from "@/store/chat-store";
 import { getMe, getUsers, createConversation, generateUploadUrl } from "@/lib/api";
+import { IConversation } from "@/models/Conversation";
 
 // 👇 Import your API handlers (replace with your own)
 // <-- your API layer
@@ -66,11 +67,13 @@ const UserListDialog = () => {
 
             let conversationId;
             if (!isGroup) {
+                setIsLoading(true)
                 conversationId = await createConversation({
                     participants: [...selectedUsers, me._id],
                     isGroup: false,
                 });
             } else {
+                setIsLoading(true)
                 let imageStorageId = null;
                 if (selectedImage) {
                     const { uploadUrl } = await generateUploadUrl();
@@ -105,17 +108,26 @@ const UserListDialog = () => {
 
             setSelectedConversation({
                 _id: conversationId,
-                participants: selectedUsers,
+                participants: selectedUsers.map((id) => users.find((u) => u._id === id)),
                 isGroup,
                 image: isGroup ? renderedImage : otherUser?.image,
                 name: conversationName,
                 admin: me._id,
-            });
+                type: isGroup ? "group" : "direct",
+                _creationTime: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                lastMessage: undefined,
+                isOnline: false
+            } as IConversation);
+            toast.success("Conversation created successfully");
         } catch (err) {
             toast.error("Failed to create conversation");
             console.error(err);
         } finally {
             setIsLoading(false);
+            setGroupName("");
+            setSelectedImage(null);
         }
     };
 
@@ -164,7 +176,7 @@ const UserListDialog = () => {
                         <div
                             key={user._id}
                             className={`flex gap-3 items-center p-2 rounded cursor-pointer transition-all
-                            ${selectedUsers.includes(user._id) ? "bg-green-primary" : ""}`}
+                            ${selectedUsers.includes(user._id) ? "bg-[hsl(var(--green-primary))]" : ""}`}
                             onClick={() => {
                                 setSelectedUsers((prev) =>
                                     prev.includes(user._id)
@@ -178,7 +190,7 @@ const UserListDialog = () => {
                                     <div className='absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-foreground' />
                                 )}
                                 <AvatarImage src={user.image} className='object-cover rounded-full' />
-                                <AvatarFallback className='bg-gray-tertiary' />
+                                <AvatarFallback className='bg-[hsl(var(--gray-tertiary))]' />
                             </Avatar>
                             <p className='text-md font-medium'>{user.username || user.email.split("@")[0]}</p>
                         </div>

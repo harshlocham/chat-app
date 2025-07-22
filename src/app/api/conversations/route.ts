@@ -8,54 +8,58 @@ import { NextResponse } from "next/server";
 
 
 export async function POST(req: Request) {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-        return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
-    }
     try {
-        await connectToDatabase();
-        const currentUser = await User.findOne({ email: session.user.email })
-        if (!currentUser) {
-            NextResponse.json(
-                { error: "User not found" },
-                { status: 404 }
-            )
+        const session = await getServerSession(authOptions);
+        if (!session) {
+            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
         }
-        const body = await req.json()
+
+        await connectToDatabase();
+
+        const currentUser = await User.findOne({ email: session.user.email });
+        if (!currentUser) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        const body = await req.json();
         const { participants, isGroup, groupName, groupImage, admin } = body;
+
         if (!participants || participants.length === 0) {
             return NextResponse.json({ error: "Participants required" }, { status: 400 });
         }
+
+        // Check for existing conversation (only if not a group chat)
         if (!isGroup && participants.length === 2) {
             const existing = await Conversation.findOne({
                 isGroup: false,
                 participants: { $all: participants },
             });
+
             if (existing) {
-                return NextResponse.json(existing, { status: 200 });
+                const populated = await existing.populate("participants", "name email image");
+                return NextResponse.json(populated, { status: 200 });
             }
-
-            const newConversation = await Conversation.create({
-                isGroup,
-                participants,
-                ...(isGroup && {
-                    groupName,
-                    groupImage,
-                    admin,
-                }),
-            });
-            const populated = await newConversation
-                .populate("participants", "name email image")
-                .execPopulate?.();
-
-            return NextResponse.json(populated || newConversation, { status: 201 });
         }
+
+        // Create new conversation
+        const newConversation = await Conversation.create({
+            isGroup,
+            participants,
+            ...(isGroup && {
+                groupName,
+                groupImage,
+                admin,
+            }),
+        });
+
+        const populated = await newConversation.populate("participants", "name email image");
+        return NextResponse.json(populated, { status: 201 });
+
     } catch (error) {
-        console.error("POST /conversations error:", error);
+        console.error("POST /api/conversations error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
-
 
 
 export async function GET() {

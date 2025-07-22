@@ -1,8 +1,9 @@
 // src/components/ChatBox.tsx
 "use client";
 
+import { socket } from "@/lib/socketClient";
 import { useEffect, useState } from "react";
-import socket from "@/lib/socket";
+
 
 export default function ChatBox() {
     const [messages, setMessages] = useState<{ sender: string; content: string }[]>([]);

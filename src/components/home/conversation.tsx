@@ -36,7 +36,7 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
         <>
             <div
                 className={`flex gap-2 items-center p-3 hover:bg-chat-hover cursor-pointer
-					${activeBgClass ? "bg-gray-tertiary" : ""}
+					${activeBgClass ? "bg-[hsl(var(--gray-tertiary))]" : ""}
 				`}
                 onClick={() => setSelectedConversation(conversation)}
             >

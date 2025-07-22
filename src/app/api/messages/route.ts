@@ -1,26 +1,42 @@
-// src/app/api/messages/route.ts
-import { connectToDatabase } from "@/lib/db";
-import Message from "@/models/Message";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { handleCreateMessage } from "@/lib/controllers/message.controller";
+import { z } from "zod";
+import { getPaginatedMessages } from "@/lib/repositories/message.repo";
 
-export async function POST(req: Request) {
-    await connectToDatabase();
-    const { sender, content } = await req.json();
+const MessageSchema = z.object({
+    content: z.string().min(1),
+    conversationId: z.string(),
+    senderId: z.string(),
+});
 
-    if (!sender || !content) {
-        return NextResponse.json({ success: false, error: "Missing sender or content" }, { status: 400 });
-    }
-
+export async function POST(req: NextRequest) {
     try {
-        const message = await Message.create({ sender, content });
-        return NextResponse.json({ success: true, message });
-    } catch (err: any) {
-        return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+        const parsed = MessageSchema.parse(await req.json());
+
+        const message = await handleCreateMessage(parsed);
+
+        return NextResponse.json(message, { status: 201 });
+    } catch (error: any) {
+        console.error("❌ Message POST error:", error);
+
+        return NextResponse.json(
+            { error: error?.message || "Invalid input" },
+            { status: 400 }
+        );
     }
 }
+export async function GET(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const conversationId = searchParams.get("conversationId")!;
+        const cursor = searchParams.get("cursor") || undefined;
 
-export async function GET() {
-    await connectToDatabase();
-    const messages = await Message.find().sort({ timestamp: -1 }).limit(50);
-    return NextResponse.json({ success: true, messages });
+        const messages = await getPaginatedMessages(conversationId, cursor);
+        // Always return an array, even if empty:
+        return NextResponse.json(messages, { status: 200 });
+    } catch (err) {
+        console.error(err);
+        // Return an empty array instead of no body:
+        return NextResponse.json([], { status: 200 });
+    }
 }
