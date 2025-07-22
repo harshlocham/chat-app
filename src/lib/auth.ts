@@ -67,6 +67,7 @@ export const authOptions: NextAuthOptions = {
                 if (!existingUser) {
                     // Create a new user
                     const newUser = new User({
+
                         email: user.email,
                         username: user.name,
                         profilePicture: user.image
@@ -93,7 +94,8 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user) {
-                session.user.id = token.id as string
+                // @ts-expect-error: id is added to user object for session
+                session.user.id = token.id as string;
             }
             return session;
         },

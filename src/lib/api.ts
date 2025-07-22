@@ -26,7 +26,10 @@ export async function createConversation(data: any) {
     return await res.json(); // expects: { _id }
 }
 export async function generateUploadUrl() {
-    const res = await fetch("/api/upload-url");
+    const res = await fetch("/api/uploadOncloudinary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+    });
     if (!res.ok) throw new Error("Failed to generate upload URL");
     return await res.json(); // expects: { uploadUrl }
 }
@@ -35,3 +38,9 @@ export async function getConversations() {
     if (!res.ok) throw new Error("Failed to load conversations");
     return await res.json();
 }
+export async function getConversationById(id: string) {
+    const res = await fetch(`/api/conversations/${id}`);
+    if (!res.ok) throw new Error("Conversation fetch failed");
+    return res.json();
+}
+
