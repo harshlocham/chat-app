@@ -1,8 +1,7 @@
+import { Server as IOServer } from "socket.io";
 
-import { io } from "socket.io-client";
+export let io: IOServer | null = null;
 
-const socket = io({
-    path: "/api/socket_io",
-});
-
-export default socket;
+export function setUpSocketIO(server: IOServer) {
+    io = server;
+}
