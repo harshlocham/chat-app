@@ -86,10 +86,7 @@ const MessageContainer = () => {
 
     //  Socket join and message listener
 
-    // const handleNewMessage = useCallback((msg: IMessage) => {
-    //     console.log('📨 Received message:new', msg);
-    //     addMessage(msg);
-    // }, [addMessage]);
+
 
 
     useEffect(() => {
