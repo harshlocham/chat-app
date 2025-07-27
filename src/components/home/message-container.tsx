@@ -1,10 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
 import { useConversationStore } from "@/store/chat-store";
 import { socket } from "@/lib/socketClient";
-import { IMessage } from "@/models/Message";
+import { IMessagePopulated } from "@/models/Message";
+import { IUser } from "@/models/User";
 import ChatBubble from "./chat-bubble";
 import { getMe } from "@/lib/api";
 
@@ -15,7 +15,6 @@ const MessageContainer = () => {
         messages,
         addMessage,
         setMessages,
-        hasMore,
         setHasMore,
     } = useConversationStore();
 
@@ -23,7 +22,7 @@ const MessageContainer = () => {
     const topRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    const [me, setMe] = useState<any>(null);
+    const [me, setMe] = useState<IUser | null>(null);
 
     useEffect(() => {
         const fetchMe = async () => {
@@ -39,14 +38,14 @@ const MessageContainer = () => {
 
 
     //  Fetch paginated messages
-    const fetchMessages = async (cursor?: string) => {
+    const fetchMessages = useCallback(async (cursor?: string) => {
         if (!sel?._id || loading) return;
         setLoading(true);
         try {
             const res = await fetch(
                 `/api/messages?conversationId=${sel?._id}&cursor=${cursor || ""}`
             );
-            const data = await res.json() as any[];
+            const data = await res.json() as IMessagePopulated[];
             const redata = data.reverse();
             if (redata.length < 20) setHasMore(false);
             setMessages(redata, !!cursor); // prepend if paginating
@@ -55,7 +54,7 @@ const MessageContainer = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [sel?._id, loading, setMessages, setHasMore]);
 
     //  Scroll to bottom on first load
     useEffect(() => {
@@ -82,7 +81,7 @@ const MessageContainer = () => {
     //  Initial load
     useEffect(() => {
         fetchMessages();
-    }, [sel?._id]);
+    }, [sel?._id, fetchMessages]);
 
     //  Socket join and message listener
 
@@ -92,7 +91,7 @@ const MessageContainer = () => {
     useEffect(() => {
         if (!sel?._id) return;
         socket.emit('join', sel._id);
-        const handleNewMessage = (msg: IMessage) => {
+        const handleNewMessage = (msg: IMessagePopulated) => {
             addMessage(msg); // ✅ Consistent reference
         };
         socket.on('message:new', handleNewMessage);
@@ -101,7 +100,7 @@ const MessageContainer = () => {
             socket.emit('leave', sel._id);
             socket.off('message:new', handleNewMessage);
         };
-    },);
+    }, [sel?._id, addMessage]);
 
     return (
         <div
@@ -110,11 +109,11 @@ const MessageContainer = () => {
         >
             <div className='mx-12 flex flex-col gap-3 h-full'>
                 <div ref={topRef} />
-                {messages.map((msg) => (
+                {me && messages.map((msg) => (
                     <div key={String(msg._id)}>
                         <ChatBubble
                             message={msg}
-                            isSender={me?._id === msg.sender}
+                            isSender={String(me._id) === String(msg.sender?._id || msg.sender)}
                         />
                     </div>
                 ))}
