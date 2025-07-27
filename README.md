@@ -1,4 +1,13 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chat App (Next.js)
+
+This is a real-time chat application built with [Next.js](https://nextjs.org), supporting group and direct messaging, user authentication, and live updates via WebSockets.
+
+## Features
+- Real-time messaging with Socket.IO
+- Group and direct conversations
+- User authentication (NextAuth)
+- File uploads (ImageKit)
+- Optimized message fetching and API usage
 
 ## Getting Started
 
@@ -18,7 +27,31 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Optimized Message Fetching
+- Messages are fetched only when the selected conversation changes or when paginating (scrolling up for older messages).
+- The app avoids infinite API call loops by carefully managing React hook dependencies.
+- For polling or live updates, the app uses WebSockets to receive new messages instantly, reducing the need for repeated HTTP polling.
+
+### Best Practices for API Calls
+- Only fetch messages when necessary (on conversation change, scroll, or new message event).
+- Avoid including state like `loading` in React hook dependencies to prevent infinite loops.
+- Use pagination (cursor-based) for efficient loading of large conversations.
+- Use WebSockets for real-time updates instead of frequent polling.
+
+## Troubleshooting
+
+### Infinite API Calls
+If you notice repeated or infinite API calls to `/api/messages`, check the following:
+- Ensure your `useEffect` and `useCallback` dependencies do **not** include state like `loading` that changes on every fetch.
+- Example fix:
+  ```js
+  // BAD: Causes infinite loop
+  useCallback(..., [sel?._id, loading, ...])
+
+  // GOOD: Only include stable dependencies
+  useCallback(..., [sel?._id, ...])
+  ```
+- Only trigger message fetching on conversation change or user action.
 
 ## Learn More
 
