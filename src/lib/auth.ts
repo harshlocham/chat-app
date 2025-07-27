@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
                 email: { label: "Email", type: "text" },
                 password: { label: "password", type: "password" },
             },
-            async authorize(credentials, req) {
+            async authorize(credentials) {
 
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error("Missing email or password")
@@ -94,8 +94,9 @@ export const authOptions: NextAuthOptions = {
         },
         async session({ session, token }) {
             if (session.user) {
-                // @ts-expect-error: id is added to user object for session
-                session.user.id = token.id as string;
+                // if (session.user.email !== user.email) {
+                session.accessToken = token.accessToken;
+                //session.user.id = token.id as string;
             }
             return session;
         },

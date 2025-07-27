@@ -1,5 +1,5 @@
 'use client'
-import { ListFilter, LogOut, MessageSquareDiff, Search, User } from "lucide-react";
+import { ListFilter, LogOut, Search } from "lucide-react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
 import Conversation from "./conversation";
@@ -7,7 +7,7 @@ import Conversation from "./conversation";
 import { signOut } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
 import { IConversation } from "@/models/Conversation";
-import UserListDialog from "./user-list-dialog";
+import UserListDialog from "./dialogs/user-list-dialog";
 import { getConversations } from "@/lib/api";
 import { useEffect, useState } from "react";
 
@@ -24,7 +24,7 @@ const LeftPanel = () => {
     //const conversations: IConversation[] = [];
     // Example conversation, replace with actual data fetching logic
     return (
-        <div className='w-1/4 border-gray-600 border-r'>
+        <div className='w-1/4 border-gray-600 border-r min-w-[200px]'>
             <div className='sticky top-0 bg-left-panel z-10'>
                 {/* Header */}
                 <div className='flex justify-between bg-gray-primary p-3 items-center'>

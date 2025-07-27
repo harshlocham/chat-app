@@ -1,6 +1,4 @@
 // lib/api.ts
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 //import axios from "axios";
 
 // Client-side call to fetch user info from your API
@@ -16,7 +14,13 @@ export async function getUsers() {
     return await res.json();
 }
 
-export async function createConversation(data: any) {
+export async function createConversation(data: {
+    participants: string[];
+    isGroup: boolean;
+    groupName?: string;
+    image?: string;
+    admin?: string;
+}) {
     const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -25,10 +29,12 @@ export async function createConversation(data: any) {
     if (!res.ok) throw new Error("Failed to create conversation");
     return await res.json(); // expects: { _id }
 }
-export async function generateUploadUrl() {
-    const res = await fetch("/api/uploadOncloudinary", {
+export async function generateUploadUrl(selectedFile: File) {
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    const res = await fetch("/api/upload.ts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        body: formData,
     });
     if (!res.ok) throw new Error("Failed to generate upload URL");
     return await res.json(); // expects: { uploadUrl }
