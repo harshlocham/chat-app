@@ -17,24 +17,37 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import toast from "react-hot-toast";
+import { Loader2 } from "lucide-react";
 
 function Loginpage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const router = useRouter();
+    const [isLoading, setIsLoading] = useState(false);
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const result = await signIn("credentials", {
-            email,
-            password,
-            redirect: false,
-        });
-        if (result?.error) {
-            console.error(result.error);
-            toast.error(result.error);
-        } else {
-            console.log("Login successfuly");
-            router.push("/");
+        setIsLoading(true);
+        try {
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+            if (result?.error) {
+                console.error(result.error);
+                toast.error(result.error);
+            } else {
+                console.log("Login successfuly");
+                router.push("/");
+            }
+        } catch (error: unknown) {
+            if (error instanceof Error) {
+                toast.error(error.message);
+            } else {
+                toast.error("An unknown error occurred.");
+            }
+        } finally {
+            setIsLoading(false);
         }
     }
     return (
@@ -81,15 +94,25 @@ function Loginpage() {
                                 />
                             </div>
                         </div>
-                        <Button type="submit" className="w-full mt-2 hover:bg-gray-600 transition-colors-2s" variant="outline">
-                            Login
+                        <Button type="submit" className="w-full mt-2 hover:bg-gray-600 transition-colors-2s" variant="outline" disabled={isLoading}>
+                            {isLoading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                            ) : null}
+                            {isLoading ? "Logging in..." : "Login"}
                         </Button>
                     </form>
                 </CardContent>
                 <CardFooter className="flex-col gap-2">
 
-                    <Button variant="outline" className="w-full" onClick={() => signIn("google", { callbackUrl: "/" })}>
-                        Login with Google
+                    <Button variant="outline" className="w-full" onClick={async () => {
+                        setIsLoading(true);
+                        await signIn("google", { callbackUrl: "/" });
+                        setIsLoading(false);
+                    }} disabled={isLoading}>
+                        {isLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                        ) : null}
+                        {isLoading ? "Logging in..." : "Login with Google"}
                     </Button>
                 </CardFooter>
             </Card>
