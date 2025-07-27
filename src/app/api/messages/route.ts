@@ -16,11 +16,11 @@ export async function POST(req: NextRequest) {
         const message = await handleCreateMessage(parsed);
 
         return NextResponse.json(message, { status: 201 });
-    } catch (error: any) {
+    } catch (error) {
         console.error("❌ Message POST error:", error);
 
         return NextResponse.json(
-            { error: error?.message || "Invalid input" },
+            { error: error || "Invalid input" },
             { status: 400 }
         );
     }

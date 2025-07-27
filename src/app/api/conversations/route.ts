@@ -22,7 +22,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { participants, isGroup, groupName, groupImage, admin } = body;
+        const { participants, isGroup, groupName, image, admin } = body;
 
         if (!participants || participants.length === 0) {
             return NextResponse.json({ error: "Participants required" }, { status: 400 });
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
             participants,
             ...(isGroup && {
                 groupName,
-                groupImage,
+                image,
                 admin,
             }),
         });
