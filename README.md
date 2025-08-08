@@ -1,69 +1,96 @@
-# Chat App (Next.js)
+# Chat App
 
-This is a real-time chat application built with [Next.js](https://nextjs.org), supporting group and direct messaging, user authentication, and live updates via WebSockets.
+A real-time chat application built with Next.js, featuring group and direct messaging, user authentication, and live updates via WebSockets.
+
+![Chat App Screenshot](/public/desktop-hero.png)
 
 ## Features
+
 - Real-time messaging with Socket.IO
 - Group and direct conversations
 - User authentication (NextAuth)
 - File uploads (ImageKit)
-- Optimized message fetching and API usage
+- Profile picture management
+- Optimized message fetching
 
 ## Getting Started
 
-First, run the development server:
-
+1. Install dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Set up environment variables in `.env.local`:
+```bash
+MONGODB_URI=your_mongodb_connection_string
+NEXTAUTH_SECRET=your_nextauth_secret
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+NEXT_PUBLIC_PUBLIC_KEY=your_imagekit_public_key
+IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+npm run dev
+```
 
-## Optimized Message Fetching
-- Messages are fetched only when the selected conversation changes or when paginating (scrolling up for older messages).
-- The app avoids infinite API call loops by carefully managing React hook dependencies.
-- For polling or live updates, the app uses WebSockets to receive new messages instantly, reducing the need for repeated HTTP polling.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Best Practices for API Calls
-- Only fetch messages when necessary (on conversation change, scroll, or new message event).
-- Avoid including state like `loading` in React hook dependencies to prevent infinite loops.
-- Use pagination (cursor-based) for efficient loading of large conversations.
-- Use WebSockets for real-time updates instead of frequent polling.
+## Tech Stack
 
-## Troubleshooting
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Socket.IO
+- **Database**: MongoDB with Mongoose
+- **Authentication**: NextAuth.js
+- **File Storage**: ImageKit
+- **Real-time**: Socket.IO
 
-### Infinite API Calls
-If you notice repeated or infinite API calls to `/api/messages`, check the following:
-- Ensure your `useEffect` and `useCallback` dependencies do **not** include state like `loading` that changes on every fetch.
-- Example fix:
-  ```js
-  // BAD: Causes infinite loop
-  useCallback(..., [sel?._id, loading, ...])
+## Project Structure
 
-  // GOOD: Only include stable dependencies
-  useCallback(..., [sel?._id, ...])
-  ```
-- Only trigger message fetching on conversation change or user action.
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication endpoints
+│   │   ├── conversations/ # Conversation management
+│   │   ├── messages/      # Message handling
+│   │   └── users/         # User management
+│   ├── (chat)/            # Chat pages (grouped routes)
+│   ├── login/             # Login page
+│   ├── register/          # Registration page
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Home page
+├── components/            # React Components
+│   ├── home/              # Chat interface components
+│   │   ├── dialogs/       # Modal dialogs
+│   │   ├── ChatBox.tsx    # Main chat container
+│   │   ├── left-panel.tsx # Sidebar navigation
+│   │   └── userProfile.tsx # User profile management
+│   └── ui/                # Reusable UI components
+├── lib/                   # Utilities & Configurations
+│   ├── controllers/       # Business logic controllers
+│   ├── repositories/      # Data access layer
+│   ├── services/          # Business services
+│   ├── validators/        # Input validation schemas
+│   ├── api.ts            # API client functions
+│   ├── auth.ts           # Authentication configuration
+│   ├── db.ts             # Database connection
+│   └── utils.ts          # Utility functions
+├── models/               # MongoDB Models
+│   ├── User.ts           # User model
+│   ├── Message.ts        # Message model
+│   └── Conversation.ts   # Conversation model
+├── store/                # State Management
+│   ├── chat-store.ts     # Chat state (Zustand)
+│   └── useSocketStore.ts # Socket connection state
+├── hooks/                # Custom React Hooks
+├── providers/            # Context Providers
+├── types/                # TypeScript Type Definitions
+├── middleware.ts         # Next.js middleware
+└── dummy-data/           # Mock data for development
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Screenshots
