@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start"
+    "lint": "next lint"
   },
   "dependencies": {
     "@imagekit/next": "^2.1.2",
@@ -19,6 +19,7 @@
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "imagekit": "^6.0.0",
     "imagekit-javascript": "^4.0.1",
