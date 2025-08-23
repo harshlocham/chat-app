@@ -5,14 +5,11 @@ import ThemeSwitch from "./theme-switch";
 import Conversation from "./conversation";
 //import { conversations } from "@/dummy-data/db";
 import { signOut } from "next-auth/react";
-import UserAvatar from "./UserAvatar";
 import { IConversation } from "@/models/Conversation";
 import UserListDialog from "./dialogs/user-list-dialog";
 import { getConversations } from "@/lib/api";
 import { useEffect, useState } from "react";
-
-
-
+import UserProfile from "./userProfile";
 
 const LeftPanel = () => {
 
@@ -29,8 +26,7 @@ const LeftPanel = () => {
                 {/* Header */}
                 <div className='flex justify-between bg-gray-primary p-3 items-center'>
                     {/* <User size={24} /> */}
-                    <UserAvatar />
-
+                    <UserProfile />
                     <div className='flex items-center gap-3'>
                         <UserListDialog />
                         <ThemeSwitch />
@@ -52,25 +48,29 @@ const LeftPanel = () => {
                     </div>
                     <ListFilter className='cursor-pointer' />
                 </div>
-            </div>
+            </div >
 
             {/* Chat List */}
-            <div className='my-3 flex flex-col gap-0 max-h-[80%] overflow-auto'>
+            < div className='my-3 flex flex-col gap-0 max-h-[80%] overflow-auto' >
                 {/* Conversations will go here*/}
-                {conversations.map((c) => (
-                    <Conversation key={String(c._id)} conversation={c} />
-                ))}
+                {
+                    conversations.map((c) => (
+                        <Conversation key={String(c._id)} conversation={c} />
+                    ))
+                }
 
-                {conversations?.length === 0 && (
-                    <>
-                        <p className='text-center text-gray-500 text-sm mt-3'>No conversations yet</p>
-                        <p className='text-center text-gray-500 text-sm mt-3 '>
-                            We understand {"you're"} an introvert, but {"you've"} got to start somewhere 😊
-                        </p>
-                    </>
-                )}
-            </div>
-        </div>
+                {
+                    conversations?.length === 0 && (
+                        <>
+                            <p className='text-center text-gray-500 text-sm mt-3'>No conversations yet</p>
+                            <p className='text-center text-gray-500 text-sm mt-3 '>
+                                We understand {"you're"} an introvert, but {"you've"} got to start somewhere 😊
+                            </p>
+                        </>
+                    )
+                }
+            </div >
+        </div >
     );
 };
 export default LeftPanel;
