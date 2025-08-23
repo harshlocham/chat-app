@@ -1,5 +1,5 @@
 import { NextAuthOptions } from "next-auth";
-import { connectToDatabase } from "./db";
+import { connectToDatabase, getUserFromDB } from "./db";
 import { User } from "@/models/User";
 import bcrypt from "bcryptjs"
 import CredentialsProvider from "next-auth/providers/credentials"
@@ -81,7 +81,7 @@ export const authOptions: NextAuthOptions = {
         // async redirect({ url, baseUrl }) {
         //         // Allows relative callback URLs
         //         if (url.startsWith("/")) return new URL(url, baseUrl).toString();
-        //         // Allows absolute URLs
+        //        // Allows absolute URLs
         //         else if (new URL(url).origin === baseUrl) return url;
         //         // Prevents redirecting to other sites
         //         return baseUrl;
@@ -89,6 +89,10 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id
+                const dbUser = await getUserFromDB(user.email!)
+                if (dbUser) {
+                    token.picture = dbUser.image;
+                }
             }
             return token;
         },
@@ -96,6 +100,7 @@ export const authOptions: NextAuthOptions = {
             if (session.user) {
                 // if (session.user.email !== user.email) {
                 session.accessToken = token.accessToken;
+                session.user.image = token.image as string;
                 //session.user.id = token.id as string;
             }
             return session;
