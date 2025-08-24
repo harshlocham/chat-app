@@ -5,43 +5,34 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(date_ms: number) {
-  // Convert milliseconds to seconds
-  const date_seconds = date_ms / 1000;
+export function formatDate(input: number | string) {
+  const date = new Date(input); // works for ms timestamp OR ISO string
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  // Convert to Date object
-  const date_obj = new Date(date_seconds * 1000);
+  const providedDate = new Date(date);
+  providedDate.setHours(0, 0, 0, 0);
 
-  // Get current date and time
-  const current_date = new Date();
-  current_date.setHours(0, 0, 0, 0); // Set hours, minutes, seconds, and milliseconds to 0
-  const current_time = current_date.getTime();
+  const diffTime = today.getTime() - providedDate.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
 
-  // Get the date part of the provided date
-  const provided_date = new Date(date_obj);
-  provided_date.setHours(0, 0, 0, 0); // Set hours, minutes, seconds, and milliseconds to 0
-
-  // Check if it's today
-  if (provided_date.getTime() === current_time) {
-    return date_obj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  // Today
+  if (diffDays === 0) {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
   }
 
-  // Check if it's yesterday
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  yesterday.setHours(0, 0, 0, 0); // Set hours, minutes, seconds, and milliseconds to 0
-  if (provided_date.getTime() === yesterday.getTime()) {
+  // Yesterday
+  if (diffDays === 1) {
     return "Yesterday";
   }
 
-  // Check if it's a different day of the week
-  if (provided_date.getDay() < current_date.getDay()) {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    return days[provided_date.getDay()];
+  // Within the last 7 days
+  if (diffDays < 7 && diffDays > 0) {
+    return date.toLocaleDateString([], { weekday: "long" }); // e.g. "Monday"
   }
 
-  // If none of the above conditions match, return in a different format
-  return provided_date.getMonth() + 1 + "/" + provided_date.getDate() + "/" + provided_date.getFullYear();
+  // Otherwise: full date
+  return date.toLocaleDateString([], { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 export const isSameDay = (timestamp1: number, timestamp2: number): boolean => {
