@@ -6,6 +6,7 @@ export interface IUser extends Document {
     username: string;
     email: string;
     password: string;
+    isOnline: boolean;
     profilePicture?: string;
     status: 'online' | 'offline' | 'busy';
     lastSeen: Date;
@@ -19,6 +20,7 @@ const userSchema = new Schema<IUser>({
     email: { type: String, required: true, unique: true },
     password: { type: String, required: false }, // Optional for OAuth users
     profilePicture: { type: String },
+    isOnline: { type: Boolean, default: false },
     status: { type: String, enum: ['online', 'offline', 'busy'], default: 'offline' },
     lastSeen: { type: Date, default: Date.now },
     conversations: [{ type: Schema.Types.ObjectId, ref: 'Conversation' }],
