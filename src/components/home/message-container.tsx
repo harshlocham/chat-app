@@ -7,10 +7,11 @@ import { IMessagePopulated } from "@/models/Message";
 import { IUser } from "@/models/User";
 import ChatBubble from "./chat-bubble";
 import { getMe } from "@/lib/api";
+import ChatDaySeparator from "./ChatDaySeparator";
 
 const MessageContainer = () => {
     const sel = useConversationStore(s => s.selectedConversation);
-
+    let lastDate: string | null = null;
     const {
         messages,
         addMessage,
@@ -54,7 +55,8 @@ const MessageContainer = () => {
         } finally {
             setLoading(false);
         }
-    }, [sel?._id, setMessages, setHasMore]);
+    },
+        [sel?._id, setMessages, setHasMore]);
 
     //  Scroll to bottom on first load
     useEffect(() => {
@@ -109,14 +111,23 @@ const MessageContainer = () => {
         >
             <div className='mx-12 flex flex-col gap-3 h-full'>
                 <div ref={topRef} />
-                {me && messages.map((msg) => (
-                    <div key={String(msg._id)}>
-                        <ChatBubble
-                            message={msg}
-                            isSender={String(me._id) === String(msg.sender?._id || msg.sender)}
-                        />
-                    </div>
-                ))}
+                {messages.map((msg) => {
+                    const msgDate = new Date(msg.timestamp);
+                    const dayKey = msgDate.toDateString();
+
+                    const showSeparator = lastDate !== dayKey;
+                    lastDate = dayKey;
+
+                    return (
+                        <div key={String(msg._id)}>
+                            {showSeparator && <ChatDaySeparator date={msgDate} />}
+                            <ChatBubble
+                                message={msg}
+                                isSender={msg.sender._id === me?._id}
+                            />
+                        </div>
+                    );
+                })}
                 <div ref={bottomRef} />
             </div>
         </div>
