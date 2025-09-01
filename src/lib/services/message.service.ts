@@ -20,7 +20,7 @@ export async function createMessage(data: CreateMessageInput) {
     conversation.lastMessage._creationTime = new Date();
     await conversation.save();
 
-    console.log("🔊 [Service] Emitting to room", data.conversationId, toSave);
+    //console.log("🔊 [Service] Emitting to room", data.conversationId, toSave);
     return await messageRepo.saveMessage(toSave);
 
     // io.to(data.conversationId).emit("message:new", saved);

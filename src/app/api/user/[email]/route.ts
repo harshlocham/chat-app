@@ -2,14 +2,16 @@ import { connectToDatabase } from "@/lib/db";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";
 
-
-export async function GET(request: Request, context: { params: { email: string } }) {
-    const { params } = context;
-    const { email } = await params; // 👈 This is the key change
+export async function GET(
+    _request: Request,
+    { params }: { params: Promise<{ email: string }> }
+) {
+    const { email } = await params;
 
     try {
         await connectToDatabase();
-        const user = await User.findOne({ email })
+        const user = await User
+            .findOne({ email });
 
         if (!user) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -21,7 +23,6 @@ export async function GET(request: Request, context: { params: { email: string }
             email: user.email,
             profilePicture: user.profilePicture,
             isAdmin: user.isAdmin,
-
         });
     } catch (error) {
         console.error("Error fetching user:", error);
