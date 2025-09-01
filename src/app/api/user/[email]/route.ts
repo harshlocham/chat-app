@@ -9,13 +9,14 @@ export async function GET(request: Request, context: { params: { email: string }
 
     try {
         await connectToDatabase();
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email })
 
         if (!user) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         return NextResponse.json({
+            id: user._id.toString(),
             name: user.username,
             email: user.email,
             profilePicture: user.profilePicture,

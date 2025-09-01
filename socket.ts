@@ -17,7 +17,7 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-    console.log("✅ Socket connected:", socket.id);
+    // console.log("✅ Socket connected:", socket.id);
 
     socket.on("join", (conversationId: string) => {
         socket.join(conversationId);
@@ -27,7 +27,7 @@ io.on("connection", (socket) => {
 
     socket.on("message:send", (msg, ack) => {
         io.to(msg.conversationId).emit("message:new", msg);
-        console.log(`📨 Message sent to ${msg.conversationId}`);
+        // console.log(`📨 Message sent to ${msg.conversationId}`);
         if (ack) ack({ status: "ok", message: "Delivered" });
     });
 
