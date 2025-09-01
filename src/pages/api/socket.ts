@@ -3,6 +3,7 @@ import { Server } from "socket.io";
 
 let io: Server;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function handler(req: any, res: any) {
     if (!res.socket.server.io) {
         console.log("🔌 Initializing Socket.IO server...");

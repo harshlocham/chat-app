@@ -10,6 +10,7 @@ export interface IUser extends Document {
     profilePicture?: string;
     status: 'online' | 'offline' | 'busy';
     lastSeen: Date;
+    isVerified: boolean;
     conversations: Types.ObjectId[];
     createdAt: Date;
     updatedAt: Date;
@@ -23,6 +24,7 @@ const userSchema = new Schema<IUser>({
     isOnline: { type: Boolean, default: false },
     status: { type: String, enum: ['online', 'offline', 'busy'], default: 'offline' },
     lastSeen: { type: Date, default: Date.now },
+    isVerified: { type: Boolean, default: false },
     conversations: [{ type: Schema.Types.ObjectId, ref: 'Conversation' }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }

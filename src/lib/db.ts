@@ -51,9 +51,11 @@ export async function getUserFromDB(email: string) {
         }
 
         return {
+            id: user._id.toString(),
             name: user.username,
             email: user.email,
             image: user.profilePicture,
+            role: user.role,
         };
     } catch (error) {
         console.error('Error fetching user from DB:', error);
