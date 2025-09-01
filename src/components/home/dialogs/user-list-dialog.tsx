@@ -1,5 +1,4 @@
 "use client";
-
 import {
     Dialog,
     DialogClose,
@@ -143,7 +142,7 @@ const UserListDialog = () => {
             <DialogTrigger>
                 <MessageSquareDiff size={20} />
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--card))] shadow-xl rounded-xl">
                 <DialogHeader>
                     <DialogClose ref={dialogCloseRef} />
                     <DialogTitle>Users</DialogTitle>
@@ -180,7 +179,7 @@ const UserListDialog = () => {
                     </>
                 )}
 
-                <div className="flex flex-col gap-3 overflow-auto max-h-60">
+                <div className="flex flex-col gap-3 overflow-auto max-h-60 ">
                     {users.map((user) => (
                         <UserItem
                             key={String(user._id)}

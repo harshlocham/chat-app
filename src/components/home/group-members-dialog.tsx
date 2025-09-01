@@ -1,53 +1,73 @@
-import { users } from "@/dummy-data/db";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Crown } from "lucide-react";
+import { useConversationStore } from "@/store/chat-store";
 
 const GroupMembersDialog = () => {
+    const { selectedConversation } = useConversationStore();
+    const members = selectedConversation?.participants || [];
+
     return (
         <Dialog>
             <DialogTrigger>
-                <p className='text-xs text-muted-foreground text-left'>See members</p>
+                <p className="text-xs text-muted-foreground text-left hover:underline cursor-pointer">
+                    See members
+                </p>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--card))] rounded-xl shadow-lg">
                 <DialogHeader>
-                    <DialogTitle className='my-2'>Current Members</DialogTitle>
-                    <DialogDescription>
-                        <div className='flex flex-col gap-3 '>
-                            {users?.map((user) => (
-                                <div key={user._id} className={`flex gap-3 items-center p-2 rounded`}>
-                                    <Avatar className='overflow-visible'>
-                                        {user.isOnline && (
-                                            <div className='absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-full border-2 border-foreground' />
-                                        )}
-                                        <AvatarImage src={user.image} className='rounded-full object-cover' />
-                                        <AvatarFallback>
-                                            <div className='animate-pulse bg-gray-tertiary w-full h-full rounded-full'></div>
-                                        </AvatarFallback>
-                                    </Avatar>
-
-                                    <div className='w-full '>
-                                        <div className='flex items-center gap-2'>
-                                            <h3 className='text-md font-medium'>
-                                                {user.name || user.email.split("@")[0]}
-                                            </h3>
-                                            {user.admin && <Crown size={16} className='text-yellow-400' />}
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </DialogDescription>
+                    <DialogTitle className="my-2 text-lg font-semibold">
+                        Current Members
+                    </DialogTitle>
                 </DialogHeader>
+
+                <div className="flex flex-col gap-2 mt-2">
+                    {members.map((user) => (
+
+                        <div
+                            key={String(user._id)}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-[hsl(var(--gray-secondary))] transition"
+                        >
+                            <div className="relative">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage
+                                        src={user.profilePicture}
+                                        className="rounded-full object-cover"
+                                    />
+                                    <AvatarFallback>
+                                        <div className="animate-pulse bg-[hsl(var(--gray-primary))] w-full h-full rounded-full"></div>
+                                    </AvatarFallback>
+                                </Avatar>
+                                {user.isOnline && (
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[hsl(var(--card))]" />
+                                )}
+                            </div>
+
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-sm font-medium">
+                                        {user.username || user.email.split("@")[0]}
+                                    </h3>
+                                    {selectedConversation!.admin === String(user._id) && (
+                                        <Crown size={16} className="text-yellow-500" />
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {user.email}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </DialogContent>
         </Dialog>
     );
 };
+
 export default GroupMembersDialog;

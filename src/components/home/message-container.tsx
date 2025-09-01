@@ -10,10 +10,10 @@ import { getMe } from "@/lib/api";
 import ChatDaySeparator from "./ChatDaySeparator";
 
 
-interface ChatBubbleProps {
-    message: IMessagePopulated;
-    currentUserId: string;
-}
+// interface ChatBubbleProps {
+//     message: IMessagePopulated;
+//     currentUserId: string;
+// }
 
 const MessageContainer = () => {
     const sel = useConversationStore(s => s.selectedConversation);
@@ -62,7 +62,7 @@ const MessageContainer = () => {
             setLoading(false);
         }
     },
-        [sel?._id, setMessages, setHasMore]);
+        [sel?._id, setMessages, setHasMore, loading]);
 
     //  Scroll to bottom on first load
     useEffect(() => {

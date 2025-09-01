@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ImageUpload } from "./ImageUpload";
 import { Button } from "../ui/button";
-import { Camera, User } from "lucide-react";
+import { Camera } from "lucide-react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import UserAvatar from "./UserAvatar";
