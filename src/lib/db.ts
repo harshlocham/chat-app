@@ -1,40 +1,45 @@
+import mongoose, { Mongoose } from "mongoose";
 
-import mongoose from "mongoose";
-
-
-const MONGODB_URI = process.env.MONGODB_URI!
+const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
-    throw new Error("please define mongodb_uri is env file veriables")
+    throw new Error("Please define the MONGODB_URI environment variable in your .env file");
 }
 
-let cached = global.mongoose
-if (!cached) {
-    cached = global.mongoose = { conn: null, promise: null }
+// Extend NodeJS global type
+declare global {
+    var mongooseCache: {
+        conn: Mongoose | null;
+        promise: Promise<Mongoose> | null;
+    };
 }
 
-export async function connectToDatabase() {
-    if (cached.conn) {
-        return cached.conn
-    }
+// Initialize global cache if not present
+global.mongooseCache = global.mongooseCache || { conn: null, promise: null };
+
+const cached = global.mongooseCache;
+
+export async function connectToDatabase(): Promise<Mongoose> {
+    if (cached.conn) return cached.conn;
+
     if (!cached.promise) {
-        const opctions = {
-            bufferCommands: true,
+        const options = {
+            bufferCommands: false,
             maxPoolSize: 10,
+            serverSelectionTimeoutMS: 5000,
+        };
 
-        }
-        mongoose
-            .connect(MONGODB_URI, opctions)
-            .then(() => mongoose.connection)
+        cached.promise = mongoose.connect(MONGODB_URI, options);
     }
+
     try {
-        cached.conn = await cached.promise
-    } catch (error) {
-        cached.promise = null
-        throw error
-
+        cached.conn = await cached.promise;
+    } catch (err) {
+        cached.promise = null;
+        throw err;
     }
-    return cached.conn
+
+    return cached.conn;
 }
 // lib/db.ts (or wherever you keep DB helimport { connect } fropers)
 

@@ -1,12 +1,14 @@
 import Message from "@/models/Message";
 import { Types } from "mongoose";
 import { IMessage } from "@/models/Message";
+import { connectToDatabase } from "../db";
 
 export async function getPaginatedMessages(conversationId: string, cursor?: string, limit = 20) {
     const query: { conversationId: Types.ObjectId; _id?: { $lt: Types.ObjectId } } = { conversationId: new Types.ObjectId(conversationId) };
     if (cursor) {
         query._id = { $lt: new Types.ObjectId(cursor) };
     }
+    connectToDatabase();
 
     const messages = await Message.find(query)
         .sort({ _id: -1 })

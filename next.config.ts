@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       "lh3.googleusercontent.com",
       "ik.imagekit.io"
     ],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ik.imagekit.io", // or your CDN
+      },
+    ],
   },
 };
 
