@@ -9,8 +9,31 @@ import { getMe } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { IUser } from "@/models/User";
+///import { Image } from "@imagekit/next";
+import { getAvatarUrl } from "../../../utils/imagekit";
 const Conversation = ({ conversation }: { conversation: IConversation }) => {
-    const conversationImage = conversation.image || conversation.image;
+
+    const fetchUser = async (email: string) => {
+        const res = await fetch(`/api/user/${email}`);
+        if (!res.ok) throw new Error("User fetch failed");
+
+        const data = await res.json();
+        //console.log(data);
+        return data;
+    };
+    const [profilePicture, setProfilePicture] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Only fetch if not a group and no conversation.image
+        if (!conversation.isGroup && !conversation.image) {
+            fetchUser(conversation.participants[0].email)
+                .then(data => setProfilePicture(data.image))
+                .catch(() => setProfilePicture(null));
+
+        }
+    }, [conversation]);
+
+    const conversationImage = conversation.image || profilePicture;
 
     const lastMessage = conversation.lastMessage;
     const lastMessageType = lastMessage?.messageType;
@@ -24,8 +47,6 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
     const conversationName = conversation.isGroup
         ? conversation.groupName
         : otherUser?.username || otherUser?.email?.split("@")[0] || "Unknown";
-
-
     const { setSelectedConversation, selectedConversation } = useConversationStore();
     const activeBgClass = selectedConversation?._id === conversation._id;
     const [me, setMe] = useState<IUser | null>(null);
@@ -33,6 +54,7 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
     useEffect(() => {
         getMe().then(setMe);
     }, []);
+    //console.log(conversationImage, conversationName);
     return (
         <>
             <div
@@ -45,7 +67,7 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
                     {conversation.isOnline && (
                         <div className='absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-foreground' />
                     )}
-                    <AvatarImage src={conversationImage || "/placeholder.png"} className='object-cover rounded-full' />
+                    <AvatarImage src={getAvatarUrl(conversationImage!, 128)} onError={(e) => console.error("Avatar load error", e)} className="object-cover rounded-full" />
                     <AvatarFallback>
                         <div className='animate-pulse bg-gray-tertiary w-full h-full rounded-full'></div>
                     </AvatarFallback>
