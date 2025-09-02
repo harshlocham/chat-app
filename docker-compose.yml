@@ -1,0 +1,36 @@
+services:
+  nextapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - socket
+      - mongo
+
+  socket:
+    build:
+      context: .
+      dockerfile: Dockerfile.socket
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:6
+    restart: always
+    ports:
+      - "27017:27017"
+    env_file:
+      - .env
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:

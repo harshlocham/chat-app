@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently \"next dev\" \"ts-node --project tsconfig.server.json socket.ts\"",
     "build": "next build && tsc --project tsconfig.server.json",
-    "start": "concurrently \"next start\" \"node dist/socket.js\"",
+    "prestart": "concurrently \"next start\" \"node dist/socket.js\"",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
