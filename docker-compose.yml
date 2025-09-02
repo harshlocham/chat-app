@@ -9,7 +9,7 @@ services:
       - .env
     depends_on:
       - socket
-      - mongo
+      # - mongo
 
   socket:
     build:
@@ -19,18 +19,18 @@ services:
       - "3001:3001"
     env_file:
       - .env
-    depends_on:
-      - mongo
+    # depends_on:
+    #   - mongo
 
-  mongo:
-    image: mongo:6
-    restart: always
-    ports:
-      - "27017:27017"
-    env_file:
-      - .env
-    volumes:
-      - mongo_data:/data/db
+    #   mongo:
+    #     image: mongo:6
+    #     restart: always
+    #     ports:
+    #       - "27017:27017"
+    #     env_file:
+    #       - .env
+    #     volumes:
+    #       - mongo_data:/data/db
 
-volumes:
-  mongo_data:
+    # volumes:
+    #   mongo_data:
