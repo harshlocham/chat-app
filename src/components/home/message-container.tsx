@@ -25,7 +25,6 @@ const MessageContainer = () => {
         setHasMore,
     } = useConversationStore();
 
-    const [loading, setLoading] = useState(false);
     const topRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -46,8 +45,7 @@ const MessageContainer = () => {
 
     //  Fetch paginated messages
     const fetchMessages = useCallback(async (cursor?: string) => {
-        if (!sel?._id || loading) return;
-        setLoading(true);
+        if (!sel?._id) return;
         try {
             const res = await fetch(
                 `/api/messages?conversationId=${sel?._id}&cursor=${cursor || ""}`
@@ -58,8 +56,6 @@ const MessageContainer = () => {
             setMessages(redata, !!cursor); // prepend if paginating
         } catch (err) {
             console.error("Failed to load messages", err);
-        } finally {
-            setLoading(false);
         }
     },
         [sel?._id, setMessages, setHasMore]);
