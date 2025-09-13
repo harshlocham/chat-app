@@ -19,7 +19,7 @@ export default function AdminDashboard() {
         }
     }, [session, status, router])
     useEffect(() => {
-        const socket = io("http://localhost:3001", {
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
             transports: ["websocket"], // avoid polling issues
             auth: {
                 userId: session?.user?.email,
