@@ -92,6 +92,16 @@ const MessageInput = () => {
             toast.error("Failed to send image");
         }
     }
+    let typingTimeout: NodeJS.Timeout;
+
+    function handleTyping(conversationId: string) {
+        socket.emit("typing", conversationId);
+
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            socket.emit("stopTyping", conversationId);
+        }, 2000); // stops typing after 1 second of inactivity
+    }
 
     return (
         <div className='relative bg-gray-primary p-2 flex gap-4 items-center'>
@@ -116,7 +126,10 @@ const MessageInput = () => {
                         placeholder='Type a message'
                         className='py-2 text-sm w-full rounded-lg shadow-sm bg-[hsl(var(--gray-tertiary))] focus-visible:ring-transparent'
                         value={msgText}
-                        onChange={(e) => setMsgText(e.target.value)}
+                        onChange={(e) => {
+                            setMsgText(e.target.value);
+                            if (sel?._id) handleTyping(String(sel._id));
+                        }}
                     />
                 </div>
                 <div className='mr-4 flex items-center gap-3'>
