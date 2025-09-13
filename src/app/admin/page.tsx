@@ -5,10 +5,19 @@ import { Charts } from "@/components/admin/Charts";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ activeUsers: 0, totalMessagesToday: 0 });
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    useEffect(() => {
+        if (status === "loading") return;
+        if (!session || session.user.role !== "admin") {
+            router.replace("/"); // redirect non-admins
+        }
+    }, [session, status, router])
     useEffect(() => {
         const socket = io("http://localhost:3001", {
             transports: ["websocket"], // avoid polling issues

@@ -3,7 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
-import { connectToDatabase, getUserFromDB } from "./db";
+import { connectToDatabase } from "./db";
 import { User } from "@/models/User";
 
 export const authOptions: NextAuthOptions = {
@@ -40,7 +40,7 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.username,
                     image: user.profilePicture,
-                    role: user.role,
+                    role: user.role, // ✅ send role here
                 };
             },
         }),
@@ -68,11 +68,16 @@ export const authOptions: NextAuthOptions = {
                         email: user.email,
                         username: user.name,
                         profilePicture: user.image,
+                        role: "user", //  default role for new Google users
                     });
                 }
 
-                user.id = dbUser._id.toString(); // 🔑 ensure id exists
-                user.role = dbUser.role;
+                user.id = dbUser._id.toString();
+                user.role = dbUser.role; //  ensure we attach DB role
+            }
+
+            if (account?.provider === "apple") {
+                // Same logic as Google if you want role handling here
             }
 
             return true;
@@ -81,23 +86,18 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, user }) {
             if (user) {
                 token.id = user.id || token.id;
-
-                const dbUser = await getUserFromDB(user.email!);
-                if (dbUser) {
-                    token.id = dbUser.id;
-                    token.picture = dbUser.image;
-                    token.role = dbUser.role;
-                }
+                token.image = user.image || token.image;
+                token.role = user.role || token.role; // carry role forward
             }
             return token;
         },
 
         async session({ session, token }) {
             if (session.user) {
-                // session.user.id = token.id as string;
+                //session.user.id = token.id as string;
                 session.user.image =
                     (token.picture as string) || session.user.image || "";
-                session.user.role = token.role as string;
+                session.user.role = token.role as string; // ✅ role available in session
                 session.accessToken = token.accessToken as string;
             }
             return session;

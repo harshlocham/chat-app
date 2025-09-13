@@ -1,21 +1,19 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-// Middleware to protect routes based on authentication
 export default withAuth(
     function middleware(req) {
         const { pathname } = req.nextUrl;
         const token = req.nextauth.token;
 
-        // Redirect logged-in users from /login and /register pages
+        // If user logged in and tries to visit /login or /register → redirect home
         if (token) {
             if (pathname === "/login" || pathname === "/register") {
-                return NextResponse.redirect(new URL("/", req.url)); // or "/"
+                return NextResponse.redirect(new URL("/", req.url));
             }
         } else {
-            // Redirect unauthenticated users to the login page when trying to access protected routes
+            // If not logged in, block access to protected routes
             if (
-                //pathname.startsWith("/register") ||
                 pathname.startsWith("/dashboard") ||
                 pathname.startsWith("/profile") ||
                 pathname.startsWith("/settings") ||
@@ -25,7 +23,13 @@ export default withAuth(
             }
         }
 
-        // If the user is trying to access public routes, continue as normal
+        //  Admin-only check
+        if (pathname.startsWith("/admin")) {
+            if (token?.role !== "admin") {
+                return NextResponse.redirect(new URL("/", req.url));
+            }
+        }
+
         return NextResponse.next();
     },
     {
@@ -33,21 +37,13 @@ export default withAuth(
             authorized({ req, token }) {
                 const { pathname } = req.nextUrl;
 
-                // Allow unauthenticated access to auth, login, and register routes
-                if (
-                    pathname.startsWith("/api/auth") ||
-                    pathname === "/login" ||
-                    pathname === "/register"
-                ) {
-                    return true;
-                }
+                //  Always allow NextAuth API
+                if (pathname.startsWith("/api/auth")) return true;
 
-                // Allow unauthenticated access to home and public videos API
-                // if (pathname === "/" || pathname === "/api/videos") {
-                //     return true;
-                // }
+                // Allow unauthenticated access to login/register
+                if (pathname === "/login" || pathname === "/register") return true;
 
-                // Require authentication for all other routes
+                //  For all other routes → require auth
                 return !!token;
             },
         },
@@ -56,22 +52,24 @@ export default withAuth(
 
 export const config = {
     matcher: [
-        // Publicly accessible routes
+        // Public
         "/login",
         "/register",
         "/error",
 
-        // Protected routes
+        // Protected
         "/dashboard/:path*",
         "/profile/:path*",
         "/settings/:path*",
-        "/api/:path*",
         "/admin/:path*",
         "/admin",
         "/admin/users/:path*",
         "/admin/settings/:path*",
 
-        // Catch-all: protect all other routes except static files and public assets
+        // API
+        "/api/:path*",
+
+        // Catch-all (exclude static files)
         "/((?!_next/static|_next/image|favicon.ico|public/).*)",
     ],
 };
