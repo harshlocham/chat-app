@@ -30,6 +30,7 @@ const MessageContainer = () => {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     const [me, setMe] = useState<IUser | null>(null);
+    const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchMe = async () => {
@@ -88,7 +89,9 @@ const MessageContainer = () => {
 
     //  Initial load
     useEffect(() => {
-        fetchMessages();
+        if (!loading) {
+            fetchMessages();
+        }
     }, [sel?._id, fetchMessages]);
 
     //  Socket join and message listener
@@ -102,13 +105,44 @@ const MessageContainer = () => {
         const handleNewMessage = (msg: IMessagePopulated) => {
             addMessage(msg); // ✅ Consistent reference
         };
+        const handleTyping = ({ userId }: { userId: string }) => {
+            setTypingUsers(prev => {
+                if (!prev.includes(userId)) return [...prev, userId];
+                return prev;
+            });
+        };
+        const handleStopTyping = ({ userId }: { userId: string }) => {
+            setTypingUsers(prev => prev.filter(id => id !== userId));
+        };
         socket.on('message:new', handleNewMessage);
+        socket.on('typing', handleTyping);
+        socket.on('stopTyping', handleStopTyping);
 
         return () => {
             socket.emit('leave', sel._id);
             socket.off('message:new', handleNewMessage);
+            socket.off('typing', handleTyping);
+            socket.off('stopTyping', handleStopTyping);
         };
     }, [sel?._id, addMessage]);
+
+    // Typing indicator
+    useEffect(() => {
+        updateTypingUI(typingUsers);
+    }, [typingUsers]);
+
+    function updateTypingUI(usersTyping: string[]) {
+        const indicator = document.getElementById("typing-indicator");
+        if (!indicator) return;
+        if (usersTyping.length === 0) {
+            indicator.textContent = "";
+        } else if (usersTyping.length === 1) {
+            indicator.textContent = `${usersTyping[0]} is typing...`;
+            //console.log(usersTyping[0]);
+        } else {
+            indicator.textContent = `${usersTyping.join(", ")} are typing...`;
+        }
+    }
 
     return (
         <div
@@ -125,13 +159,14 @@ const MessageContainer = () => {
                     lastDate = dayKey;
 
                     return (
-                        <div key={String(msg._id)}>
+                        <div key={String(msg._id)} className="">
                             {showSeparator && <ChatDaySeparator date={msgDate} />}
                             <ChatBubble
                                 key={String(msg._id)}
                                 message={msg}
                                 currentUserId={me?._id?.toString()}
                             />
+                            <div id="typing-indicator" className="absolute bottom-0 right-0 text-xs text-gray-400 dark:text-gray-500"></div>
                         </div>
                     );
                 })}
