@@ -8,7 +8,8 @@ export interface IUser extends Document {
     password: string;
     isOnline: boolean;
     profilePicture?: string;
-    status: 'online' | 'offline' | 'busy';
+    role: 'user' | 'moderator' | 'admin';
+    status: 'active' | 'banned';
     lastSeen: Date;
     isVerified: boolean;
     conversations: Types.ObjectId[];
@@ -22,7 +23,8 @@ const userSchema = new Schema<IUser>({
     password: { type: String, required: false }, // Optional for OAuth users
     profilePicture: { type: String },
     isOnline: { type: Boolean, default: false },
-    status: { type: String, enum: ['online', 'offline', 'busy'], default: 'offline' },
+    status: { type: String, enum: ['active', 'banned'], default: 'active' },
+    role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' },
     lastSeen: { type: Date, default: Date.now },
     isVerified: { type: Boolean, default: false },
     conversations: [{ type: Schema.Types.ObjectId, ref: 'Conversation' }],

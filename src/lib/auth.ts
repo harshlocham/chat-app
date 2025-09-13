@@ -97,7 +97,7 @@ export const authOptions: NextAuthOptions = {
                 // session.user.id = token.id as string;
                 session.user.image =
                     (token.picture as string) || session.user.image || "";
-                session.user.role = token.role as string | undefined;
+                session.user.role = token.role as string;
                 session.accessToken = token.accessToken as string;
             }
             return session;

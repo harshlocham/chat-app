@@ -14,7 +14,7 @@ export const UserItem = ({ user, selected, onClick }: Props) => (
             }`}
     >
         <Avatar>
-            {user.status === "online" && (
+            {user.isOnline && (
                 <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-foreground" />
             )}
             <AvatarImage src={user.profilePicture || ""} className="object-cover rounded-full" />
