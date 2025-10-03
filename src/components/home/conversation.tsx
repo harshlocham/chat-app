@@ -5,12 +5,11 @@ import { MessageSeenSvg } from "@/lib/svgs";
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
 import { useConversationStore } from "@/store/chat-store";
 import { IConversation } from "@/models/Conversation";
-import { getMe } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { IUser } from "@/models/User";
 ///import { Image } from "@imagekit/next";
 import { getAvatarUrl } from "../../../utils/imagekit";
+import { useUser } from "@/context/UserContext";
 const Conversation = ({ conversation }: { conversation: IConversation }) => {
 
     const fetchUser = async (email: string) => {
@@ -49,11 +48,8 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
         : otherUser?.username || otherUser?.email?.split("@")[0] || "Unknown";
     const { setSelectedConversation, selectedConversation } = useConversationStore();
     const activeBgClass = selectedConversation?._id === conversation._id;
-    const [me, setMe] = useState<IUser | null>(null);
+    const { user } = useUser();
 
-    useEffect(() => {
-        getMe().then(setMe);
-    }, []);
     //console.log(conversationImage, conversationName);
     return (
         <>
@@ -88,7 +84,7 @@ const Conversation = ({ conversation }: { conversation: IConversation }) => {
                         </span>
                     </div>
                     <p className='text-[12px] mt-1 text-gray-500 flex items-center gap-1 '>
-                        {lastMessage?.sender === me?._id ? <MessageSeenSvg /> : ""}
+                        {lastMessage?.sender === user?._id ? <MessageSeenSvg /> : ""}
                         {conversation.isGroup && <Users size={16} />}
                         {!lastMessage && "Say Hi!"}
                         {lastMessageType === "text" ? (
