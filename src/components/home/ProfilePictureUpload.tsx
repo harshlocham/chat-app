@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ImageUpload } from "./ImageUpload";
 import { Button } from "../ui/button";
 import { Camera } from "lucide-react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import UserAvatar from "./UserAvatar";
-import { IUser } from "@/models/User";
-import { getMe } from "@/lib/api";
-
+import { useUser } from "@/context/UserContext";
 interface ProfilePictureUploadProps {
     onUpdate?: (imageUrl: string) => void;
     className?: string;
@@ -19,20 +17,8 @@ export const ProfilePictureUpload = ({ onUpdate, className }: ProfilePictureUplo
     const { data: session, update } = useSession();
     const [isUpdating, setIsUpdating] = useState(false);
     const [showUpload, setShowUpload] = useState(false);
-    const [user, setUser] = useState<IUser>()
-    useEffect(() => {
-        async function getUser() {
-            try {
+    const { user } = useUser();
 
-                const user = await getMe()
-                setUser(user)
-
-            } catch (error) {
-                console.log(error)
-            }
-        }
-        getUser()
-    }, [])
     const formattedUser = {
         name: user?.username,
         oauthImage: null,
