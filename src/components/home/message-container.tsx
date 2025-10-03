@@ -4,10 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversationStore } from "@/store/chat-store";
 import { socket } from "@/lib/socketClient";
 import { IMessagePopulated } from "@/models/Message";
-import { IUser } from "@/models/User";
 import ChatBubble from "./chat-bubble";
-import { getMe } from "@/lib/api";
 import ChatDaySeparator from "./ChatDaySeparator";
+import { useUser } from "@/context/UserContext";
 
 
 // interface ChatBubbleProps {
@@ -28,20 +27,10 @@ const MessageContainer = () => {
     const topRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    const [me, setMe] = useState<IUser | null>(null);
+    const { user } = useUser();
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
-    useEffect(() => {
-        const fetchMe = async () => {
-            try {
-                const res = await getMe();
-                setMe(res);
-            } catch (err) {
-                console.error("Failed to fetch user info", err);
-            }
-        };
-        fetchMe();
-    }, []);
+
 
 
     //  Fetch paginated messages
@@ -145,7 +134,7 @@ const MessageContainer = () => {
         >
             <div className='mx-12 flex flex-col gap-3 h-full'>
                 <div ref={topRef} />
-                {me && messages.map((msg) => {
+                {user && messages.map((msg) => {
                     const msgDate = new Date(msg.timestamp);
                     const dayKey = msgDate.toDateString();
 
@@ -158,7 +147,7 @@ const MessageContainer = () => {
                             <ChatBubble
                                 key={String(msg._id)}
                                 message={msg}
-                                currentUserId={me?._id?.toString()}
+                                currentUserId={user?._id?.toString()}
                             />
                             <div id="typing-indicator" className="absolute bottom-0 right-0 text-xs text-gray-400 dark:text-gray-500"></div>
                         </div>
