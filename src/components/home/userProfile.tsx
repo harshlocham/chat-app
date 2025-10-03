@@ -12,27 +12,14 @@ import {
 } from "@/components/ui/dialog"
 import UserAvatar from "./UserAvatar";
 import { ProfilePictureUpload } from "./ProfilePictureUpload"
-import { useEffect, useState } from "react";
-import { getMe } from "@/lib/api";
-import { IUser } from "@/models/User";
+import { useUser } from "@/context/UserContext";
 const UserProfile = () => {
-    const [user, setUser] = useState<IUser>()
-    useEffect(() => {
-        async function getUser() {
-            try {
-                const user = await getMe()
-                setUser(user)
-            } catch (error) {
-                console.log(error)
-            }
-        }
-        getUser()
-    }, [])
+    const { user, } = useUser();
     const formattedUser = {
         name: user?.username,
         oauthImage: null,
         imageKitUrl: user?.profilePicture,
-    };
+    }
     //console.log(user)
     return (
         <Dialog >
