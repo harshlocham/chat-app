@@ -5,8 +5,12 @@ import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import { connectToDatabase } from "./db";
 import { User } from "@/models/User";
+import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
+import clientPromise from "./mongo";
+
 
 export const authOptions: NextAuthOptions = {
+    adapter: MongoDBAdapter(clientPromise),
     providers: [
         CredentialsProvider({
             name: "Credentials",
@@ -111,8 +115,20 @@ export const authOptions: NextAuthOptions = {
 
     session: {
         strategy: "jwt",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        updateAge: 60 * 60 * 24,  // refresh every 24h
     },
+    // cookies: {
+    //     sessionToken: {
+    //         name: "session",
+    //         options: {
+    //             httpOnly: true,
+    //             secure: process.env.NODE_ENV === "production",
+    //             sameSite: "lax",
+    //             path: "/",
+    //         }
+    //     }
+    // },
 
     secret: process.env.NEXTAUTH_SECRET,
 };
