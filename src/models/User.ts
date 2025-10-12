@@ -11,7 +11,9 @@ export interface IUser extends Document {
     role: 'user' | 'moderator' | 'admin';
     status: 'active' | 'banned';
     lastSeen: Date;
-    isVerified: boolean;
+    isVerified: Date;
+    twoFactorEnabled: boolean;
+    twoFactorSecret: string;
     conversations: Types.ObjectId[];
     createdAt: Date;
     updatedAt: Date;
@@ -26,7 +28,9 @@ const userSchema = new Schema<IUser>({
     status: { type: String, enum: ['active', 'banned'], default: 'active' },
     role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' },
     lastSeen: { type: Date, default: Date.now },
-    isVerified: { type: Boolean, default: false },
+    isVerified: { type: Date },
+    twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorSecret: { type: String },
     conversations: [{ type: Schema.Types.ObjectId, ref: 'Conversation' }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
