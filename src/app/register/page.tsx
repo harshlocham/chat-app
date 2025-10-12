@@ -1,165 +1,181 @@
-'use client'
-import React, { useState } from 'react'
-import { Input } from '@/components/ui/input';
-import { Button } from "@/components/ui/button"
-import ThemeSwitch from "@/components/home/theme-switch";
-import {
-    Card,
-    CardAction,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+"use client";
+
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Loader2, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
 
-
-
-function Loginpage() {
-    const [username, setUserName] = useState("")
+export default function RegisterPage() {
+    const [step, setStep] = useState<"register" | "verify">("register");
+    const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const router = useRouter();
+    const [otp, setOtp] = useState("");
     const [loading, setLoading] = useState(false);
-    const [googleLoading, setGoogleLoading] = useState(false);
+    const [timer, setTimer] = useState(0);
 
+    const router = useRouter();
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        if (password !== confirmPassword) {
-            toast.error("Passwords do not match")
-            return
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        if (timer > 0) {
+            interval = setInterval(() => setTimer((t) => t - 1), 1000);
         }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [timer]);
+
+    async function sendOtp() {
         setLoading(true);
-        try {
-            const res = await fetch('api/auth/register', {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    username,
-                    email,
-                    password
-                })
-            })
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.error || "Registration failed")
-            } else {
-                console.log(data)
-                toast.success("Registration successfuly")
-                router.push("/login");
-            }
-        } catch (error) {
-            console.error(error)
-        } finally {
-            setLoading(false);
+        const res = await fetch("/api/auth/sendOtp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+        });
+
+        if (res.ok) {
+            setStep("verify");
+            setTimer(60);
+            toast.success("OTP sent to your email");
+        } else {
+            toast.error("Failed to send OTP");
         }
+        setLoading(false);
     }
 
-    const handleGoogleSignIn = async () => {
-        setGoogleLoading(true);
-        try {
-            await signIn("google", { callbackUrl: "/" });
-        } finally {
-            setGoogleLoading(false);
+    async function handleRegister() {
+        if (!name || !email || !password) return;
+        await sendOtp();
+    }
+
+    async function handleVerify() {
+        setLoading(true);
+        const res = await fetch("/api/auth/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, otp, name, password }),
+        });
+
+        if (res.ok) {
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (result?.ok) {
+                toast.success("Welcome 🎉");
+                router.push("/");
+            }
+        } else {
+            const data = await res.json();
+            toast.error(data.error || "Invalid or expired OTP");
         }
+        setLoading(false);
     }
 
     return (
-        <div className='flex justify-center items-center min-h-screen'>
-            <Card className="w-full max-w-sm ">
+        <div className="min-h-screen flex items-center justify-center bg-[hsl(var(--background))]">
+            <Card className="w-full max-w-md shadow-lg rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
                 <CardHeader>
-                    <CardTitle>Create an account</CardTitle>
-                    <CardDescription>
-
-                    </CardDescription>
-                    <CardAction>
-                        <Button className='cursor-pointer transition duration-200 ease-in-out hover:scale-105' variant="link" onClick={() => router.push('/login')}>Login</Button>
-                        <ThemeSwitch />
-                    </CardAction>
+                    <CardTitle className="text-center text-2xl font-semibold text-[hsl(var(--foreground))]">
+                        {step === "register" ? "Create your account" : "Verify your email 📩"}
+                    </CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} >
-                        <div className="flex flex-col gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="usename">Username</Label>
-                                <Input
-                                    id="usename"
-                                    type="text"
-                                    placeholder="Enter username"
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="m@example.com"
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
-                                </div>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    required
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Confirm Password</Label>
-                                </div>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    required
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <Button type="submit" className=" cursor-pointer w-full mt-2 transition duration-200 ease-in-out hover:bg-gray-600 hover:scale-105 hover:shadow-lg flex items-center justify-center" variant="outline" disabled={loading}>
-                            {loading && (
-                                <svg className="animate-spin h-5 w-5 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                                </svg>
-                            )}
-                            {loading ? 'Registering...' : 'Login'}
-                        </Button>
-                    </form>
-                </CardContent>
-                <CardFooter className="flex-col gap-2">
 
-                    <Button variant="outline" className="w-full cursor-pointer transition duration-200 ease-in-out hover:bg-gray-600 hover:scale-105 flex items-center justify-center" onClick={handleGoogleSignIn} disabled={googleLoading}>
-                        {googleLoading && (
-                            <svg className="animate-spin h-5 w-5 mr-2 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                            </svg>
+                <CardContent>
+                    <AnimatePresence mode="wait">
+                        {step === "register" ? (
+                            <motion.div
+                                key="register"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.25 }}
+                                className="space-y-4"
+                            >
+                                <Input
+                                    placeholder="Full Name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="border-[hsl(var(--input))] focus:ring-[hsl(var(--ring))]"
+                                />
+                                <Input
+                                    type="email"
+                                    placeholder="Email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="border-[hsl(var(--input))] focus:ring-[hsl(var(--ring))]"
+                                />
+                                <Input
+                                    type="password"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="border-[hsl(var(--input))] focus:ring-[hsl(var(--ring))]"
+                                />
+                                <Button
+                                    className="w-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90"
+                                    onClick={handleRegister}
+                                    disabled={loading || !email || !password || !name}
+                                >
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Create Account
+                                </Button>
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="verify"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ duration: 0.25 }}
+                                className="space-y-4 text-center"
+                            >
+                                <p className="text-[hsl(var(--muted-foreground))] text-sm">
+                                    We’ve sent a 6-digit code to <strong>{email}</strong>
+                                </p>
+                                <Input
+                                    maxLength={6}
+                                    placeholder="Enter OTP"
+                                    className="tracking-widest text-center text-lg border-[hsl(var(--input))] focus:ring-[hsl(var(--ring))]"
+                                    value={otp}
+                                    onChange={(e) => setOtp(e.target.value)}
+                                />
+                                <Button
+                                    className="w-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:opacity-90"
+                                    onClick={handleVerify}
+                                    disabled={loading || otp.length < 6}
+                                >
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Verify & Login
+                                </Button>
+
+                                <div className="pt-2 flex justify-center items-center gap-2">
+                                    {timer > 0 ? (
+                                        <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                                            Resend OTP in {timer}s
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={sendOtp}
+                                            className="flex items-center text-sm text-[hsl(var(--primary))] hover:underline"
+                                        >
+                                            <RefreshCcw className="mr-1 h-4 w-4" /> Resend OTP
+                                        </button>
+                                    )}
+                                </div>
+                            </motion.div>
                         )}
-                        {googleLoading ? 'Signing in...' : 'Singin with Google'}
-                    </Button>
-                </CardFooter>
+                    </AnimatePresence>
+                </CardContent>
             </Card>
         </div>
-    )
+    );
 }
-
-
-
-
-export default Loginpage
