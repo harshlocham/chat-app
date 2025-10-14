@@ -88,9 +88,9 @@ const MessageContainer = () => {
         const handleNewMessage = (msg: IMessagePopulated) => {
             addMessage(msg); // ✅ Consistent reference
         };
-        const handleTyping = ({ userId }: { userId: string }) => {
+        const handleTyping = ({ username }: { username: string }) => {
             setTypingUsers(prev => {
-                if (!prev.includes(userId)) return [...prev, userId];
+                if (!prev.includes(username)) return [...prev, username];
                 return prev;
             });
         };
