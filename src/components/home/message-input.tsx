@@ -95,12 +95,12 @@ const MessageInput = () => {
     let typingTimeout: NodeJS.Timeout;
 
     function handleTyping(conversationId: string) {
-        socket.emit("typing", conversationId);
+        socket.emit("typing", conversationId, me!.username as string);
 
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => {
-            socket.emit("stopTyping", conversationId);
-        }, 2000); // stops typing after 1 second of inactivity
+            socket.emit("stopTyping", conversationId, me!.username);
+        }, 2000);
     }
 
     return (

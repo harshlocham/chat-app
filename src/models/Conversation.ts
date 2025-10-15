@@ -19,7 +19,7 @@ export interface IConversation extends Document {
     isGroup: boolean;
     isOnline?: boolean; // handled by socket but used in UI
     name?: string;       // direct message name
-    image: string;      // direct message image
+    image: string | undefined;      // direct message image
     groupName?: string;
     lastMessage?: ILastMessage;
     createdAt: Date;     // alias as _creationTime
@@ -33,7 +33,7 @@ const conversationSchema = new Schema<IConversation>({
     isGroup: { type: Boolean, default: false },
     admin: { type: String },
     name: { type: String },         // direct name fallback
-    image: { type: String },        // direct image fallback
+    image: { type: String || undefined },        // direct image fallback
     groupName: { type: String },
     isOnline: { type: Boolean, default: false }, // not stored permanently, updated via socket
     lastMessage: {

@@ -121,7 +121,7 @@ const UserListDialog = () => {
             };
 
             // Fix: Ensure newConversation is of type IConversation
-            setSelectedConversation(newConversation as unknown as IConversation);
+            setSelectedConversation(newConversation as IConversation);
             dialogCloseRef.current?.click();
 
             setSelectedUsers([]);

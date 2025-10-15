@@ -99,21 +99,21 @@ io.on("connection", (rawSocket) => {
     });
 
     // Typing indicator with fallback
-    socket.on("typing", (conversationId: string) => {
-        socket.to(conversationId).emit("typing", { userId });
+    socket.on("typing", (conversationId: string, username: string) => {
+        socket.to(conversationId).emit("typing", { username });
 
-        clearTimeout(typingTimers.get(userId));
+        clearTimeout(typingTimers.get(username));
         const timeout = setTimeout(() => {
-            socket.to(conversationId).emit("stopTyping", { userId });
-            typingTimers.delete(userId);
-        }, 3000); // fallback after 3 seconds
+            socket.to(conversationId).emit("stopTyping", { username });
+            typingTimers.delete(username);
+        }, 3000);
         typingTimers.set(userId, timeout);
     });
 
-    socket.on("stopTyping", (conversationId: string) => {
-        clearTimeout(typingTimers.get(userId));
-        typingTimers.delete(userId);
-        socket.to(conversationId).emit("stopTyping", { userId });
+    socket.on("stopTyping", (conversationId: string, username: string) => {
+        clearTimeout(typingTimers.get(username));
+        typingTimers.delete(username);
+        socket.to(conversationId).emit("stopTyping", { username });
     });
 
     // New message sent

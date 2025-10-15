@@ -12,16 +12,15 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40 }) => {
 
     return (
         <div
-            className="flex items-center justify-center rounded-full bg-gray-300 overflow-hidden"
+            className="relative flex items-center justify-center rounded-full bg-gray-300 overflow-hidden"
             style={{ width: size, height: size }}
         >
             {src ? (
                 <Image
                     src={src}
                     alt={user.name || "User"}
-                    width={size}
-                    height={size}
-                    className="object-cover rounded-full"
+                    fill
+                    className="object-cover"
                 />
             ) : (
                 <span className="text-white font-semibold">{initials}</span>
