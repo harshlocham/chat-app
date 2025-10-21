@@ -4,12 +4,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MessageSeenSvg } from "@/lib/svgs";
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
 import { useConversationStore } from "@/store/chat-store";
-import { IConversation } from "@/models/Conversation";
+import { IConversationPopulated } from "@/models/Conversation";
 import { useSession } from "next-auth/react";
 import { getAvatarUrl } from "../../../utils/imagekit";
 import { useUser } from "@/context/UserContext";
 
-const Conversation = ({ conversation }: { conversation: IConversation }) => {
+const Conversation = ({ conversation }: { conversation: IConversationPopulated }) => {
     const { data: session } = useSession();
     const currentUserEmail = session?.user?.email;
 
