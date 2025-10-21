@@ -1,26 +1,36 @@
 'use client';
+
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Laugh, Mic, Plus, Send, Image as ImageIcon } from "lucide-react";
 import { Input } from "../ui/input";
-import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { getMe } from "@/lib/api";
-//import { socket } from "@/lib/socketClient";
 import { useConversationStore } from "@/store/chat-store";
 import { socket } from "@/lib/socketClient";
 import { IUser } from "@/models/User";
 import { ImageUpload } from "./ImageUpload";
 import toast from "react-hot-toast";
+import { ITempMessage } from "@/models/TempMessage";
 
-
-
+// 🧠 Small debounce util
+function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
+    let timeout: NodeJS.Timeout;
+    return (...args: T) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), delay);
+    };
+}
 
 const MessageInput = () => {
     const [msgText, setMsgText] = useState("");
     const [me, setMe] = useState<IUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
-    const addMessage = useConversationStore(s => s.addMessage);
-    const sel = useConversationStore(s => s.selectedConversation);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    const { addMessage, updateLastMessage, replaceTempMessage } = useConversationStore();
+    const sel = useConversationStore((s) => s.selectedConversation);
+
+    // ✅ Fetch logged-in user once
     useEffect(() => {
         const fetchMe = async () => {
             try {
@@ -32,39 +42,68 @@ const MessageInput = () => {
         };
         fetchMe();
     }, []);
+
+    // 📝 Handle typing indicators with debounce
+    const handleTyping = useCallback(
+        (conversationId: string) => {
+            if (!me) return;
+            socket.emit("typing", conversationId, me.username);
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+            typingTimeoutRef.current = setTimeout(() => {
+                socket.emit("stopTyping", conversationId, me.username);
+            }, 2000);
+        },
+        [me]
+    );
+
+    const debouncedTyping = useMemo(() => debounce(handleTyping, 300), [handleTyping]);
+
+    // 📤 Send text message
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!msgText || !me) return;
-        // console.log("Sending message:", {
-        //     content: msgText,
-        //     conversationId: sel?._id,
-        //     senderId: me?._id,
-        // });
+        if (!msgText.trim() || !me || !sel?._id) return;
+
+        const tempId = `temp-${Date.now()}`;
+        const tempMessage: ITempMessage = {
+            _id: tempId,
+            conversationId: String(sel._id),
+            senderId: String(me._id),
+            content: msgText.trim(),
+            messageType: "text",
+            createdAt: new Date().toISOString(),
+            status: "pending",
+            sender: me,
+            timestamp: new Date().toISOString(),
+        };
+
+        addMessage(tempMessage);
+        updateLastMessage(tempMessage.conversationId, tempMessage);
+        setMsgText("");
 
         try {
             const res = await fetch("/api/messages", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    content: msgText,
-                    conversationId: sel?._id,
+                    content: tempMessage.content,
+                    conversationId: sel._id,
                     senderId: me._id,
                 }),
             });
 
             if (!res.ok) throw new Error("Failed to send message");
-
             const message = await res.json();
-            addMessage(message);
+
+            replaceTempMessage(tempId, message);
             socket.emit("message:send", message);
-            // Local update (Socket.IO will broadcast too)
-            setMsgText("");
         } catch (err) {
             console.error("Send message failed:", err);
+            toast.error("Message failed to send");
         }
+    };
 
-    }
-
+    // 🖼️ Handle image upload
     const handleImageUpload = async (result: { url?: string; fileId?: string }) => {
         if (!result.url || !me || !sel) return;
 
@@ -91,24 +130,14 @@ const MessageInput = () => {
             console.error("Send image message failed:", err);
             toast.error("Failed to send image");
         }
-    }
-    let typingTimeout: NodeJS.Timeout;
-
-    function handleTyping(conversationId: string) {
-        socket.emit("typing", conversationId, me!.username as string);
-
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            socket.emit("stopTyping", conversationId, me!.username);
-        }, 2000);
-    }
+    };
 
     return (
-        <div className='relative bg-gray-primary p-2 flex gap-4 items-center'>
-            <div className='relative flex gap-2 ml-2'>
-                {/* EMOJI PICKER WILL GO HERE */}
-                <Laugh className='text-gray-600 dark:text-gray-400' />
-                <Plus className='text-gray-600 dark:text-gray-400' />
+        <div className="relative bg-gray-primary p-2 flex gap-4 items-center">
+            <div className="relative flex gap-2 ml-2">
+                {/* Emoji Picker can be added here */}
+                <Laugh className="text-gray-600 dark:text-gray-400" />
+                <Plus className="text-gray-600 dark:text-gray-400" />
                 <Button
                     type="button"
                     variant="ghost"
@@ -119,33 +148,41 @@ const MessageInput = () => {
                     <ImageIcon size={20} />
                 </Button>
             </div>
-            <form className='w-full flex gap-3' onSubmit={handleSendMessage}>
-                <div className='flex-1'>
+
+            <form className="w-full flex gap-3" onSubmit={handleSendMessage}>
+                <div className="flex-1">
                     <Input
-                        type='text'
-                        placeholder='Type a message'
-                        className='py-2 text-sm w-full rounded-lg shadow-sm bg-[hsl(var(--gray-tertiary))] focus-visible:ring-transparent'
+                        type="text"
+                        placeholder="Type a message"
+                        className="py-2 text-sm w-full rounded-lg shadow-sm bg-[hsl(var(--gray-tertiary))] focus-visible:ring-transparent"
                         value={msgText}
                         onChange={(e) => {
                             setMsgText(e.target.value);
-                            if (sel?._id) handleTyping(String(sel._id));
+                            if (sel?._id) debouncedTyping(String(sel._id));
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage(e);
+                            }
                         }}
                     />
                 </div>
-                <div className='mr-4 flex items-center gap-3'>
-                    {msgText.length > 0 ? (
+
+                <div className="mr-4 flex items-center gap-3">
+                    {msgText.trim().length > 0 ? (
                         <Button
-                            type='submit'
-                            size={"sm"}
-                            className='bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent'
+                            type="submit"
+                            size="sm"
+                            className="bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent"
                         >
                             <Send />
                         </Button>
                     ) : (
                         <Button
-                            type='submit'
-                            size={"sm"}
-                            className='bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent'
+                            type="button"
+                            size="sm"
+                            className="bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent"
                         >
                             <Mic />
                         </Button>
@@ -168,9 +205,7 @@ const MessageInput = () => {
                     <ImageUpload
                         onSuccess={handleImageUpload}
                         onProgress={(progress) => {
-                            if (progress === 100) {
-                                toast.success("Image uploaded successfully!");
-                            }
+                            if (progress === 100) toast.success("Image uploaded successfully!");
                         }}
                     />
                 </div>
@@ -178,4 +213,5 @@ const MessageInput = () => {
         </div>
     );
 };
+
 export default MessageInput;

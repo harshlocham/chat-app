@@ -1,28 +1,29 @@
 // models/Conversation.ts
+// models/Conversation.ts
 import mongoose, { Schema, model, models, Document, Types } from 'mongoose';
 import { IUser } from './User';
 
 export interface ILastMessage {
     _id: Types.ObjectId;
-    sender: Types.ObjectId;
+    sender: Types.ObjectId | IUser;  // 🆕 Allow populated sender
     messageType: 'text' | 'image' | 'video' | 'file' | 'system';
     content?: string;
     _creationTime: Date;
 }
 
 export interface IConversation extends Document {
-    _id: mongoose.Types.ObjectId
+    _id: mongoose.Types.ObjectId;
     _creationTime: Date | undefined;
-    admin: string
-    participants: IUser[];
+    admin: string;
+    participants: (Types.ObjectId | IUser)[];   // 🆕 Allow ObjectId or IUser
     type: 'direct' | 'group';
     isGroup: boolean;
-    isOnline?: boolean; // handled by socket but used in UI
-    name?: string;       // direct message name
-    image: string | undefined;      // direct message image
+    isOnline?: boolean;
+    name?: string;
+    image?: string;
     groupName?: string;
     lastMessage?: ILastMessage;
-    createdAt: Date;     // alias as _creationTime
+    createdAt: Date;
     updatedAt: Date;
 }
 
@@ -32,10 +33,10 @@ const conversationSchema = new Schema<IConversation>({
     type: { type: String, enum: ['direct', 'group'], default: 'direct' },
     isGroup: { type: Boolean, default: false },
     admin: { type: String },
-    name: { type: String },         // direct name fallback
-    image: { type: String || undefined },        // direct image fallback
+    name: { type: String },
+    image: { type: String },
     groupName: { type: String },
-    isOnline: { type: Boolean, default: false }, // not stored permanently, updated via socket
+    isOnline: { type: Boolean, default: false },
     lastMessage: {
         _id: { type: Schema.Types.ObjectId, ref: 'Message' },
         sender: { type: Schema.Types.ObjectId, ref: 'User' },
@@ -47,8 +48,11 @@ const conversationSchema = new Schema<IConversation>({
         _creationTime: { type: Date }
     }
 }, {
-    timestamps: true // gives you createdAt and updatedAt
+    timestamps: true
 });
 
+export interface IConversationPopulated extends IConversation {
+    participants: IUser[];
+}
 
 export const Conversation = models.Conversation || model<IConversation>('Conversation', conversationSchema);

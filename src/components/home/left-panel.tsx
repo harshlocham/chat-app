@@ -5,7 +5,7 @@ import ThemeSwitch from "./theme-switch";
 import Conversation from "./conversation";
 //import { conversations } from "@/dummy-data/db";
 import { signOut } from "next-auth/react";
-import { IConversation } from "@/models/Conversation";
+import { IConversation, IConversationPopulated } from "@/models/Conversation";
 import UserListDialog from "./dialogs/user-list-dialog";
 import { getConversations } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -55,7 +55,7 @@ const LeftPanel = () => {
                 {/* Conversations will go here*/}
                 {
                     conversations.map((c) => (
-                        <Conversation key={String(c._id)} conversation={c} />
+                        <Conversation key={String(c._id)} conversation={c as IConversationPopulated} />
                     ))
                 }
 

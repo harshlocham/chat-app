@@ -2,10 +2,11 @@ import { IMessagePopulated } from "@/models/Message";
 import ChatBubbleAvatar from "./chat-bubble-avatar";
 import { useConversationStore } from "@/store/chat-store";
 import { Image } from "@imagekit/next";
+import { ITempMessage } from "@/models/TempMessage";
 //import { VideoIcon } from "lucide-react";
 
 interface ChatBubbleProps {
-    message: IMessagePopulated;
+    message: IMessagePopulated | ITempMessage;
     currentUserId: string; // ✅ pass only current user id
 }
 

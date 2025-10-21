@@ -7,6 +7,7 @@ import { IMessagePopulated } from "@/models/Message";
 import ChatBubble from "./chat-bubble";
 import ChatDaySeparator from "./ChatDaySeparator";
 import { useUser } from "@/context/UserContext";
+import { ITempMessage } from "@/models/TempMessage";
 
 const MessageContainer = () => {
     const sel = useConversationStore(s => s.selectedConversation);
@@ -122,7 +123,7 @@ const MessageContainer = () => {
                         <div key={String(msg._id)}>
                             {showSeparator && <ChatDaySeparator date={msgDate} />}
                             <ChatBubble
-                                message={msg}
+                                message={msg as IMessagePopulated | ITempMessage}
                                 currentUserId={user?._id?.toString()}
                             />
                         </div>

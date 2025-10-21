@@ -82,15 +82,16 @@ export async function GET() {
         const conversations = await Conversation.find({
             participants: user._id,
         })
-            .populate("participants", "name email image")
+            .populate("participants", "username email profilePicture")
             .populate({
                 path: "lastMessage",
                 populate: {
                     path: "sender",
-                    select: "name email image",
+                    select: "username email profilePicture",
                 },
             })
-            .sort({ updatedAt: -1 });
+            .sort({ updatedAt: -1 })
+            .lean();
 
         return NextResponse.json(conversations, { status: 200 });
     } catch (error) {
