@@ -11,8 +11,8 @@ import { useConversationStore } from "@/store/chat-store";
 const RightPanel = () => {
     const { selectedConversation, setSelectedConversation } = useConversationStore()
     if (!selectedConversation) return <ChatPlaceHolder />;
-    // console.log(selectedConversation)
-    const conversationName = selectedConversation.groupName || selectedConversation.participants[0].email?.split("@")[0];
+    //console.log(selectedConversation)
+    const conversationName = selectedConversation.groupName || selectedConversation.participants[0].username;
     return (
         <div className='w-3/4 flex flex-col'>
             <div className='w-full sticky top-0 z-50'>
@@ -20,7 +20,7 @@ const RightPanel = () => {
                 <div className='flex justify-between bg-gray-primary p-3'>
                     <div className='flex gap-3 items-center'>
                         <Avatar>
-                            <AvatarImage src={"/placeholder.png"} className='object-cover' />
+                            <AvatarImage src={selectedConversation.image || selectedConversation.participants[0].profilePicture || "/placeholder.png"} className='object-cover' />
                             <AvatarFallback>
                                 <div className='animate-pulse bg-gray-tertiary w-full h-full rounded-full' />
                             </AvatarFallback>
