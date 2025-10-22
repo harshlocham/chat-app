@@ -2,7 +2,7 @@ import { socket } from '@/lib/socketClient';
 import { useOfflineStore } from '@/store/offline-store';
 
 export function initSocketHandlers() {
-    const { offlineQueue, removeFromQueue, loadQueue } = useOfflineStore.getState();
+    const { removeFromQueue, loadQueue } = useOfflineStore.getState();
 
     socket.on('connect', async () => {
         console.log('Socket reconnected. Retrying offline messages...');

@@ -69,7 +69,7 @@ const MessageInput = () => {
         e.preventDefault();
         if (!msgText.trim() || !me || !sel?._id) return;
 
-        const tempId = `temp-${Date.now()}`;
+        const tempId = uuidv4();
         const tempMessage: ITempMessage = {
             _id: tempId,
             conversationId: String(sel._id),
