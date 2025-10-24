@@ -4,7 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
-import { Toaster } from "react-hot-toast";
+import { Toaster } from "@/components/ui/sonner"
 import { UserProvider } from "@/context/UserContext";
 
 
