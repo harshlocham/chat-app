@@ -1,7 +1,14 @@
+'use client';
 import { useEffect, useState } from "react";
 
 export const useNetworkStatus = () => {
-    const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+    const [isOnline, setIsOnline] = useState(true);
+
+    useEffect(() => {
+        if (typeof navigator !== 'undefined') {
+            setIsOnline(navigator.onLine);
+        }
+    }, []);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);

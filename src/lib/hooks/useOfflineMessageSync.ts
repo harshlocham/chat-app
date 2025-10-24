@@ -77,5 +77,5 @@ export function useOfflineMessageSync() {
         };
 
         resendQueuedMessages();
-    }, [isOnline, offlineQueue, removeFromQueue]);
+    }, [isOnline, offlineQueue, removeFromQueue, replaceTempMessage]);
 }
