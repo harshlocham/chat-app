@@ -3,11 +3,14 @@
 //import ChatBox from "@/components/home/ChatBox";
 import LeftPanel from "@/components/home/left-panel";
 import RightPanel from "@/components/home/right-panel";
+import { useOfflineMessageSync } from "@/lib/hooks/useOfflineMessageSync";
 
 //import { useTheme } from "next-themes";
 
 export default function Home() {
   //const { setTheme } = useTheme();
+
+  useOfflineMessageSync();
 
   return (
     <main className='m-5'>
