@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "react-hot-toast";
 import { UserProvider } from "@/context/UserContext";
-import { setupOfflineResender } from "@/lib/socketHandlers";
 
 
 // export const metadata: Metadata = {
@@ -22,7 +21,6 @@ export default function RootLayout({
 }>) {
   useEffect(() => {
     fetch("/api/socket"); // Ensure the server gets initialized
-    setupOfflineResender();
   }, []);
   return (
     <html lang="en" suppressHydrationWarning>
