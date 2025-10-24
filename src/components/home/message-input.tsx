@@ -32,6 +32,8 @@ const MessageInput = () => {
 
     const { addMessage, updateLastMessage, replaceTempMessage } = useConversationStore();
     const sel = useConversationStore((s) => s.selectedConversation);
+    const isOnline = useNetworkStatus();
+    const { addToQueue } = useOfflineStore();
 
     // ✅ Fetch logged-in user once
     useEffect(() => {
@@ -63,8 +65,7 @@ const MessageInput = () => {
     const debouncedTyping = useMemo(() => debounce(handleTyping, 300), [handleTyping]);
 
     // 📤 Send text message
-    const isOnline = useNetworkStatus();
-    const { addToQueue } = useOfflineStore();
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!msgText.trim() || !me || !sel?._id) return;
