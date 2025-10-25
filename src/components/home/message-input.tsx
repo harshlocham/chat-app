@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useOfflineStore } from '@/store/offline-store';
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
+import { MessageInputProps } from "@/models/Message";
 
 // 🧠 Small debounce util
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
@@ -25,7 +26,7 @@ function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) 
     };
 }
 
-const MessageInput = () => {
+const MessageInput = ({ onSend, replyTo, onCancelReply, editMessage, onCancelEdit }: MessageInputProps) => {
     const [msgText, setMsgText] = useState("");
     const [me, setMe] = useState<IUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
@@ -170,6 +171,20 @@ const MessageInput = () => {
 
             <form className="w-full flex gap-3" onSubmit={handleSendMessage}>
                 <div className="flex-1">
+                    {/* Reply or Edit Preview */}
+                    {(replyTo || editMessage) && (
+                        <div className="absolute -top-10 left-0 w-full bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-t-md flex justify-between">
+                            {replyTo && <span>Replying to: {replyTo.content}</span>}
+                            {editMessage && <span>Editing: {editMessage.content}</span>}
+                            <button
+                                type="button"
+                                className="text-xs text-blue-500"
+                                onClick={replyTo ? onCancelReply : onCancelEdit}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
                     <Input
                         type="text"
                         placeholder={
