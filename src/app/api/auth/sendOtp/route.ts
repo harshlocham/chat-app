@@ -3,11 +3,22 @@ import Otp from "@/models/OTP";
 import { sendOtpEmail } from "@/lib/sendOtp";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { authRateLimiter } from "@/lib/rateLimiter"
 
 export async function POST(req: NextRequest) {
     try {
+        const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+        const { success } = await authRateLimiter.limit(ip);
+
+        if (!success) {
+            return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+        }
         await connectToDatabase();
         const { email } = await req.json();
+        const existing = await Otp.findOne({ email });
+        if (existing && existing.createdAt > Date.now() - 60 * 1000) { // 1 minute cooldown
+            return NextResponse.json({ error: "Please wait before requesting another OTP" }, { status: 429 });
+        }
         // Generate a random 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
 
