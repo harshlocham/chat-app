@@ -10,15 +10,11 @@ import { Smile, MessageCircle, Edit, Trash2 } from "lucide-react";
 import { ReactionBar } from "../chat/reaction-bar";
 import { IUser } from "@/models/User";
 
-function isUser(user: any): user is IUser {
-    return user && typeof user === 'object' && 'username' in user;
-}
-
 interface ChatBubbleProps {
-    message: IMessagePopulated | ITempMessage | IMessage;
+    message: ITempMessage | IMessage;
     currentUserId: string;
     onEdit: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
-    onDelete: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
+    onDelete: (msgId: string) => void;
     onReply: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
     onReact: (msg: IMessagePopulated | IMessage | ITempMessage, emoji: string) => void;
 }
@@ -73,31 +69,39 @@ const ChatBubble = ({
                     )}
 
                     {/* Message content */}
-                    {message.messageType === "text" && (
-                        <p className="text-sm break-words">{message.content}</p>
+                    {message.isDeleted ? (
+                        <div className="text-xs text-gray-400 border-l-2 pl-2 mb-1 border-gray-300 dark:border-gray-700">
+                            <p className="text-sm break-words">This message was deleted</p>
+                        </div>
+                    ) : (
+                        <>
+                            {message.messageType === "text" && (
+                                <p className="text-sm break-words">{message.content}</p>
+                            )}
+                            {message.messageType === "image" && (
+                                <Image
+                                    urlEndpoint={process.env.NEXT_PUBLIC_URI_ENDPOINT as string}
+                                    src={message.content}
+                                    alt="Message image"
+                                    width={320}
+                                    height={240}
+                                    className="rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity max-w-full h-auto"
+                                    onClick={() => window.open(message.content, "_blank")}
+                                />
+                            )}
+                            {message.messageType === "video" && (
+                                <video
+                                    controls
+                                    className="rounded-lg cursor-pointer max-w-full h-auto"
+                                >
+                                    <source src={message.content} type="video/mp4" />
+                                    Your browser does not support the video tag.
+                                </video>
+                            )}
+                        </>
                     )}
 
-                    {message.messageType === "image" && (
-                        <Image
-                            urlEndpoint={process.env.NEXT_PUBLIC_URI_ENDPOINT as string}
-                            src={message.content}
-                            alt="Message image"
-                            width={320}
-                            height={240}
-                            className="rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity max-w-full h-auto"
-                            onClick={() => window.open(message.content, "_blank")}
-                        />
-                    )}
 
-                    {message.messageType === "video" && (
-                        <video
-                            controls
-                            className="rounded-lg cursor-pointer max-w-full h-auto"
-                        >
-                            <source src={message.content} type="video/mp4" />
-                            Your browser does not support the video tag.
-                        </video>
-                    )}
                 </div>
 
                 {/* Dropdown for message actions */}
@@ -120,7 +124,7 @@ const ChatBubble = ({
                                     <DropdownMenuItem onClick={() => onEdit(message)}>
                                         <Edit className="w-4 h-4 mr-2" /> Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => onDelete(message)}>
+                                    <DropdownMenuItem onClick={() => onDelete(message._id as string)}>
                                         <Trash2 className="w-4 h-4 mr-2 text-red-500" /> Delete
                                     </DropdownMenuItem>
                                 </>
