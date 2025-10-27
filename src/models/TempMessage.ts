@@ -5,6 +5,7 @@ export interface ITempMessage {
     _id: string;
     conversationId: string;
     senderId: string;
+    isDeleted: boolean;
     repliedTo?: mongoose.Types.ObjectId;
     reactions?: {
         emoji: string;

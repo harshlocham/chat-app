@@ -1,5 +1,5 @@
 // src/models/Message.ts
-import mongoose, { Schema, Document, models, mongo } from "mongoose";
+import mongoose, { Schema, Document, models } from "mongoose";
 import { IUser } from "./User";
 
 export interface IMessage extends Document {
