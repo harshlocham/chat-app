@@ -26,7 +26,7 @@ function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) 
     };
 }
 
-const MessageInput = ({ onSend, replyTo, onCancelReply, editMessage, onCancelEdit }: MessageInputProps) => {
+const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: MessageInputProps) => {
     const [msgText, setMsgText] = useState("");
     const [me, setMe] = useState<IUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);

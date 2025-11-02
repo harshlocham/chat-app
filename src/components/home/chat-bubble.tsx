@@ -30,8 +30,13 @@ const ChatBubble = ({
     const { selectedConversation } = useConversationStore();
     const [showReactions, setShowReactions] = useState(false);
 
-    function isUser(obj: any): obj is IUser {
-        return obj && typeof obj === 'object' && 'username' in obj;
+    function isUser(obj: unknown): obj is IUser {
+        return (
+            typeof obj === "object" &&
+            obj !== null &&
+            "username" in obj &&
+            typeof (obj as IUser).username === "string"
+        );
     }
 
     const isMine =
