@@ -5,8 +5,6 @@ import cors from "cors";
 import { createClient } from "redis";
 import { createAdapter } from "@socket.io/redis-adapter";
 
-
-// Extend Socket type to include custom properties
 interface CustomSocket extends Socket {
     userId: string;
     isAdmin: boolean;
@@ -18,53 +16,38 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: process.env.ORIGIN,
+        origin: process.env.ORIGIN || "*",
         methods: ["GET", "POST"],
         credentials: true,
     },
 });
 
-// ACTIVE USERS MAP
-const userConnections = new Map<string, number>();
-// const pubClient = createClient({ url: process.env.REDIS_URL });
-// const subClient = pubClient.duplicate();
+//  REDIS CONFIG
+const pubClient = createClient({ url: "redis://default:z1wD6s2xExHPg42hM0DRCUlN3RMVUqq6@redis-12403.c8.us-east-1-4.ec2.redns.redis-cloud.com:12403" });
+console.log(process.env.REDIS_URL);
+const subClient = pubClient.duplicate();
 
-// await Promise.all([pubClient.connect(), subClient.connect()]);
+await Promise.all([pubClient.connect(), subClient.connect()]);
+io.adapter(createAdapter(pubClient, subClient));
 
-// io.adapter(createAdapter(pubClient, subClient));
+console.log("🔗 Redis adapter connected");
 
-function addUser(userId: string) {
-    const count = userConnections.get(userId) || 0;
-    userConnections.set(userId, count + 1);
-}
+//  CACHING KEYS
+const PRESENCE_KEY = "active_users";
+const MESSAGE_COUNT_KEY = "total_messages_today";
 
-function removeUser(userId: string) {
-    const count = userConnections.get(userId);
-    if (!count) return;
-    if (count === 1) {
-        userConnections.delete(userId);
-    } else {
-        userConnections.set(userId, count - 1);
-    }
-}
-
-function getActiveUserCount() {
-    return userConnections.size;
-}
-
-// MESSAGES COUNTER
-let totalMessagesToday = 0;
-let today = new Date().setHours(0, 0, 0, 0);
-
-function resetDailyCounterIfNeeded() {
+// Reset at midnight
+async function resetDailyCounterIfNeeded() {
     const now = new Date().setHours(0, 0, 0, 0);
-    if (now !== today) {
-        today = now;
-        totalMessagesToday = 0;
+    const lastReset = Number(await pubClient.get("last_reset") || 0);
+
+    if (now !== lastReset) {
+        await pubClient.set(MESSAGE_COUNT_KEY, 0);
+        await pubClient.set("last_reset", now);
     }
 }
 
-// SOCKET MIDDLEWARE
+//  SOCKET HANDLERS
 io.use((socket, next) => {
     const { userId, isAdmin } = socket.handshake.auth;
     (socket as CustomSocket).userId = userId || socket.id;
@@ -72,42 +55,37 @@ io.use((socket, next) => {
     next();
 });
 
-// TYPING INDICATOR TIMERS
 const typingTimers = new Map<string, NodeJS.Timeout>();
 
-// SOCKET HANDLERS
-io.on("connection", (rawSocket) => {
+io.on("connection", async (rawSocket) => {
     const socket = rawSocket as CustomSocket;
     const { userId, isAdmin } = socket;
-    console.log("✅ Socket connected:", socket.id, "userId:", userId, "isAdmin:", isAdmin);
+    console.log("✅ Connected:", socket.id, "user:", userId, "admin:", isAdmin);
 
-    // Only count non-admins as active users
     if (!isAdmin) {
-        addUser(userId);
-        io.to("admins").emit("dashboard:update", {
-            activeUsers: getActiveUserCount(),
-        });
+        await pubClient.sAdd(PRESENCE_KEY, userId);
+        const activeUsers = await pubClient.sCard(PRESENCE_KEY);
+        io.to("admins").emit("dashboard:update", { activeUsers });
     }
 
-    // Admin joins dashboard
-    socket.on("admin:join", () => {
-        console.log("👑 Admin joined dashboard:", socket.id);
+    socket.on("admin:join", async () => {
         socket.join("admins");
-
+        const [activeUsers, totalMessagesToday] = await Promise.all([
+            pubClient.sCard(PRESENCE_KEY),
+            pubClient.get(MESSAGE_COUNT_KEY),
+        ]);
         socket.emit("dashboard:init", {
-            activeUsers: getActiveUserCount(),
-            totalMessagesToday,
+            activeUsers,
+            totalMessagesToday: Number(totalMessagesToday) || 0,
         });
     });
 
-    // User joins a conversation room
     socket.on("join", (conversationId: string) => {
         socket.join(conversationId);
         socket.emit("joined", conversationId);
         console.log(`🟢 User ${userId} joined conversation ${conversationId}`);
     });
 
-    // Typing indicator with fallback
     socket.on("typing", (conversationId: string, username: string) => {
         socket.to(conversationId).emit("typing", { username });
 
@@ -125,35 +103,28 @@ io.on("connection", (rawSocket) => {
         socket.to(conversationId).emit("stopTyping", { username });
     });
 
-    // New message sent
-    socket.on("message:send", (msg, ack) => {
-        resetDailyCounterIfNeeded();
-        totalMessagesToday++;
+    socket.on("message:send", async (msg, ack) => {
+        await resetDailyCounterIfNeeded();
+        const total = await pubClient.incr(MESSAGE_COUNT_KEY);
 
         io.to(msg.conversationId).emit("message:new", msg);
-
-        // Notify admins
-        io.to("admins").emit("dashboard:update", {
-            totalMessagesToday,
-        });
+        io.to("admins").emit("dashboard:update", { totalMessagesToday: total });
 
         if (ack) ack({ status: "ok", message: "Delivered" });
     });
 
-    // Disconnect
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
         if (!isAdmin) {
-            removeUser(userId);
-            io.to("admins").emit("dashboard:update", {
-                activeUsers: getActiveUserCount(),
-            });
+            await pubClient.sRem(PRESENCE_KEY, userId);
+            const activeUsers = await pubClient.sCard(PRESENCE_KEY);
+            io.to("admins").emit("dashboard:update", { activeUsers });
         }
-        console.log("❌ Socket disconnected:", socket.id);
+        console.log("❌ Disconnected:", socket.id);
     });
 });
 
-// START SERVER
-const PORT = 3001;
+//  START SERVER
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-    console.log(`🚀 Socket.IO server running on http://localhost:${PORT}`);
+    console.log(`🚀 Socket.IO + Redis server running on http://localhost:${PORT}`);
 });
