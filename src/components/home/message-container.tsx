@@ -8,7 +8,7 @@ import ChatBubble from "./chat-bubble";
 import ChatDaySeparator from "./ChatDaySeparator";
 import { useUser } from "@/context/UserContext";
 import { ITempMessage } from "@/models/TempMessage";
-import { deleteMessage, editMessage, reactToMessage } from "@/lib/api";
+import { deleteMessage } from "@/lib/api";
 
 const MessageContainer = () => {
     const sel = useConversationStore(s => s.selectedConversation);
@@ -126,10 +126,10 @@ const MessageContainer = () => {
                             <ChatBubble
                                 message={msg as ITempMessage | IMessage}
                                 currentUserId={user?._id?.toString()}
-                                onEdit={() => editMessage}
+                                onEdit={(id: string, newText: string) => socket.emit('message:edit', { messageId: id, content: newText })}
                                 onDelete={deleteMessage}
                                 onReply={() => { }}
-                                onReact={() => reactToMessage}
+                                onReact={(id, emoji) => socket.emit('message:react', { messageId: id, emoji })}
                             />
                         </div>
                     );
@@ -139,7 +139,7 @@ const MessageContainer = () => {
                 {typingUsers.length > 0 && (
                     <div className="flex items-center gap-2 ml-4 mt-2 text-sm text-gray-500 dark:text-gray-400">
                         <span>{typingText}</span>
-                        <div className="flex space-x-1">
+                        <div className="flex space-x-1 animate-bounce">
                             <span className="dot"></span>
                             <span className="dot"></span>
                             <span className="dot"></span>

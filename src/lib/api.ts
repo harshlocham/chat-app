@@ -99,11 +99,11 @@ export async function deleteMessage(id: string) {
     if (!res.ok) throw new Error("Failed to delete message");
     return await res.json();
 }
-export async function reactToMessage(id: string, emoji: string) {
+export async function reactToMessage(id: string, emoji: string, userId: string) {
     const res = await fetch(`/api/messages/${id}/react`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emoji }),
+        body: JSON.stringify({ emoji, userId }),
     });
     if (!res.ok) throw new Error("Failed to react to message");
     return await res.json();

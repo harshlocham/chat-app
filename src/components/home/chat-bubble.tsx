@@ -10,10 +10,11 @@ import { Smile, MessageCircle, Edit, Trash2 } from "lucide-react";
 import { ReactionBar } from "../chat/reaction-bar";
 import { IUser } from "@/models/User";
 
+
 interface ChatBubbleProps {
     message: ITempMessage | IMessage;
     currentUserId: string;
-    onEdit: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
+    onEdit: (id: string, newText: string) => void;
     onDelete: (msgId: string) => void;
     onReply: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
     onReact: (msg: IMessagePopulated | IMessage | ITempMessage, emoji: string) => void;
@@ -113,8 +114,9 @@ const ChatBubble = ({
                 {('isDeleted' in message ? !message.isDeleted : true) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <button className="absolute -top-2 right-2 opacity-0 group-hover:opacity-100 transition">
-                                •••
+                            <button className="z-10 absolute -top-2 right-2 opacity-0 group-hover:opacity-100 transition">
+                                <span className="text-white" >•••</span>
+
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent side={isMine ? "left" : "right"}>
@@ -126,7 +128,7 @@ const ChatBubble = ({
                             </DropdownMenuItem>
                             {isMine && (
                                 <>
-                                    <DropdownMenuItem onClick={() => onEdit(message)}>
+                                    <DropdownMenuItem onClick={() => onEdit(message._id as string, message.content)}>
                                         <Edit className="w-4 h-4 mr-2" /> Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => onDelete(message._id as string)}>

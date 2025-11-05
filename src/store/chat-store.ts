@@ -23,6 +23,8 @@ interface ChatStore {
     addMessage: (msg: MessageType) => void;
     replaceTempMessage: (tempId: string, newMsg: IMessagePopulated) => void;
     clearTempMessages: () => void;
+    //updateMessageReactions: (id: string, reactions: string[]) => void;
+    updateEditedMessage: (updatedMessage: IMessagePopulated) => void;
 
 
     // conversation helpers
@@ -115,6 +117,19 @@ export const useConversationStore = create<ChatStore>((set, get) => ({
                     ? { ...conv, unreadCount: (conv.unreadCount || 0) + 1 }
                     : conv
             ) as (IConversation & { unreadCount?: number })[],
+        })),
+    //     updateMessageReactions: (id, reactions) =>
+    //   set((state) => ({
+    //     messages: state.messages.map((m) =>
+    //       m._id === id ? { ...m, reactions } : m
+    //     ),
+    //   })),
+
+    updateEditedMessage: (updatedMessage) =>
+        set((state) => ({
+            messages: state.messages.map((m) =>
+                m._id === updatedMessage._id ? updatedMessage : m
+            ),
         })),
 
     clearUnread: (conversationId) =>
