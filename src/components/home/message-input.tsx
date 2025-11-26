@@ -5,7 +5,7 @@ import { Laugh, Mic, Plus, Send, Image as ImageIcon } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { getMe } from "@/lib/api";
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from "@/store/chat-store";
 import { socket } from "@/lib/socketClient";
 import { IUser } from "@/models/User";
 import { ImageUpload } from "./ImageUpload";
@@ -32,8 +32,8 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
     const [showImageUpload, setShowImageUpload] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { addMessage, updateLastMessage, replaceTempMessage } = useConversationStore();
-    const sel = useConversationStore((s) => s.selectedConversation);
+    const { addMessage, updateLastMessage, replaceTempMessage } = useChatStore();
+    const sel = useChatStore((s) => s.selectedConversation);
     const isOnline = useNetworkStatus();
     const { addToQueue } = useOfflineStore();
 
@@ -88,7 +88,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             timestamp: new Date().toISOString(),
         };
 
-        addMessage(tempMessage);
+        addMessage(tempId, tempMessage);
         updateLastMessage(tempMessage.conversationId, tempMessage);
         setMsgText("");
 
@@ -117,7 +117,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             if (!res.ok) throw new Error("Failed to send message");
             const message = await res.json();
 
-            replaceTempMessage(tempId, message);
+            replaceTempMessage(String(sel._id), tempId, message);
             socket.emit("message:send", message);
         } catch (err) {
             console.error("Send message failed:", err);
@@ -144,7 +144,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             if (!res.ok) throw new Error("Failed to send image message");
 
             const message = await res.json();
-            addMessage(message);
+            addMessage(String(sel._id), message);
             socket.emit("message:send", message);
             toast.success("Image sent successfully!");
             setShowImageUpload(false);

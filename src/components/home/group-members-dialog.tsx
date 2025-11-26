@@ -7,10 +7,10 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Crown } from "lucide-react";
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from "@/store/chat-store";
 
 const GroupMembersDialog = () => {
-    const { selectedConversation } = useConversationStore();
+    const { selectedConversation } = useChatStore();
     const members = selectedConversation?.participants || [];
 
     return (

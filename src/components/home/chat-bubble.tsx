@@ -1,6 +1,6 @@
 import { IMessage, IMessagePopulated } from "@/models/Message";
 import ChatBubbleAvatar from "./chat-bubble-avatar";
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from "@/store/chat-store";
 import { Image } from "@imagekit/next";
 import { ITempMessage } from "@/models/TempMessage";
 import {
@@ -66,7 +66,7 @@ const ChatBubble = ({
     onReply,
     onReact,
 }: ChatBubbleProps) => {
-    const { selectedConversation } = useConversationStore();
+    const { selectedConversation } = useChatStore();
     const [showReactions, setShowReactions] = useState(false);
 
     const isMine =

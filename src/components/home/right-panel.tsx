@@ -5,14 +5,14 @@ import MessageInput from "./message-input";
 import MessageContainer from "./message-container";
 import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import GroupMembersDialog from "./group-members-dialog";
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
 //import { useConversationId } from "@/hooks/useConversationId";
 
 const RightPanel = () => {
     const { data: session } = useSession();
     const currentUserEmail = session?.user?.email;
-    const { selectedConversation, setSelectedConversation } = useConversationStore()
+    const { selectedConversation, setSelectedConversation } = useChatStore()
     if (!selectedConversation) return <ChatPlaceHolder />;
     //console.log(selectedConversation)
     const otherUser = selectedConversation.participants.find(
@@ -46,7 +46,7 @@ const RightPanel = () => {
                 </div>
             </div>
             {/* CHAT MESSAGES */}
-            <MessageContainer />
+            <MessageContainer conversationId={String(selectedConversation._id)} />
 
             {/* INPUT */}
             <MessageInput onSend={() => { }} />

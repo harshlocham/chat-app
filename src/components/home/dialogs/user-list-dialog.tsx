@@ -13,12 +13,11 @@ import { Button } from "../../ui/button";
 import { ImageIcon, MessageSquareDiff } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from "@/store/chat-store";
 import { getMe, getUsers, createConversation } from "@/lib/api";
-
 import { useEffect, useRef, useState } from "react";
 import { UserItem } from "./UserItem";
-import { IConversation } from "@/models/Conversation";
+import { IConversationPopulated } from "@/models/Conversation";
 import { upload } from "@imagekit/next";
 import { IUser } from "@/models/User";
 
@@ -32,7 +31,7 @@ const UserListDialog = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const dialogCloseRef = useRef<HTMLButtonElement>(null);
-    const { setSelectedConversation } = useConversationStore();
+    const { setSelectedConversation } = useChatStore();
 
     // 🔁 Load users
     useEffect(() => {
@@ -121,7 +120,7 @@ const UserListDialog = () => {
             };
 
             // Fix: Ensure newConversation is of type IConversation
-            setSelectedConversation(newConversation as IConversation);
+            setSelectedConversation(newConversation as IConversationPopulated);
             dialogCloseRef.current?.click();
 
             setSelectedUsers([]);

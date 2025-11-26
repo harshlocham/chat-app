@@ -4,14 +4,14 @@ import { useEffect, useRef } from "react";
 import { useOfflineStore } from "@/store/offline-store";
 import { useNetworkStatus } from "./useNetworkStatus";
 import { socket } from "@/lib/socketClient";
-import { useConversationStore } from "@/store/conversation-store"; // adjust import path
+import useChatStore from "@/store/chat-store"; // adjust import path
 import toast from "react-hot-toast";
 
 export function useOfflineMessageSync() {
     const isOnline = useNetworkStatus();
     const { offlineQueue, loadQueue, removeFromQueue } = useOfflineStore();
     const isResending = useRef(false);
-    const { replaceTempMessage } = useConversationStore();
+    const { replaceTempMessage } = useChatStore();
 
     // Load messages from IndexedDB once
     useEffect(() => {
@@ -47,7 +47,7 @@ export function useOfflineMessageSync() {
 
                         const savedMsg = await res.json();
                         socket.emit("message:send", savedMsg);
-                        replaceTempMessage(msg.tempId, savedMsg);
+                        replaceTempMessage(msg.conversationId, msg.tempId, savedMsg);
                         await removeFromQueue(msg.tempId);
 
                         console.log(`[OfflineSync] Sent message ${msg.tempId}`);

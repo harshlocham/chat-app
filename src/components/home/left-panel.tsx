@@ -10,10 +10,10 @@ import UserListDialog from './dialogs/user-list-dialog';
 import UserProfile from './userProfile';
 import { getConversations } from '@/lib/api'; // 👈 must exist in your API
 import { IConversationPopulated } from '@/models/Conversation';
-import { useConversationStore } from "@/store/conversation-store";
+import useChatStore from '@/store/chat-store';
 
 const LeftPanel = () => {
-    const { setSelectedConversation } = useConversationStore();
+    const { setSelectedConversation } = useChatStore();
     const [conversations, setConversations] = useState<IConversationPopulated[]>([]);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');

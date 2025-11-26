@@ -3,11 +3,11 @@ import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MessageSeenSvg } from "@/lib/svgs";
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
-import { useConversationStore } from "@/store/conversation-store";
 import { IConversationPopulated } from "@/models/Conversation";
 import { useSession } from "next-auth/react";
 import { getAvatarUrl } from "../../../utils/imagekit";
 import { useUser } from "@/context/UserContext";
+import useChatStore from "@/store/chat-store";
 
 const Conversation = ({ conversation }: { conversation: IConversationPopulated }) => {
     const { data: session } = useSession();
@@ -25,7 +25,7 @@ const Conversation = ({ conversation }: { conversation: IConversationPopulated }
 
     const lastMessage = conversation.lastMessage;
     const lastMessageType = lastMessage?.messageType;
-    const { setSelectedConversation, selectedConversation } = useConversationStore();
+    const { setSelectedConversation, selectedConversation } = useChatStore();
     const activeBgClass = selectedConversation?._id === conversation._id;
     const { user } = useUser();
 
