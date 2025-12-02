@@ -8,7 +8,7 @@ import ThemeSwitch from './theme-switch';
 import Conversation from './conversation';
 import UserListDialog from './dialogs/user-list-dialog';
 import UserProfile from './userProfile';
-import { getConversations } from '@/lib/api'; // 👈 must exist in your API
+import { getConversations } from '@/lib/utils/api'; // 👈 must exist in your API
 import { IConversationPopulated } from '@/models/Conversation';
 import useChatStore from '@/store/chat-store';
 

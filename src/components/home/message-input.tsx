@@ -4,9 +4,9 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Laugh, Mic, Plus, Send, Image as ImageIcon } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { getMe } from "@/lib/api";
+import { getMe } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
-import { socket } from "@/lib/socketClient";
+import { socket } from "@/lib/socket/socketClient";
 import { IUser } from "@/models/User";
 import { ImageUpload } from "./ImageUpload";
 import { toast } from "sonner"

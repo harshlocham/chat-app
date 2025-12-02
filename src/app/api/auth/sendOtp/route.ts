@@ -1,9 +1,9 @@
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 import Otp from "@/models/OTP";
-import { sendOtpEmail } from "@/lib/sendOtp";
+import { sendOtpEmail } from "@/lib/utils/sendOtp";
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { authRateLimiter } from "@/lib/rateLimiter"
+import { authRateLimiter } from "@/lib/utils/rateLimiter"
 
 export async function POST(req: NextRequest) {
     try {

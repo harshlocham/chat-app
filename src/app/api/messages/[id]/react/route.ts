@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {

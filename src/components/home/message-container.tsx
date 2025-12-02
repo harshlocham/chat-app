@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import useChatStore from "@/store/chat-store";
-import { socket } from "@/lib/socketClient";
+import { socket } from "@/lib/socket/socketClient";
 import { IMessage, IMessagePopulated } from "@/models/Message";
 import ChatBubble from "./chat-bubble";
 import ChatDaySeparator from "./ChatDaySeparator";
 import { useUser } from "@/context/UserContext";
 import { ITempMessage } from "@/models/TempMessage";
-import { deleteMessage } from "@/lib/api";
+import { deleteMessage } from "@/lib/utils/api";
 import useSocketStore from "@/store/useSocketStore";
 
 

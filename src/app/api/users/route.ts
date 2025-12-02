@@ -1,7 +1,7 @@
 // /pages/api/users.ts
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
 
 

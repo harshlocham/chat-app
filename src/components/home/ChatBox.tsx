@@ -1,7 +1,7 @@
 // src/components/ChatBox.tsx
 "use client";
 
-import { socket } from "@/lib/socketClient";
+import { socket } from "@/lib/socket/socketClient";
 import { useEffect, useState } from "react";
 
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { User } from "@/models/User";
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 
 export async function PATCH(req: Request) {
     const body = await req.json();

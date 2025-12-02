@@ -1,11 +1,11 @@
 'use client';
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { MessageSeenSvg } from "@/lib/svgs";
+import { MessageSeenSvg } from "@/lib/utils/svgs";
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
 import { IConversationPopulated } from "@/models/Conversation";
 import { useSession } from "next-auth/react";
-import { getAvatarUrl } from "../../../utils/imagekit";
+import { getAvatarUrl } from "../../lib/utils/imagekit";
 import { useUser } from "@/context/UserContext";
 import useChatStore from "@/store/chat-store";
 

@@ -1,5 +1,5 @@
 // src/app/api/test-db/route.ts
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 import { NextResponse } from "next/server";
 
 export async function GET() {

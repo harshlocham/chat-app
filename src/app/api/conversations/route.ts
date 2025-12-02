@@ -1,7 +1,7 @@
 // /pages/api/conversations.ts
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
+import { connectToDatabase } from "@/lib/Db/db";
 import { Conversation } from "@/models/Conversation";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";

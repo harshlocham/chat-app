@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { toggleBan, changePermission } from "@/lib/api";
+import { toggleBan, changePermission } from "@/lib/utils/api";
 
 type User = {
     _id: string;

@@ -4,7 +4,7 @@ import { CreateMessageSchema } from "@/lib/validators/ message.schema";
 import { getPaginatedMessages } from "@/lib/repositories/message.repo";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { messageRateLimiter } from "@/lib/rateLimiter";
+import { messageRateLimiter } from "@/lib/utils/rateLimiter";
 
 export async function POST(req: NextRequest) {
     try {

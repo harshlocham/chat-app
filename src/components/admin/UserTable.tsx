@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { UserActions } from "./UserActions";
-import { getUsers } from "@/lib/api";
+import { getUsers } from "@/lib/utils/api";
 
 type User = {
     _id: string;
