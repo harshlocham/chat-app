@@ -3,10 +3,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import AppleProvider from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
-import { connectToDatabase } from "./Db/db";
+import { connectToDatabase } from "../Db/db";
 import { User } from "@/models/User";
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
-import clientPromise from "./mongo";
+import clientPromise from "../Db/mongo";
 import { loginRateLimiter } from "./rateLimiter";
 import { headers } from "next/headers";
 

@@ -21,6 +21,7 @@ export interface IMessage {
     timestamp: Date;
     conversationId: mongoose.Types.ObjectId;
     createdAt: Date;
+    seenBy?: mongoose.Types.ObjectId[];
 }
 
 // Fully populated version for FE usage
@@ -63,6 +64,7 @@ const MessageSchema = new Schema<IMessage>({
         default: "text",
     },
     timestamp: { type: Date, default: Date.now },
+    seenBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     conversationId: { type: Schema.Types.ObjectId, ref: "Conversation", required: true },
 });
 
