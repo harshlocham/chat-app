@@ -1,23 +1,32 @@
 // src/server/socket/handlers/presence/presence.handler.ts
-import { userConnected, userDisconnected } from "@/lib/services/presence.service";
-import { Socket, Server } from "socket.io";
+import type { Server as IOServer } from "socket.io";
+import {
+    ServerToClientEvents,
+    ClientToServerEvents,
+    SocketEvents,
+} from "@/server/socket/types/SocketEvents";
+import {
+    setOnline,
+    setOffline,
+} from "@/lib/services/presence.service";
 
-export default function presenceHandler(io: Server, socket: Socket) {
-    socket.on("user:online", (userId: string) => {
-        socket.data.userId = userId;
-        userConnected(userId, socket.id);
+type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
+type Socket = import("socket.io").Socket<
+    ClientToServerEvents,
+    ServerToClientEvents
+>;
 
-        io.emit("user:online", userId);
-    });
+export function presenceHandler(io: IO, socket: Socket) {
+    const userId = socket.data.user._id;
+
+    setOnline(userId, socket.id);
+    io.emit(SocketEvents.USER_ONLINE, { userId });
 
     socket.on("disconnect", () => {
-        const userId = socket.data.userId;
-        if (!userId) return;
-
-        userDisconnected(userId, socket.id);
-
-        if (!userDisconnected(userId, socket.id)) {
-            io.emit("user:offline", userId);
-        }
+        setOffline(userId);
+        io.emit(SocketEvents.USER_OFFLINE, {
+            userId,
+            lastSeen: new Date(),
+        });
     });
 }
