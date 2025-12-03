@@ -3,7 +3,7 @@ import * as messageRepo from "@/lib/repositories/message.repo";
 import { CreateMessageInput } from "../validators/ message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
-import Message, { IMessage } from "@/models/Message";
+import Message from "@/models/Message";
 
 export async function createMessage(data: CreateMessageInput) {
     // correctly map senderId → sender
