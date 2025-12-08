@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleCreateMessage } from "@/lib/controllers/message.controller";
+import { handleCreateMessage } from "@/lib/socket/controllers/message.controller";
 import { CreateMessageSchema } from "@/lib/validators/ message.schema";
 import { getPaginatedMessages } from "@/lib/repositories/message.repo";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/utils/auth";
 import { messageRateLimiter } from "@/lib/utils/rateLimiter";
 
 export async function POST(req: NextRequest) {
