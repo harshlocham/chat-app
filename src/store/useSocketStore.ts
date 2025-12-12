@@ -2,175 +2,91 @@
 "use client";
 
 import { create } from "zustand";
-import { socket } from "@/lib/socket/socketClient";
-import { IMessagePopulated } from "@/models/Message";
-import {
-    JoinConversationPayload,
-    LeaveConversationPayload,
-    SendMessagePayload,
-    EditMessagePayload,
-    DeleteMessagePayload,
-    ReactMessagePayload,
-    TypingPayload,
-    MessageDeletedPayload,
-    TypingUpdatePayload,
-    PresenceUpdatePayload,
-} from "@/types/socket";
-import { useConversationStore } from "./conversation-store";
+import { getSocket } from "@/lib/socket/socketClient";
+import { SocketEvents } from "@/server/socket/types/SocketEvents";
+import useChatStore from "./chat-store";
 
 interface SocketState {
     connected: boolean;
     currentConversationId: string | null;
-    onlineUsers: Set<string>;
-    typingUsers: Record<string, Set<string>>; // conversationId -> set<userId>
+    onlineUsers: string[];
+    typingUsers: Record<string, string[]>; // conversationId -> userIds[]
 
     connect: () => void;
     disconnect: () => void;
-    joinConversation: (payload: JoinConversationPayload) => void;
-    leaveConversation: (payload: LeaveConversationPayload) => void;
-    sendMessage: (payload: SendMessagePayload) => void;
-    editMessage: (payload: EditMessagePayload) => void;
-    deleteMessage: (payload: DeleteMessagePayload) => void;
-    reactToMessage: (payload: ReactMessagePayload) => void;
-    startTyping: (payload: TypingPayload) => void;
-    stopTyping: (payload: TypingPayload) => void;
+    joinConversation: (conversationId: string) => void;
+    leaveConversation: (conversationId: string) => void;
+
+    startTyping: (conversationId: string, userId: string) => void;
+    stopTyping: (conversationId: string, userId: string) => void;
+
+    sendMessage: (payload: any) => void;
 }
 
-const useSocketStore = create<SocketState>((set, get) => {
-    // Attach listeners only once
-    if (!socket.hasListeners("connect")) {
-        socket.on("connect", () => {
-            set({ connected: true });
-        });
+const useSocketStore = create<SocketState>((set, get) => ({
+    connected: false,
+    currentConversationId: null,
+    onlineUsers: [],
+    typingUsers: {},
 
-        socket.on("disconnect", () => {
-            set({ connected: false });
-        });
+    connect: () => {
+        const socket = getSocket();
+        if (!socket.connected) socket.connect();
+    },
 
-        // ----- message:new -----
-        socket.on("message:new", (message: IMessagePopulated) => {
-            useConversationStore.getState().addMessage(message);
-        });
+    disconnect: () => {
+        const socket = getSocket();
+        if (socket.connected) socket.disconnect();
+    },
 
-        // ----- message:updated (edit) -----
-        socket.on("message:updated", (message: IMessagePopulated) => {
-            useConversationStore.getState().updateMessage(message);
-        });
+    joinConversation: (conversationId) => {
+        const socket = getSocket();
+        const prev = get().currentConversationId;
 
-        // ----- message:deleted -----
-        socket.on(
-            "message:deleted",
-            ({ messageId, conversationId }: MessageDeletedPayload) => {
-                useConversationStore.getState().removeMessage(messageId);
-            }
-        );
+        if (prev && prev !== conversationId) {
+            socket.emit(SocketEvents.CONVERSATION_LEAVE, { conversationId: prev });
+        }
 
-        // ----- message:reaction:updated -----
-        socket.on(
-            "message:reaction:updated",
-            (message: IMessagePopulated) => {
-                useConversationStore.getState().updateMessage(message);
-            }
-        );
+        socket.emit(SocketEvents.CONVERSATION_JOIN, { conversationId });
+        set({ currentConversationId: conversationId });
+    },
 
-        // ----- typing:update -----
-        socket.on(
-            "typing:update",
-            ({ conversationId, userId, isTyping }: TypingUpdatePayload) => {
-                set((state) => {
-                    const current = new Map(
-                        Object.entries(state.typingUsers).map(([cid, setUsers]) => [
-                            cid,
-                            new Set(setUsers),
-                        ])
-                    );
+    leaveConversation: (conversationId) => {
+        const socket = getSocket();
+        socket.emit(SocketEvents.CONVERSATION_LEAVE, { conversationId });
+        set({ currentConversationId: null });
+    },
 
-                    const setForConv = current.get(conversationId) || new Set<string>();
+    startTyping: (conversationId, userId) => {
+        const socket = getSocket();
+        socket.emit(SocketEvents.TYPING_START, { conversationId, userId });
+    },
 
-                    if (isTyping) {
-                        setForConv.add(userId);
-                    } else {
-                        setForConv.delete(userId);
-                    }
+    stopTyping: (conversationId, userId) => {
+        const socket = getSocket();
+        socket.emit(SocketEvents.TYPING_STOP, { conversationId, userId });
+    },
 
-                    current.set(conversationId, setForConv);
+    sendMessage: (payload) => {
+        const socket = getSocket();
+        socket.emit(SocketEvents.MESSAGE_NEW, payload);
 
-                    const obj: Record<string, Set<string>> = {};
-                    current.forEach((v, k) => (obj[k] = v));
-
-                    return { typingUsers: obj };
-                });
-            }
-        );
-
-        // ----- presence:update -----
-        socket.on("presence:update", ({ userId, status }: PresenceUpdatePayload) => {
-            set((state) => {
-                const online = new Set(state.onlineUsers);
-                if (status === "online") online.add(userId);
-                else online.delete(userId);
-                return { onlineUsers: online };
+        // Optimistic UI insert
+        if (payload.tempId) {
+            useChatStore.getState().addOptimisticMessage(payload.conversationId, {
+                _id: payload.tempId,
+                senderId: payload.senderId,
+                conversationId: payload.conversationId,
+                isDeleted: false,
+                content: payload.content,
+                messageType: payload.type,
+                createdAt: new Date().toISOString(),
+                status: "pending",
+                sender: payload.sender,
+                timestamp: new Date().toISOString(),
             });
-        });
-    }
-
-    return {
-        connected: false,
-        currentConversationId: null,
-        onlineUsers: new Set(),
-        typingUsers: {},
-
-        connect: () => {
-            if (!socket.connected) socket.connect();
-        },
-
-        disconnect: () => {
-            if (socket.connected) socket.disconnect();
-        },
-
-        joinConversation: ({ conversationId }) => {
-            const prev = get().currentConversationId;
-            if (prev && prev !== conversationId) {
-                socket.emit("conversation:leave", { conversationId: prev });
-            }
-
-            socket.emit("conversation:join", { conversationId });
-            set({ currentConversationId: conversationId });
-        },
-
-        leaveConversation: ({ conversationId }) => {
-            socket.emit("conversation:leave", { conversationId });
-            set({ currentConversationId: null });
-        },
-
-        sendMessage: (payload) => {
-            socket.emit("message:send", payload);
-            // Optional: optimistic add using tempId
-            // useChatStore.getState().addOptimisticMessage(payload);
-        },
-
-        editMessage: (payload) => {
-            socket.emit("message:edit", payload);
-        },
-
-        deleteMessage: (payload) => {
-            socket.emit("message:delete", payload);
-            // Optional optimistic remove:
-            useConversationStore.getState().removeMessage(payload.messageId);
-        },
-
-        reactToMessage: (payload) => {
-            socket.emit("message:react", payload);
-        },
-
-        startTyping: (payload) => {
-            socket.emit("typing:start", payload);
-        },
-
-        stopTyping: (payload) => {
-            socket.emit("typing:stop", payload);
-        },
-    };
-});
+        }
+    },
+}));
 
 export default useSocketStore;
