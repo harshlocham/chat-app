@@ -4,6 +4,7 @@ import { CreateMessageInput } from "../validators/ message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
 import Message from "@/models/Message";
+import { socket } from "@/lib/socket/socketClient";
 
 export async function createMessage(data: CreateMessageInput) {
     // correctly map senderId → sender
@@ -19,14 +20,14 @@ export async function createMessage(data: CreateMessageInput) {
     }
     conversation.lastMessage = toSave;
     conversation.lastMessage._creationTime = new Date();
-    await conversation.save();
+    const saved = await conversation.save();
 
     //console.log("🔊 [Service] Emitting to room", data.conversationId, toSave);
+    socket.emit("message:new", saved);
     return await messageRepo.saveMessage(toSave);
-
     // io.to(data.conversationId).emit("message:new", saved);
 
-    //return saved;
+    // return saved;
 }
 
 interface Reaction {
@@ -37,7 +38,7 @@ export async function updateMessageReaction({ messageId, emoji, userId }: { mess
     const msg = await Message.findById(messageId);
     if (!msg) return null;
 
-    let reaction = msg.reactions.find((r: Reaction) => r.emoji === emoji);
+    const reaction = msg.reactions.find((r: Reaction) => r.emoji === emoji);
 
     if (reaction) {
         // Toggle 
