@@ -48,7 +48,15 @@ interface ChatStore {
     setTyping: (conversationId: string, userId: string, isTyping: boolean) => void;
 }
 
-const useChatStore = create<ChatStore>((set, get) => ({
+const idOf = (m: { _id: any } | string): string => {
+    if (typeof m === "string") return m;
+    if (!m || m._id === undefined || m._id === null) return "";
+    return typeof m._id === "string" ? m._id : String(m._id);
+};
+
+const isTempId = (id: string) => id.startsWith("temp_");
+
+const useChatStore = create<ChatStore>((set) => ({
     selectedConversation: null,
     conversations: [],
     messagesByConversation: {},
@@ -57,14 +65,20 @@ const useChatStore = create<ChatStore>((set, get) => ({
     typingByConversation: {},
 
     setSelectedConversation: (conversation) => {
-        set((state) => ({
-            selectedConversation: conversation,
-            conversations: state.conversations.map((c) =>
-                c._id.toString() === conversation?._id.toString()
-                    ? { ...c, unreadCount: 0 }
-                    : c
-            ) as (IConversation & { unreadCount?: number })[],
-        }));
+        set((state) => {
+            // if conversation is null, just set selectedConversation null (don't touch unread counts)
+            if (!conversation) {
+                return { selectedConversation: null };
+            }
+
+            const convId = idOf(conversation);
+            return {
+                selectedConversation: conversation,
+                conversations: state.conversations.map((c) =>
+                    idOf(c) === convId ? { ...c, unreadCount: 0 } : c
+                ) as (IConversation & { unreadCount?: number })[],
+            };
+        });
     },
 
     setConversations: (convs) => set({ conversations: convs }),
@@ -81,25 +95,26 @@ const useChatStore = create<ChatStore>((set, get) => ({
         set((state) => {
             const prev = state.messagesByConversation[conversationId] || [];
 
-            const confirmedIds = new Set(msgs.map((m) => m._id.toString()));
+            // server-confirmed ids
+            const confirmedIds = new Set(msgs.map((m) => idOf(m)));
+
+            // pick existing temp messages that server hasn't confirmed
             const tempMessages = prev.filter(
-                (m) =>
-                    m._id.toString().startsWith("temp_") &&
-                    !confirmedIds.has(m._id.toString())
+                (m) => isTempId(idOf(m)) && !confirmedIds.has(idOf(m))
             );
 
-            const withoutTemp = prev.filter(
-                (m) => !m._id.toString().startsWith("temp_")
-            );
+            // existing non-temp messages (we will merge server msgs with these)
+            const existingNonTemp = prev.filter((m) => !isTempId(idOf(m)));
 
-            const merged = appendToTop
-                ? [...msgs, ...withoutTemp]
-                : [...withoutTemp, ...msgs];
+            // merge server msgs with existing non-temp (dedupe by id)
+            const base = appendToTop ? [...msgs, ...existingNonTemp] : [...existingNonTemp, ...msgs];
 
-            const combined = [...merged, ...tempMessages];
+            // append leftover temp messages at the end (so optimistic messages show until ack)
+            const combined = [...base, ...tempMessages];
 
+            // ensure uniqueness by id (preserve last occurrence)
             const unique = Array.from(
-                new Map(combined.map((m) => [m._id.toString(), m])).values()
+                new Map(combined.map((m) => [idOf(m), m])).values()
             ) as MessageType[];
 
             return {
@@ -113,10 +128,8 @@ const useChatStore = create<ChatStore>((set, get) => ({
     addOptimisticMessage: (conversationId, msg) =>
         set((state) => {
             const current = state.messagesByConversation[conversationId] || [];
-            const exists = current.some(
-                (m) => m._id.toString() === msg._id.toString()
-            );
-            if (exists) return {};
+            const exists = current.some((m) => idOf(m) === idOf(msg));
+            if (exists) return {}; // no-op
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
@@ -128,26 +141,25 @@ const useChatStore = create<ChatStore>((set, get) => ({
     addMessage: (conversationId, msg) =>
         set((state) => {
             const current = state.messagesByConversation[conversationId] || [];
-            const exists = current.some(
-                (m) => m._id.toString() === msg._id.toString()
-            );
-            const selectedId = state.selectedConversation?._id.toString();
+            const exists = current.some((m) => idOf(m) === idOf(msg));
+            const selectedId = state.selectedConversation ? idOf(state.selectedConversation) : undefined;
 
             let updatedConversations = state.conversations as (IConversation & { unreadCount?: number })[];
 
             if (conversationId !== selectedId) {
-                updatedConversations = state.conversations
-                    .map((conv) =>
-                        conv._id.toString() === conversationId
-                            ? { ...(conv as IConversation & { unreadCount?: number }), unreadCount: (conv.unreadCount || 0) + 1 }
-                            : (conv as IConversation & { unreadCount?: number })
-                    ) as (IConversation & { unreadCount?: number })[];
+                updatedConversations = state.conversations.map((conv) =>
+                    idOf(conv) === conversationId
+                        ? { ...(conv as IConversation & { unreadCount?: number }), unreadCount: (conv.unreadCount || 0) + 1 }
+                        : (conv as IConversation & { unreadCount?: number })
+                ) as (IConversation & { unreadCount?: number })[];
             }
 
-            if (exists)
+            if (exists) {
+                // message already present (could be temp or real) — only update conversations
                 return {
                     conversations: updatedConversations,
                 };
+            }
 
             return {
                 conversations: updatedConversations,
@@ -161,13 +173,21 @@ const useChatStore = create<ChatStore>((set, get) => ({
     replaceTempMessage: (conversationId, tempId, realMessage) =>
         set((state) => {
             const current = state.messagesByConversation[conversationId] || [];
-            const mapped = current.map((m) =>
-                m._id.toString() === tempId ? realMessage : m
-            );
-            const exists = mapped.some(
-                (m) => m._id.toString() === realMessage._id.toString()
-            );
-            if (!exists) mapped.push(realMessage);
+            // replace the temp entry if exists, otherwise just append the real message
+            let replaced = false;
+            const mapped = current
+                .map((m) => {
+                    if (idOf(m) === tempId) {
+                        replaced = true;
+                        return realMessage;
+                    }
+                    return m;
+                })
+                // remove any remaining temp duplicates of the same real id
+                .filter((m) => !(isTempId(idOf(m)) && idOf(m) === tempId));
+
+            const alreadyHasReal = mapped.some((m) => idOf(m) === idOf(realMessage));
+            if (!alreadyHasReal) mapped.push(realMessage);
 
             return {
                 messagesByConversation: {
@@ -184,7 +204,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
                 messagesByConversation: {
                     ...state.messagesByConversation,
                     [conversationId]: current.map((m) =>
-                        m._id.toString() === updated._id.toString() ? updated : m
+                        idOf(m) === idOf(updated) ? updated : m
                     ),
                 },
             };
@@ -196,9 +216,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: current.filter(
-                        (m) => m._id.toString() !== messageId
-                    ),
+                    [conversationId]: current.filter((m) => idOf(m) !== messageId),
                 },
             };
         }),
@@ -207,9 +225,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
         set((state) => {
             const current = state.messagesByConversation[conversationId] || [];
             const mapped = current.map((m) =>
-                m._id.toString() === updated._id.toString()
-                    ? ({ ...m, reactions: updated.reactions } as MessageType)
-                    : m
+                idOf(m) === idOf(updated) ? ({ ...m, reactions: updated.reactions } as MessageType) : m
             );
             return {
                 messagesByConversation: {
@@ -225,9 +241,7 @@ const useChatStore = create<ChatStore>((set, get) => ({
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: current.filter(
-                        (m) => !m._id.toString().startsWith("temp_")
-                    ),
+                    [conversationId]: current.filter((m) => !isTempId(idOf(m))),
                 },
             };
         }),
@@ -235,27 +249,21 @@ const useChatStore = create<ChatStore>((set, get) => ({
     updateLastMessage: (conversationId, message) =>
         set((state) => ({
             conversations: state.conversations.map((conv) =>
-                conv._id.toString() === conversationId
-                    ? { ...conv, lastMessage: message }
-                    : conv
+                idOf(conv) === conversationId ? { ...conv, lastMessage: message } : conv
             ) as (IConversation & { unreadCount?: number })[],
         })),
 
     incrementUnread: (conversationId) =>
         set((state) => ({
             conversations: state.conversations.map((conv) =>
-                conv._id.toString() === conversationId
-                    ? { ...conv, unreadCount: (conv.unreadCount || 0) + 1 }
-                    : conv
+                idOf(conv) === conversationId ? { ...conv, unreadCount: (conv.unreadCount || 0) + 1 } : conv
             ) as (IConversation & { unreadCount?: number })[],
         })),
 
     clearUnread: (conversationId) =>
         set((state) => ({
             conversations: state.conversations.map((conv) =>
-                conv._id.toString() === conversationId
-                    ? { ...conv, unreadCount: 0 }
-                    : conv
+                idOf(conv) === conversationId ? { ...conv, unreadCount: 0 } : conv
             ) as (IConversation & { unreadCount?: number })[],
         })),
 
