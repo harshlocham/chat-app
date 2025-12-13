@@ -16,7 +16,8 @@ export async function PATCH(
         const { id } = await params;
 
         await connectToDatabase();
-        const { newText } = await req.json();
+        const { content, newText } = await req.json();
+        const textToUpdate = content || newText; // Support both field names for compatibility
 
         const message = await Message.findById(id);
         if (!message) {
@@ -27,11 +28,17 @@ export async function PATCH(
             return NextResponse.json({ error: "Not allowed" }, { status: 403 });
         }
 
-        message.text = newText;
+        message.content = textToUpdate;
         message.isEdited = true;
         await message.save();
 
-        return NextResponse.json({ success: true, message });
+        // Populate the message before returning
+        const populated = await Message.findById(message._id)
+            .populate("sender")
+            .populate("repliedTo")
+            .lean();
+
+        return NextResponse.json({ success: true, message: populated });
     } catch (error) {
         return NextResponse.json(
             { error: error || "Invalid input" },
