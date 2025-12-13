@@ -4,12 +4,12 @@ import { CreateMessageInput } from "../validators/ message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
 import Message from "@/models/Message";
-import { socket } from "@/lib/socket/socketClient";
+//import { socket } from "@/lib/socket/socketClient";
 
-export async function createMessage(data: CreateMessageInput) {
+export async function createMessage(data: CreateMessageInput, senderId: string) {
     // correctly map senderId → sender
     const toSave = {
-        sender: new Types.ObjectId(data.senderId),
+        sender: new Types.ObjectId(senderId),
         conversationId: new Types.ObjectId(data.conversationId),
         content: data.content,
         messageType: data.messageType ?? "text",
@@ -20,10 +20,10 @@ export async function createMessage(data: CreateMessageInput) {
     }
     conversation.lastMessage = toSave;
     conversation.lastMessage._creationTime = new Date();
-    const saved = await conversation.save();
+    await conversation.save();
 
     //console.log("🔊 [Service] Emitting to room", data.conversationId, toSave);
-    socket.emit("message:new", saved);
+    //socket.emit("message:new", saved);
     return await messageRepo.saveMessage(toSave);
     // io.to(data.conversationId).emit("message:new", saved);
 
