@@ -10,6 +10,7 @@ import { useUser } from "@/context/UserContext";
 import { ITempMessage } from "@/models/TempMessage";
 import { deleteMessage } from "@/lib/utils/api";
 import useSocketStore from "@/store/useSocketStore";
+import { MessageNewPayload } from "@/server/socket/types/SocketEvents";
 
 
 interface MessageContainerProps {
@@ -25,9 +26,6 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const { user } = useUser();
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
     const { connect, joinConversation, leaveConversation } = useSocketStore();
-
-    // 🕒 Store timeout IDs for each typing user
-    const typingTimeouts = useRef<{ [username: string]: NodeJS.Timeout }>({});
 
     const fetchMessages = useCallback(async (cursor?: string) => {
         if (!sel?._id) return;
@@ -45,16 +43,16 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     }, [sel?._id, setMessages, setHasMore]);
 
     useEffect(() => {
-        if (messagesByConversation[conversationId].length > 0 && bottomRef.current) {
+        if (messagesByConversation[conversationId]?.length > 0 && bottomRef.current) {
             bottomRef.current.scrollIntoView({ behavior: "auto" });
         }
-    }, [messagesByConversation[conversationId].length]);
+    }, [conversationId, messagesByConversation]);
 
     useEffect(() => {
         if (bottomRef.current) {
             bottomRef.current.scrollIntoView({ behavior: "smooth" });
         }
-    }, [messagesByConversation[conversationId].length]);
+    }, [conversationId, messagesByConversation]);
 
     useEffect(() => {
         fetchMessages();
@@ -65,54 +63,43 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     // SOCKET EVENTS
 
     useEffect(() => {
-        joinConversation({ conversationId });
+        joinConversation(conversationId);
 
         return () => {
-            leaveConversation({ conversationId });
+            leaveConversation(conversationId);
         };
     }, [conversationId, joinConversation, leaveConversation]);
 
 
     useEffect(() => {
         if (!sel?._id) return;
-        socket.emit('join', sel._id);
 
-        const handleNewMessage = (msg: IMessagePopulated) => addMessage(String(sel?._id), msg);
+        // JOIN
+        socket.emit("conversation:join", { conversationId: String(sel._id) });
 
-        const handleTyping = ({ username }: { username: string }) => {
-            // Add or refresh typing user
+        const handleNewMessage = (data: MessageNewPayload) => {
+            // If your store expects IMessagePopulated:
+            addMessage(String(sel._id), data as unknown as IMessagePopulated);
+        };
+
+        const handleTyping = ({ userId }: { userId: string }) => {
             setTypingUsers(prev => {
-                if (!prev.includes(username)) return [...prev, username];
+                if (!prev.includes(userId)) return [...prev, userId];
                 return prev;
             });
-
-            // Clear any existing timeout for this user
-            if (typingTimeouts.current[username]) {
-                clearTimeout(typingTimeouts.current[username]);
-            }
-
-            // 🕒 Remove after 4 seconds if no further typing
-            typingTimeouts.current[username] = setTimeout(() => {
-                setTypingUsers(prev => prev.filter(u => u !== username));
-                delete typingTimeouts.current[username];
-            }, 1000);
         };
 
         const handleStopTyping = ({ userId }: { userId: string }) => {
             setTypingUsers(prev => prev.filter(u => u !== userId));
-            if (typingTimeouts.current[userId]) {
-                clearTimeout(typingTimeouts.current[userId]);
-                delete typingTimeouts.current[userId];
-            }
         };
 
-        socket.on('message:new', handleNewMessage);
-        socket.on('typing', handleTyping);
-        socket.on('stopTyping', handleStopTyping);
-        socket.on("message:deleted", ({ messageId, conversationId }) => {
+        socket.on("message:new", handleNewMessage);
+        socket.on("typing:start", handleTyping);
+        socket.on("typing:stop", handleStopTyping);
+
+        socket.on("message:delete", ({ messageId }) => {
             useChatStore.setState((state) => {
                 const msgs = state.messagesByConversation[conversationId] || [];
-
                 return {
                     messagesByConversation: {
                         ...state.messagesByConversation,
@@ -127,16 +114,13 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         });
 
         return () => {
-            socket.emit('leave', sel._id);
-            socket.off('message:new', handleNewMessage);
-            socket.off('typing', handleTyping);
-            socket.off('stopTyping', handleStopTyping);
-
-            // Cleanup all timers
-            Object.values(typingTimeouts.current).forEach(clearTimeout);
-            typingTimeouts.current = {};
+            socket.emit("conversation:leave", { conversationId: String(sel._id) });
+            socket.off("message:new", handleNewMessage);
+            socket.off("typing:start", handleTyping);
+            socket.off("typing:stop", handleStopTyping);
         };
-    }, [sel?._id, addMessage]);
+    }, [sel?._id, addMessage, conversationId]);
+
 
     const typingText =
         typingUsers.length === 0
@@ -149,7 +133,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         <div className="relative p-3 flex-1 overflow-auto h-full bg-chat-tile-light dark:bg-chat-tile-dark">
             <div className="mx-12 flex flex-col gap-3 h-full">
                 <div ref={topRef} />
-                {user && messagesByConversation[conversationId].map((msg) => {
+                {user && (messagesByConversation[conversationId] ?? []).map((msg) => {
                     const msgDate = new Date(msg.timestamp);
                     const dayKey = msgDate.toDateString();
                     const showSeparator = lastDate !== dayKey;
@@ -161,10 +145,10 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                             <ChatBubble
                                 message={msg as ITempMessage | IMessage}
                                 currentUserId={user?._id?.toString()}
-                                onEdit={(id: string, newText: string) => socket.emit('message:edit', { messageId: id, content: newText })}
+                                onEdit={(id: string, newText: string) => socket.emit('message:edit', { messageId: id, text: newText })}
                                 onDelete={deleteMessage}
                                 onReply={() => { }}
-                                onReact={(id, emoji) => socket.emit('message:react', { messageId: id, emoji })}
+                                onReact={(id, emoji) => socket.emit('message:reaction', { userId: user?._id?.toString(), messageId: String(id), emoji })} // 👈 socket.emit
                             />
                         </div>
                     );
