@@ -57,11 +57,11 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
     const handleTyping = useCallback(
         (conversationId: string) => {
             if (!me) return;
-            socket.emit("typing", conversationId, me.username);
+            socket.emit("typing:start", { conversationId, userId: String(me._id) });
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
             typingTimeoutRef.current = setTimeout(() => {
-                socket.emit("stopTyping", conversationId, me.username);
+                socket.emit("typing:stop", { conversationId: conversationId, userId: String(me._id) });
             }, 2000);
         },
         [me]
@@ -105,7 +105,6 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
                 body: JSON.stringify({
                     content: tempMessage.content,
                     conversationId: sel._id,
-                    senderId: me._id,
                 }),
             });
 
@@ -118,7 +117,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             const message = await res.json();
 
             replaceTempMessage(String(sel._id), tempId, message);
-            socket.emit("message:send", message);
+            socket.emit("message:new", message);
         } catch (err) {
             console.error("Send message failed:", err);
             toast.error("Message failed to send");
@@ -145,7 +144,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
 
             const message = await res.json();
             addMessage(String(sel._id), message);
-            socket.emit("message:send", message);
+            socket.emit("message:new", message);
             toast.success("Image sent successfully!");
             setShowImageUpload(false);
         } catch (err) {
