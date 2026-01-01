@@ -1,6 +1,6 @@
 // models/Conversation.ts
 // models/Conversation.ts
-import mongoose, { Schema, model, models, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types } from 'mongoose';
 import { IUser } from './User';
 
 export interface ILastMessage {
@@ -55,4 +55,4 @@ export interface IConversationPopulated extends IConversation {
     participants: IUser[];
 }
 
-export const Conversation = models.Conversation || model<IConversation>('Conversation', conversationSchema);
+export const Conversation = mongoose.models.Conversation || model<IConversation>('Conversation', conversationSchema);

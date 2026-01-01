@@ -1,5 +1,5 @@
 // src/models/Message.ts
-import mongoose, { Schema, models } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { IUser } from "./User";
 
 export type MessageType = "text" | "image" | "video" | "audio" | "voice" | "file";
@@ -78,4 +78,4 @@ const MessageSchema = new Schema<IMessage>({
     conversationId: { type: Schema.Types.ObjectId, ref: "Conversation", required: true },
 });
 
-export default models.Message || mongoose.model<IMessage>("Message", MessageSchema);
+export default mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema);
