@@ -16,8 +16,12 @@ type Socket = import("socket.io").Socket<
     ServerToClientEvents
 >;
 
-export function presenceHandler(io: IO, socket: Socket) {
-    const userId = socket.data.user._id;
+export function presenceHandler(io: IO, socket: Socket, redis: any) {
+    const userId = socket.data.userId;
+    if (!userId) {
+        console.warn("presenceHandler: missing userId");
+        return;
+    };
 
     setOnline(userId, socket.id);
     io.emit(SocketEvents.USER_ONLINE, { userId });
