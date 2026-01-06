@@ -117,7 +117,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             const message = await res.json();
 
             replaceTempMessage(String(sel._id), tempId, message);
-            socket.emit("message:new", message);
+            socket.emit("message:send", message);
         } catch (err) {
             console.error("Send message failed:", err);
             toast.error("Message failed to send");
@@ -144,7 +144,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
 
             const message = await res.json();
             addMessage(String(sel._id), message);
-            socket.emit("message:new", message);
+            socket.emit("message:send", message);
             toast.success("Image sent successfully!");
             setShowImageUpload(false);
         } catch (err) {

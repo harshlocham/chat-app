@@ -22,7 +22,7 @@ export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 export function getSocket(): TypedSocket {
     if (!socketInstance) {
         socketInstance = io(SOCKET_URL, {
-            path: "/api/socket", // your pages/api/socket.ts
+            path: "/api/socket",
             autoConnect: false, // you control when to connect
             transports: ["websocket"], // prefer ws
             withCredentials: true,
