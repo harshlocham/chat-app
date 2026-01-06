@@ -39,7 +39,7 @@ const useSocketStore = create<SocketState>((set, get) => ({
         if (socket.connected) socket.disconnect();
     },
 
-    joinConversation: (conversationId) => {
+    joinConversation: (conversationId: string) => {
         const socket = getSocket();
         const prev = get().currentConversationId;
 
@@ -69,7 +69,7 @@ const useSocketStore = create<SocketState>((set, get) => ({
 
     sendMessage: (payload) => {
         const socket = getSocket();
-        socket.emit(SocketEvents.MESSAGE_NEW, payload);
+        socket.emit(SocketEvents.MESSAGE_SEND, payload);
 
         // Optimistic UI insert
         if (payload.tempId) {

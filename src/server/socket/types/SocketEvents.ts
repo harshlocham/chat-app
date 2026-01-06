@@ -1,12 +1,32 @@
 // ============================================================================
 // SOCKET EVENT CONSTANTS
+
+import mongoose from "mongoose";
+
 // ============================================================================
-
-import { IMessagePopulated } from "@/models/Message";
-
+//  interface IReaction {
+//     emoji: string;
+//     users: mongoose.Types.ObjectId[] | (mongoose.Types.ObjectId | IUser)[];
+// }
+interface IMessagePopulated {
+    _id: mongoose.Types.ObjectId;
+    sender: mongoose.Types.ObjectId; // populated or just id
+    content: string;
+    repliedTo?: mongoose.Types.ObjectId | IMessagePopulated;
+    //reactions?: IReaction[];
+    isEdited: boolean;
+    isDeleted: boolean;
+    //messageType: MessageType;
+    timestamp: Date;
+    conversationId: mongoose.Types.ObjectId;
+    createdAt: Date;
+    seenBy?: mongoose.Types.ObjectId[];
+    deliveredTo?: mongoose.Types.ObjectId[];
+}
 export const SocketEvents = {
     // ---------- MESSAGE ----------
     MESSAGE_NEW: "message:new",
+    MESSAGE_SEND: "message:send",
     MESSAGE_SEND_ACK: "message:send:ack",
     MESSAGE_FAILED: "message:failed",
     MESSAGE_RETRY: "message:retry",
@@ -18,6 +38,7 @@ export const SocketEvents = {
     MESSAGE_SEEN_UPDATE: "message:seen:update",      // server → clients
 
     MESSAGE_EDIT: "message:edit",
+    MESSAGE_EDITED: "message:edited",
     MESSAGE_DELETE: "message:delete",
     MESSAGE_UNSEND: "message:unsend",                // delete for everyone
     MESSAGE_REACTION: "message:reaction",
@@ -58,6 +79,8 @@ export const SocketEvents = {
     ERROR_MESSAGE: "error:message",
     ERROR_CALL: "error:call",
     ERROR_AUTH: "error:auth",
+    // admin
+
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
@@ -124,6 +147,7 @@ export interface MessageEditPayload {
 
 export interface MessageDeletePayload {
     messageId: string;
+    conversationId: string;
 }
 
 export interface MessageUnsendPayload {
@@ -273,6 +297,7 @@ export interface ServerToClientEvents {
     [SocketEvents.MESSAGE_DELIVERED_UPDATE]: (data: MessageDeliveredUpdatePayload) => void;
     [SocketEvents.MESSAGE_SEEN_UPDATE]: (data: MessageSeenUpdatePayload) => void;
     [SocketEvents.MESSAGE_EDIT]: (data: MessageEditPayload) => void;
+    [SocketEvents.MESSAGE_EDITED]: (data: IMessagePopulated) => void;
     [SocketEvents.MESSAGE_DELETE]: (data: MessageDeletePayload) => void;
     [SocketEvents.MESSAGE_UNSEND]: (data: MessageUnsendPayload) => void;
     [SocketEvents.MESSAGE_REACTION]: (data: MessageReactionPayload) => void;
@@ -320,7 +345,8 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
     // Messages
-    [SocketEvents.MESSAGE_NEW]: (data: MessageNewPayload) => void;
+    [SocketEvents.MESSAGE_SEND]: (data: MessageNewPayload) => void;
+    //[SocketEvents.MESSAGE_NEW]: (data: MessageNewPayload) => void;
     [SocketEvents.MESSAGE_RETRY]: (data: MessageRetryPayload) => void;
     [SocketEvents.MESSAGE_DELIVERED]: (data: MessageDeliveredPayload) => void;
     [SocketEvents.MESSAGE_SEEN]: (data: MessageSeenPayload) => void;
