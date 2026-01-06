@@ -16,7 +16,7 @@ type Socket = import("socket.io").Socket<
     ServerToClientEvents
 >;
 
-export function presenceHandler(io: IO, socket: Socket, redis: any) {
+export function presenceHandler(io: IO, socket: Socket) {
     const userId = socket.data.userId;
     if (!userId) {
         console.warn("presenceHandler: missing userId");
