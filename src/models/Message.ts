@@ -18,7 +18,7 @@ export interface IMessage {
     isEdited: boolean;
     isDeleted: boolean;
     messageType: MessageType;
-    timestamp: Date;
+    timestamp: Date | string;
     conversationId: mongoose.Types.ObjectId;
     createdAt: Date;
     seenBy?: mongoose.Types.ObjectId[];
@@ -34,7 +34,6 @@ export interface IMessagePopulated extends Omit<IMessage, "sender" | "repliedTo"
 // For optimistic UI / temp messages
 export interface ITempMessage extends Omit<IMessage, "_id" | "timestamp" | "createdAt"> {
     _id: string; // temp string id
-    timestamp: Date | string;
     createdAt: Date | string;
     isTemp?: boolean;
 }
