@@ -46,7 +46,6 @@ const useSocketStore = create<SocketState>((set, get) => ({
         if (prev && prev !== conversationId) {
             socket.emit(SocketEvents.CONVERSATION_LEAVE, { conversationId: prev });
         }
-
         socket.emit(SocketEvents.CONVERSATION_JOIN, { conversationId });
         set({ currentConversationId: conversationId });
     },
@@ -71,6 +70,7 @@ const useSocketStore = create<SocketState>((set, get) => ({
         const socket = getSocket();
         socket.emit(SocketEvents.MESSAGE_SEND, payload);
 
+
         // Optimistic UI insert
         if (payload.tempId) {
             useChatStore.getState().addOptimisticMessage(payload.conversationId, {
@@ -80,7 +80,6 @@ const useSocketStore = create<SocketState>((set, get) => ({
                 isDeleted: false,
                 content: payload.content,
                 messageType: payload.type,
-                createdAt: new Date().toISOString(),
                 status: "pending",
                 sender: payload.sender,
                 timestamp: new Date().toISOString(),

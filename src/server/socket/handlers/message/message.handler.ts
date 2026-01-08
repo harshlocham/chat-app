@@ -37,7 +37,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
         }
         const room = `conversation:${message.conversationId}`;
 
-        io.to(room).emit(SocketEvents.MESSAGE_NEW);
+        io.to(room).emit(SocketEvents.MESSAGE_NEW, message);
         io.to("admins").emit("dashboard:update", { totalMessagesToday: 1 });
         if (ack) ack({ status: "ok", message: "Delivered" });
     });
