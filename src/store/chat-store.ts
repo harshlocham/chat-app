@@ -1,7 +1,7 @@
 // src/store/chat-store.ts
 import { create } from "zustand";
 import { IConversation, IConversationPopulated } from "@/models/Conversation";
-import { IMessagePopulated } from "@/models/Message";
+import { IMessage, IMessagePopulated } from "@/models/Message";
 import { ITempMessage } from "@/models/TempMessage";
 
 type MessageType = IMessagePopulated | ITempMessage;
@@ -46,6 +46,9 @@ interface ChatStore {
 
     // typing
     setTyping: (conversationId: string, userId: string, isTyping: boolean) => void;
+    editingMessage: IMessage | IMessagePopulated | ITempMessage | null;
+    setEditingMessage: (msg: ChatStore['editingMessage']) => void;
+    clearEditingMessage: () => void;
 }
 
 const idOf = (m: { _id: any } | string): string => {
@@ -280,6 +283,10 @@ const useChatStore = create<ChatStore>((set) => ({
                 },
             };
         }),
+    editingMessage: null,
+
+    setEditingMessage: (msg) => set({ editingMessage: msg }),
+    clearEditingMessage: () => set({ editingMessage: null }),
 }));
 
 export default useChatStore;

@@ -3,9 +3,9 @@
 
 import { create } from "zustand";
 import { getSocket } from "@/lib/socket/socketClient";
-import { SocketEvents } from "@/server/socket/types/SocketEvents";
+import { MessageEditPayload, SocketEvents } from "@/server/socket/types/SocketEvents";
 import useChatStore from "./chat-store";
-
+import { IMessagePopulated } from "@/models/Message";
 interface SocketState {
     connected: boolean;
     currentConversationId: string | null;
@@ -19,8 +19,8 @@ interface SocketState {
 
     startTyping: (conversationId: string, userId: string) => void;
     stopTyping: (conversationId: string, userId: string) => void;
-
     sendMessage: (payload: any) => void;
+    editMessageUpdate: (msg: MessageEditPayload) => void;
 }
 
 const useSocketStore = create<SocketState>((set, get) => ({
@@ -85,6 +85,10 @@ const useSocketStore = create<SocketState>((set, get) => ({
                 timestamp: new Date().toISOString(),
             });
         }
+    },
+    editMessageUpdate: (msg) => {
+        const socket = getSocket();
+        socket.emit("message:edit", msg);
     },
 }));
 
