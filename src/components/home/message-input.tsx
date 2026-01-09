@@ -17,7 +17,6 @@ import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
 import { MessageInputProps } from "@/models/Message";
 import useSocketStore from "@/store/useSocketStore";
-import { editMessageById } from "@/lib/services/message.service";
 
 // 🧠 Small debounce util
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
@@ -34,11 +33,11 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
     const [showImageUpload, setShowImageUpload] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage } = useChatStore();
+    const { addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage, updateEditedMessage } = useChatStore();
     const sel = useChatStore((s) => s.selectedConversation);
     const isOnline = useNetworkStatus();
     const { addToQueue } = useOfflineStore();
-    const { sendMessage, editMessageUpdate } = useSocketStore();
+    const { sendMessage } = useSocketStore();
     const socket = getSocket();
     // ✅ Rate limit handler
     const { isRateLimited, timeLeft, triggerRateLimit } = useRateLimitHandler(5000);
@@ -83,8 +82,21 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
         if (!msgText.trim() || !me || !sel?._id || isRateLimited) return;
 
         if (editingMessage) {
-            await editMessageById(String(editingMessage._id), msgText.trim());
-            //editMessageUpdate();
+            const res = await fetch(`/api/messages/${editingMessage._id}/edit`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    newText: msgText.trim(),
+                    messageId: editingMessage._id,
+                }),
+            });
+            if (!res.ok) throw new Error("Failed to edit message");
+            socket.emit("message:edit", {
+                conversationId: String(sel._id),
+                messageId: String(editingMessage._id),
+                text: msgText.trim(),
+            });
+            updateEditedMessage(String(sel._id), String(editingMessage._id), msgText.trim());
             clearEditingMessage();
             setMsgText("");
             return;
