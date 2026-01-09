@@ -5,7 +5,7 @@ import { SocketEvents } from "@/server/socket/types/SocketEvents";
 
 export default function messageEditHandler(io: Server, socket: Socket) {
     socket.on("message:edit", async (payload) => {
-
-        io.to(payload.conversationId).emit(SocketEvents.MESSAGE_EDITED, payload);
+        const room = `conversation:${payload.conversationId}`
+        io.to(room).emit(SocketEvents.MESSAGE_EDITED, payload);
     });
 }
