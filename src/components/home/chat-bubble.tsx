@@ -19,11 +19,12 @@ import {
 } from "lucide-react";
 import { ReactionBar } from "../chat/reaction-bar";
 import { IUser } from "@/models/User";
+import { Check, CheckCheck } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ChatBubbleProps {
     message: ITempMessage | IMessage | IMessagePopulated;
     currentUserId: string;
-    onEdit: (id: string, newText: string) => void;
     onDelete: (msgId: string) => void;
     onReply: (msg: IMessagePopulated | IMessage | ITempMessage) => void;
     onReact: (msg: IMessagePopulated | IMessage | ITempMessage, emoji: string) => void;
@@ -61,13 +62,16 @@ function getFileNameFromUrl(url: string) {
 const ChatBubble = ({
     message,
     currentUserId,
-    onEdit,
     onDelete,
     onReply,
     onReact,
 }: ChatBubbleProps) => {
-    const { selectedConversation } = useChatStore();
+    const { selectedConversation, setEditingMessage } = useChatStore();
     const [showReactions, setShowReactions] = useState(false);
+    // const status = getMessageStatus(
+    //     message,
+    //     selectedConversation?.members.length ?? 0
+    // );
 
     const isMine =
         typeof message.sender === "string"
@@ -224,26 +228,21 @@ const ChatBubble = ({
                         className={`absolute -top-3 ${isMine ? "right-4" : "left-4"
                             } flex gap-1 z-20`}
                     >
-                        {reactions!.map((reaction) => {
-                            const count = reaction.users?.length ?? 0;
-                            const reactedByMe = reaction.users?.some((u) =>
-                                typeof u === "string"
-                                    ? u === currentUserId
-                                    : u._id === currentUserId
-                            );
-                            return (
-                                <span
-                                    key={reaction.emoji}
-                                    className={`flex items-center rounded-full px-1.5 py-[2px] text-[10px] shadow-md bg-white/90 dark:bg-gray-900/90 border ${reactedByMe
-                                        ? "border-indigo-500"
-                                        : "border-gray-200 dark:border-gray-700"
-                                        }`}
+                        <AnimatePresence>
+                            {reactions.map((r) => (
+                                <motion.span
+                                    key={r.emoji}
+                                    initial={{ scale: 0, y: 6, opacity: 0 }}
+                                    animate={{ scale: 1, y: 0, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                                    className="px-2 py-[2px] text-[11px] rounded-full shadow bg-white dark:bg-gray-900"
                                 >
-                                    <span className="mr-0.5">{reaction.emoji}</span>
-                                    {count > 1 && <span>{count}</span>}
-                                </span>
-                            );
-                        })}
+                                    {r.emoji}
+                                    {r.users.length > 1 && ` ${r.users.length}`}
+                                </motion.span>
+                            ))}
+                        </AnimatePresence>
                     </div>
                 )}
 
@@ -282,13 +281,13 @@ const ChatBubble = ({
                                 </DropdownMenuItem>
                                 {isMine && (
                                     <>
-                                        <DropdownMenuItem
+                                        {message.messageType === "text" && (<DropdownMenuItem
                                             onClick={() =>
-                                                onEdit(message._id as string, message.content)
+                                                setEditingMessage(message)
                                             }
                                         >
                                             <Edit className="w-4 h-4 mr-2" /> Edit
-                                        </DropdownMenuItem>
+                                        </DropdownMenuItem>)}
                                         <DropdownMenuItem
                                             onClick={() => onDelete(message._id as string)}
                                         >
