@@ -19,16 +19,14 @@ export async function createMessage(data: CreateMessageInput, senderId: string) 
     if (!conversation) {
         throw new Error("Conversation not found");
     }
-    conversation.lastMessage = toSave;
-    conversation.lastMessage._creationTime = new Date();
-    await conversation.save();
-
     //console.log("🔊 [Service] Emitting to room", data.conversationId, toSave);
     //socket.emit("message:new", saved);
-    return await messageRepo.saveMessage(toSave);
+    const saved = await messageRepo.saveMessage(toSave);
+    conversation.lastMessage = saved;
+    await conversation.save();
     // io.to(data.conversationId).emit("message:new", saved);
 
-    // return saved;
+    return saved;
 }
 
 interface Reaction {
@@ -60,10 +58,13 @@ export async function updateMessageReaction({ messageId, emoji, userId }: { mess
     await msg.save();
 
     // Populate 
-    return await msg.populate([
-        { path: "sender", select: "username avatarUrl" },
-        { path: "repliedTo", populate: { path: "sender" } },
-    ]);
+    const updated = await Message.findById(messageId)
+        .populate([
+            { path: "sender", select: "username avatarUrl" },
+            { path: "repliedTo", populate: { path: "sender" } },
+        ])
+        .lean();
+    return updated;
 }
 export async function editMessageById(messageId: string, text: string) {
     const msg = await Message.findById(messageId);
@@ -74,8 +75,12 @@ export async function editMessageById(messageId: string, text: string) {
     await msg.save();
 
     // Populate 
-    return await msg.populate([
-        { path: "sender", select: "username avatarUrl" },
-        { path: "repliedTo", populate: { path: "sender" } },
-    ]);
+    const updated = await Message.findById(messageId)
+        .populate([
+            { path: "sender", select: "username avatarUrl" },
+            { path: "repliedTo", populate: { path: "sender" } },
+        ])
+        .lean();
+
+    return updated;
 }
