@@ -19,7 +19,7 @@ interface MessageContainerProps {
 }
 
 const MessageContainer = ({ conversationId }: MessageContainerProps) => {
-    const sel = useChatStore(s => s.selectedConversation);
+    const sel = useChatStore(s => s.selectedConversationId);
     let lastDate: string | null = null;
     const { messagesByConversation, addMessage, setMessages, setHasMore, updateEditedMessage, updateLastMessage } = useChatStore();
     const topRef = useRef<HTMLDivElement>(null);
@@ -29,19 +29,19 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const { connect, joinConversation, leaveConversation } = useSocketStore();
 
     const fetchMessages = useCallback(async (cursor?: string) => {
-        if (!sel?._id) return;
+        if (!sel) return;
         try {
             const res = await fetch(
-                `/api/messages?conversationId=${sel?._id}&cursor=${cursor || ""}`
+                `/api/messages?conversationId=${sel}&cursor=${cursor || ""}`
             );
             const data = await res.json() as IMessagePopulated[];
             const redata = data.reverse();
-            if (redata.length < 20) setHasMore(String(sel?._id), false);
-            setMessages(String(sel?._id), redata, !!cursor);
+            if (redata.length < 20) setHasMore(String(sel), false);
+            setMessages(String(sel), redata, !!cursor);
         } catch (err) {
             console.error("Failed to load messages", err);
         }
-    }, [sel?._id, setMessages, setHasMore]);
+    }, [sel, setMessages, setHasMore]);
 
     useEffect(() => {
         if (messagesByConversation[conversationId]?.length > 0 && bottomRef.current) {
@@ -57,7 +57,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
 
     useEffect(() => {
         fetchMessages();
-    }, [sel?._id, fetchMessages]);
+    }, [sel, fetchMessages]);
     useEffect(() => {
         connect();
     }, [connect]);
@@ -73,7 +73,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
 
 
     useEffect(() => {
-        if (!sel?._id) return;
+        if (!sel) return;
 
         // JOIN
 
@@ -83,12 +83,12 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
             if (!currentUserId) return;
 
             updateLastMessage(
-                String(sel._id),
+                String(sel),
                 data as unknown as IMessagePopulated
             );
 
             addMessage(
-                String(sel._id),
+                String(sel),
                 data as unknown as IMessagePopulated
             );
             // Only receivers mark delivered
@@ -98,6 +98,9 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         };
         const handleEditMessage = (data: MessageEditPayload) => {
             updateEditedMessage(data.conversationId, data.messageId, data.text);
+            useChatStore
+                .getState()
+                .updateEditedMessage(conversationId, data.messageId, data.text);
         }
 
         const handleTyping = ({ userId }: { userId: string }) => {
@@ -133,13 +136,13 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         });
 
         return () => {
-            socket.emit("conversation:leave", { conversationId: String(sel._id) });
+            socket.emit("conversation:leave", { conversationId: String(sel) });
             socket.off("message:new", handleNewMessage);
             socket.off("message:edit", handleEditMessage);
             socket.off("typing:start", handleTyping);
             socket.off("typing:stop", handleStopTyping);
         };
-    }, [sel?._id, addMessage, conversationId]);
+    }, [sel, addMessage, conversationId]);
 
 
     const typingText =
