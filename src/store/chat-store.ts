@@ -44,6 +44,10 @@ interface ChatStore {
     updateLastMessage: (conversationId: string, msg: MessageType) => void;
     incrementUnread: (conversationId: string) => void;
     clearUnread: (conversationId: string) => void;
+    receiveMessage: (payload: {
+        conversationId: string;
+        message: IMessage;
+    }) => void;
 
     // typing
     setTyping: (conversationId: string, userId: string, isTyping: boolean) => void;
@@ -305,6 +309,32 @@ const useChatStore = create<ChatStore>((set) => ({
 
     setEditingMessage: (msg) => set({ editingMessage: msg }),
     clearEditingMessage: () => set({ editingMessage: null }),
+    receiveMessage: ({ conversationId, message }) =>
+        set((state) => {
+            const isOpen = state.selectedConversationId === conversationId;
+
+            return {
+                messagesByConversation: isOpen
+                    ? {
+                        ...state.messagesByConversation,
+                        [conversationId]: [
+                            ...(state.messagesByConversation[conversationId] || []),
+                            message,
+                        ] as MessageType[],
+                    }
+                    : state.messagesByConversation,
+
+                conversations: state.conversations.map((c) =>
+                    String(c._id) === conversationId
+                        ? {
+                            ...c,
+                            lastMessage: message,
+                            unreadCount: isOpen ? 0 : (c.unreadCount || 0) + 1,
+                        }
+                        : c
+                ) as (IConversation & { unreadCount?: number })[],
+            };
+        }),
 }));
 
 export default useChatStore;
