@@ -1,10 +1,14 @@
 "use client";
 
 import { io, Socket } from "socket.io-client";
-import type {
-    ServerToClientEvents,
-    ClientToServerEvents,
+import {
+    type ServerToClientEvents,
+    type ClientToServerEvents,
+    SocketEvents,
 } from "@/server/socket/types/SocketEvents";
+import useChatStore from "@/store/chat-store";
+import { IMessagePopulated, MessageType } from "@/models/Message";
+import { ITempMessage } from "@/models/TempMessage";
 
 // You can configure this in .env.local
 const SOCKET_URL =
@@ -66,4 +70,18 @@ export function disconnectSocket() {
     if (s.connected) {
         s.disconnect();
     }
+}
+let listenersRegistered = false;
+export function registerGlobalSocketListeners() {
+    if (listenersRegistered) return;
+    listenersRegistered = true;
+
+    socket.on("message:new", (payload) => {
+        useChatStore.getState().receiveMessage({
+            conversationId: String(payload.conversationId),
+            message: payload.message,
+        });
+    });
+
+    // (future) typing, presence, edits, deletes
 }
