@@ -27,13 +27,13 @@ function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) 
     };
 }
 
-const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: MessageInputProps) => {
+const MessageInput = ({ replyTo }: MessageInputProps) => {
     const [msgText, setMsgText] = useState("");
     const [me, setMe] = useState<IUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage, updateEditedMessage } = useChatStore();
+    const { selectedConversation, addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage, updateEditedMessage } = useChatStore();
     const sel = useChatStore((s) => s.selectedConversationId);
     const isOnline = useNetworkStatus();
     const { addToQueue } = useOfflineStore();
@@ -41,6 +41,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
     const socket = getSocket();
     // ✅ Rate limit handler
     const { isRateLimited, timeLeft, triggerRateLimit } = useRateLimitHandler(5000);
+    const conversationmembers = selectedConversation?.participants.map(m => m._id);
 
     // ✅ Fetch logged-in user once
     useEffect(() => {
@@ -71,7 +72,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
                 socket.emit("typing:stop", { conversationId: conversationId, userId: String(me._id) });
             }, 2000);
         },
-        [me]
+        [me, socket]
     );
 
     const debouncedTyping = useMemo(() => debounce(handleTyping, 300), [handleTyping]);
@@ -143,7 +144,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
             if (!res.ok) throw new Error("Failed to send message");
             const message = await res.json();
 
-            sendMessage(message);
+            sendMessage(message, conversationmembers);
             updateLastMessage(String(sel), message);
             replaceTempMessage(String(sel), tempId, message);
         } catch (err) {
@@ -172,7 +173,7 @@ const MessageInput = ({ replyTo, onCancelReply, editMessage, onCancelEdit }: Mes
 
             const message = await res.json();
             addMessage(String(sel), message);
-            sendMessage(message);
+            sendMessage(message, conversationmembers);
             toast.success("Image sent successfully!");
             setShowImageUpload(false);
         } catch (err) {

@@ -142,7 +142,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
             socket.off("typing:start", handleTyping);
             socket.off("typing:stop", handleStopTyping);
         };
-    }, [sel, addMessage, conversationId]);
+    }, [user?._id, updateLastMessage, updateEditedMessage, sel, addMessage, conversationId]);
 
 
     const typingText =
