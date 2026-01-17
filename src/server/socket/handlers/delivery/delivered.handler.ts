@@ -4,7 +4,7 @@ import {
     type ServerToClientEvents,
     type ClientToServerEvents,
     SocketEvents,
-} from "@/server/socket/types/SocketEvents";
+} from "./../../types/SocketEvents.js";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<
@@ -13,8 +13,9 @@ type Socket = import("socket.io").Socket<
 >;
 
 export function deliveredHandler(io: IO, socket: Socket) {
-    socket.on(SocketEvents.MESSAGE_DELIVERED, async ({ messageId, userId, at }) => {
-
+    socket.on(SocketEvents.MESSAGE_DELIVERED, async ({ messageId, userId, at }: { messageId: string, userId: string, at: Date }) => {
+        if (!messageId || !userId || !at) return;
+        // TODO: Verify socket.data.userId owns this message before broadcasting
 
         io.to(`user:${userId}`).emit(
             SocketEvents.MESSAGE_DELIVERED_UPDATE,

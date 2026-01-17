@@ -1,8 +1,8 @@
 import { Server, Socket } from "socket.io";
-import { SocketEvents } from "@/server/socket/types/SocketEvents";
+import { SocketEvents } from "./../../types/SocketEvents.js";
 
 export function DeleteHandler(io: Server, socket: Socket) {
-    socket.on(SocketEvents.MESSAGE_DELETE, (payload) => {
+    socket.on(SocketEvents.MESSAGE_DELETE, (payload: { conversationId: string, messageId: string }) => {
         const { conversationId, messageId } = payload;
         if (!conversationId || !messageId) return;
         // TODO: Verify socket.data.userId owns this message before broadcasting

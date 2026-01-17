@@ -1,13 +1,14 @@
-import { initRedis } from "./redis";
-import { initIO } from "./io";
-import { socketAuth } from "./middleware/auth";
-import messageEditHandler from "./handlers/message/edit.handler";
-import { DeleteHandler } from "./handlers/message/delete.handler";
-import { adminHandler } from "./handlers/admin/admin";
-import { presenceHandler } from "./handlers/presence/presence.handler";
-import { registerMessageHandlers } from "./handlers/message/message.handler";
+import { initRedis } from "./redis.js";
+import { initIO } from "./io.js";
+import { socketAuth } from "./middleware/auth.js";
+import messageEditHandler from "./handlers/message/edit.handler.js";
+import { DeleteHandler } from "./handlers/message/delete.handler.js";
+import { adminHandler } from "./handlers/admin/admin.js";
+import { presenceHandler } from "./handlers/presence/presence.handler.js";
+import { registerMessageHandlers } from "./handlers/message/message.handler.js";
 
-import { typingHandler } from "./handlers/typing/typing.handler";
+import { typingHandler } from "./handlers/typing/typing.handler.js";
+import type { Socket } from "socket.io";
 //import { Server as SocketIOServer } from "socket.io";
 
 export async function initSocket(server: any) {
@@ -16,7 +17,7 @@ export async function initSocket(server: any) {
 
     io.use(socketAuth);
 
-    io.on("connection", (socket) => {
+    io.on("connection", (socket: Socket) => {
         const userId = socket.data.userId;
         socket.join(`user:${userId}`);
         console.log("🔌 socket connected:", socket.id);

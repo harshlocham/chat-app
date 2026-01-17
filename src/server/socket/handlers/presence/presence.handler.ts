@@ -4,11 +4,11 @@ import {
     ServerToClientEvents,
     ClientToServerEvents,
     SocketEvents,
-} from "@/server/socket/types/SocketEvents";
-import {
-    setOnline,
-    setOffline,
-} from "@/lib/services/presence.service";
+} from "./../../types/SocketEvents.js";
+// import {
+//     setOnline,
+//     setOffline,
+// } from "./../../../services/presence.service.js";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<
@@ -23,11 +23,11 @@ export function presenceHandler(io: IO, socket: Socket) {
         return;
     };
 
-    setOnline(userId, socket.id);
+    //setOnline(userId, socket.id);
     io.emit(SocketEvents.USER_ONLINE, { userId });
 
     socket.on("disconnect", () => {
-        setOffline(userId);
+        //setOffline(userId);
         io.emit(SocketEvents.USER_OFFLINE, {
             userId,
             lastSeen: new Date(),

@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { SocketEvents } from "@/server/socket/types/SocketEvents";
+import { MessageNewPayload, SocketEvents } from "./../../types/SocketEvents.js";
 
 export function registerMessageHandlers(io: Server, socket: Socket) {
     const conversationRoom = (id: string) => `conversation:${id}`;
@@ -7,7 +7,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
      * Join conversation room
      * Called after user opens a conversation
      */
-    socket.on(SocketEvents.CONVERSATION_JOIN, (payload) => {
+    socket.on(SocketEvents.CONVERSATION_JOIN, (payload: { conversationId: string }) => {
         const { conversationId } = payload;
         if (!conversationId) return;
 
@@ -17,7 +17,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
     /**
      * Leave conversation room
      */
-    socket.on(SocketEvents.CONVERSATION_LEAVE, (payload) => {
+    socket.on(SocketEvents.CONVERSATION_LEAVE, (payload: { conversationId: string }) => {
         const { conversationId } = payload;
         if (!conversationId) return;
 
@@ -31,16 +31,16 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
      * Payload already contains canonical DB message
      * Socket server just delivers it
      */
-    socket.on(SocketEvents.MESSAGE_SEND, (payload, ack) => {
-        const { message, members } = payload;
-        const { conversationId } = message;
+    socket.on(SocketEvents.MESSAGE_SEND, (payload: { data: MessageNewPayload, conversationMembers: string[] }, ack: (res: { ok: boolean; error?: string }) => void) => {
+        const { data, conversationMembers } = payload;
+        const { conversationId } = data;
         if (!conversationId) {
             return ack?.({ ok: false, error: "Invalid message payload" });
         }
-        members.forEach((userId: string) => {
+        conversationMembers.forEach((userId: string) => {
             io.to(`user:${userId}`).emit(SocketEvents.MESSAGE_NEW, {
                 conversationId,
-                message,
+                message: data,
             });
         });
         io.to("admins").emit("dashboard:update", { totalMessagesToday: 1 });
@@ -51,7 +51,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
      * MESSAGE_DELIVERED_UPDATE
      * 🔔 EMITTED BY API after DB update
      */
-    socket.on(SocketEvents.MESSAGE_DELIVERED_UPDATE, (payload) => {
+    socket.on(SocketEvents.MESSAGE_DELIVERED_UPDATE, (payload: { conversationId: string }) => {
         if (!payload?.conversationId) return;
 
         io
@@ -63,7 +63,7 @@ export function registerMessageHandlers(io: Server, socket: Socket) {
      * MESSAGE_SEEN_UPDATE
      * 🔔 EMITTED BY API after DB update
      */
-    socket.on(SocketEvents.MESSAGE_SEEN_UPDATE, (payload) => {
+    socket.on(SocketEvents.MESSAGE_SEEN_UPDATE, (payload: { conversationId: string }) => {
         // transport-only
         // no need to emit to clients
         if (!payload?.conversationId) return;

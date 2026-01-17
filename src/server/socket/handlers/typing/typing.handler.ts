@@ -6,7 +6,7 @@ import {
     //TypingStartPayload,
     // TypingStopPayload,
     SocketEvents,
-} from "@/server/socket/types/SocketEvents";
+} from "./../../types/SocketEvents.js";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<
@@ -15,7 +15,7 @@ type Socket = import("socket.io").Socket<
 >;
 
 export function typingHandler(io: IO, socket: Socket) {
-    socket.on(SocketEvents.TYPING_START, (payload) => {
+    socket.on(SocketEvents.TYPING_START, (payload: { conversationId: string }) => {
 
         const { conversationId } = payload;
 
@@ -25,7 +25,7 @@ export function typingHandler(io: IO, socket: Socket) {
         });
     });
 
-    socket.on(SocketEvents.TYPING_STOP, (payload) => {
+    socket.on(SocketEvents.TYPING_STOP, (payload: { conversationId: string }) => {
         const { conversationId } = payload;
 
         socket.to(conversationId).emit(SocketEvents.TYPING_STOP, {

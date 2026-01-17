@@ -8,7 +8,7 @@ import {
     CallEndPayload,
     CallRingingPayload,
     SocketEvents,
-} from "@/server/socket/types/SocketEvents";
+} from "./../../types/SocketEvents.js";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<

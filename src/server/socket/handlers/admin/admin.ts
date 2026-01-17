@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { RedisAdapterClients } from "../../redis";
+import { RedisAdapterClients } from "../../redis.js";
 
 const PRESENCE_KEY = "active_users";
 const MESSAGE_COUNT_KEY = "total_messages_today";
