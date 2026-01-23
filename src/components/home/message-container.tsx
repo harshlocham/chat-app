@@ -91,7 +91,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
 
             addMessage(
                 String(sel),
-                data as unknown as IMessagePopulated
+                data
             );
             // Only receivers mark delivered
             if (data.sender !== currentUserId) {

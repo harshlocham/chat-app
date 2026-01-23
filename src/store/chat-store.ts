@@ -1,22 +1,20 @@
 // src/store/chat-store.ts
 import { create } from "zustand";
-import { IMessage, IMessagePopulated } from "@/models/Message";
 import { ITempMessage } from "@/models/TempMessage";
-type MessageType = IMessagePopulated | ITempMessage;
 import { ClientConversation } from "@/types/client-conversation";
-import { IConversationPopulated } from "@/models/Conversation";
+import { UIMessage } from "@/types/ui-message";
 interface ChatStore {
     selectedConversationId: string | null;
     currentUserId: string | null;
-    selectedConversation: IConversationPopulated | null;
+    selectedConversation: ClientConversation | null;
     conversations: ClientConversation[];
-    messagesByConversation: Record<string, MessageType[]>;
+    messagesByConversation: Record<string, UIMessage[]>;
     hasMoreByConversation: Record<string, boolean>;
     onlineUsers: string[];
     typingByConversation: Record<string, string[]>; // conversationId -> userIds
 
     // setters
-    setSelectedConversation: (conversation: IConversationPopulated | null) => void;
+    setSelectedConversation: (conversation: ClientConversation | null) => void;
     setConversations: (convs: ClientConversation[]) => void;
     setHasMore: (conversationId: string, val: boolean) => void;
     setOnlineUsers: (users: string[]) => void;
@@ -24,35 +22,35 @@ interface ChatStore {
     // messages
     setMessages: (
         conversationId: string,
-        msgs: IMessagePopulated[],
+        msgs: UIMessage[],
         appendToTop?: boolean
     ) => void;
 
     addOptimisticMessage: (conversationId: string, msg: ITempMessage) => void;
-    addMessage: (conversationId: string, msg: IMessagePopulated | ITempMessage) => void;
+    addMessage: (conversationId: string, msg: UIMessage) => void;
     replaceTempMessage: (
         conversationId: string,
         tempId: string,
-        newMsg: IMessagePopulated
+        newMsg: UIMessage
     ) => void;
-    updateMessage: (conversationId: string, updated: IMessagePopulated) => void;
+    updateMessage: (conversationId: string, updated: UIMessage) => void;
     removeMessage: (conversationId: string, messageId: string) => void;
-    updateMessageReactions: (conversationId: string, updated: IMessagePopulated) => void;
+    updateMessageReactions: (conversationId: string, updated: UIMessage) => void;
     clearTempMessages: (conversationId: string) => void;
     updateEditedMessage: (conversationId: string, messageId: string, newText: string) => void;
 
     // conversation helpers
-    updateLastMessage: (conversationId: string, msg: MessageType) => void;
+    updateLastMessage: (conversationId: string, msg: UIMessage) => void;
     incrementUnread: (conversationId: string) => void;
     clearUnread: (conversationId: string) => void;
     receiveMessage: (payload: {
         conversationId: string;
-        message: MessageType;
+        message: UIMessage;
     }) => void;
 
     // typing
     setTyping: (conversationId: string, userId: string, isTyping: boolean) => void;
-    editingMessage: IMessage | IMessagePopulated | ITempMessage | null;
+    editingMessage: UIMessage | null;
     setEditingMessage: (msg: ChatStore['editingMessage']) => void;
     clearEditingMessage: () => void;
 }
@@ -95,32 +93,24 @@ const useChatStore = create<ChatStore>((set) => ({
         set((state) => {
             const prev = state.messagesByConversation[conversationId] || [];
 
-            // server-confirmed ids
-            const confirmedIds = new Set(msgs.map((m) => idOf(m)));
+            const confirmedIds = new Set(msgs.map(idOf));
 
-            // pick existing temp messages that server hasn't confirmed
             const tempMessages = prev.filter(
                 (m) => isTempId(idOf(m)) && !confirmedIds.has(idOf(m))
             );
 
-            // existing non-temp messages (we will merge server msgs with these)
-            const existingNonTemp = prev.filter((m) => !isTempId(idOf(m)));
+            const base = appendToTop
+                ? [...msgs, ...prev.filter((m) => !isTempId(idOf(m)))]
+                : [...prev.filter((m) => !isTempId(idOf(m))), ...msgs];
 
-            // merge server msgs with existing non-temp (dedupe by id)
-            const base = appendToTop ? [...msgs, ...existingNonTemp] : [...existingNonTemp, ...msgs];
-
-            // append leftover temp messages at the end (so optimistic messages show until ack)
             const combined = [...base, ...tempMessages];
-
-            // ensure uniqueness by id (preserve last occurrence)
-            const unique = Array.from(
-                new Map(combined.map((m) => [idOf(m), m])).values()
-            ) as MessageType[];
 
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: unique,
+                    [conversationId]: Array.from(
+                        new Map(combined.map((m) => [idOf(m), m])).values()
+                    ),
                 },
             };
         }),
@@ -252,12 +242,12 @@ const useChatStore = create<ChatStore>((set) => ({
         set((state) => {
             const current = state.messagesByConversation[conversationId] || [];
             const mapped = current.map((m) =>
-                idOf(m) === idOf(updated) ? ({ ...m, reactions: updated.reactions } as MessageType) : m
+                idOf(m) === idOf(updated) ? ({ ...m, reactions: updated.reactions } as UIMessage) : m
             );
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: mapped as MessageType[],
+                    [conversationId]: mapped,
                 },
             };
         }),
@@ -313,58 +303,46 @@ const useChatStore = create<ChatStore>((set) => ({
     clearEditingMessage: () => set({ editingMessage: null }),
     receiveMessage: ({ conversationId, message }) =>
         set((state) => {
-            const existingMessages =
-                state.messagesByConversation[conversationId] || [];
+            const existing = state.messagesByConversation[conversationId] || [];
 
-            // 1️⃣ Deduplicate safely
-            if (existingMessages.some((m) => idOf(m) === idOf(message))) {
+            if (existing.some((m) => idOf(m) === idOf(message))) {
                 return {};
             }
 
-            const updatedMessages = [...existingMessages, message];
+            const updatedMessages = [...existing, message];
 
             const isOpen = state.selectedConversationId === conversationId;
+
             const senderId =
                 typeof message.sender === "string"
                     ? message.sender
-                    : String((message.sender as any)?._id);
+                    : message.sender._id;
 
-            const isOwnMessage = senderId === state.currentUserId;
+            const isOwn = senderId === state.currentUserId;
 
-            // 2️⃣ Update conversations
-            const updatedConversations = state.conversations.map((conv) => {
-                if (idOf(conv) !== conversationId) return conv;
-
-                return {
-                    ...conv,
-                    lastMessage: message,
-                    unreadCount:
-                        !isOpen && !isOwnMessage
-                            ? (conv.unreadCount || 0) + 1
-                            : conv.unreadCount || 0,
-                };
-            }) as ClientConversation[];
-
-            // 3️⃣ Reorder conversation to top (safe)
-            const target = updatedConversations.find(
-                (c) => idOf(c) === conversationId
+            const conversations = state.conversations.map((conv) =>
+                conv._id === conversationId
+                    ? {
+                        ...conv,
+                        lastMessage: message,
+                        unreadCount:
+                            !isOpen && !isOwn
+                                ? (conv.unreadCount || 0) + 1
+                                : conv.unreadCount || 0,
+                    }
+                    : conv
             );
 
-            const reorderedConversations = target
-                ? [
-                    target,
-                    ...updatedConversations.filter(
-                        (c) => idOf(c) !== conversationId
-                    ),
-                ]
-                : updatedConversations;
+            const target = conversations.find((c) => c._id === conversationId);
 
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
                     [conversationId]: updatedMessages,
                 },
-                conversations: reorderedConversations,
+                conversations: target
+                    ? [target, ...conversations.filter((c) => c._id !== conversationId)]
+                    : conversations,
             };
         }),
 }));

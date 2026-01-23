@@ -31,6 +31,8 @@ export interface IMessage {
 export interface IMessagePopulated extends Omit<IMessage, "sender" | "repliedTo"> {
     sender: IUser;
     repliedTo?: IMessagePopulated;
+    createdAt: Date;
+    updatedAt?: Date;
 }
 
 // For optimistic UI / temp messages
