@@ -1,6 +1,6 @@
 import { IMessagePopulated } from "@/models/Message";
 import { ITempMessage } from "@/models/TempMessage";
-import { ClientMessage } from "@/types/client-message";
+import { ClientMessage, ClientReaction } from "@/types/client-message";
 import { UIMessage } from "@/types/ui-message";
 
 interface RawReply {
@@ -10,6 +10,15 @@ interface RawReply {
     senderId?: { toString(): string } | string;
     sender?: { _id?: { toString(): string } | string };
     toString?(): string;
+}
+interface UIReplyPreview {
+    _id: string;
+    content: string;
+    sender: {
+        _id: string;
+        username?: string;
+        profilePicture?: string;
+    };
 }
 
 export function toClientMessage(msg: IMessagePopulated): ClientMessage {
@@ -26,7 +35,7 @@ export function toClientMessage(msg: IMessagePopulated): ClientMessage {
                     profilePicture: msg.sender.profilePicture,
                 }
                 : msg.sender,
-        reactions: msg.reactions,
+        reactions: msg.reactions as unknown as ClientReaction[],
         repliedTo: msg.repliedTo ? toClientMessage(msg.repliedTo) : null,
         createdAt: msg.createdAt,
         isDeleted: msg.isDeleted,
@@ -38,16 +47,15 @@ export function fromTempMessage(msg: ITempMessage): UIMessage {
         _id: msg._id.toString(),
         conversationId: msg.conversationId,
 
-        senderId: String(msg.senderId),
+        senderId: msg.senderId.toString(),
         sender: {
-            _id: msg.sender._id,
+            _id: msg.sender._id.toString(),
             username: msg.sender.username,
             profilePicture: msg.sender.profilePicture,
         },
 
-        text: msg.content,
+        content: msg.content,
         messageType: msg.messageType,
-
         createdAt: msg.createdAt,
 
         isTemp: true,
@@ -56,29 +64,29 @@ export function fromTempMessage(msg: ITempMessage): UIMessage {
         repliedTo: normalizeReply(msg.repliedTo),
     };
 }
-function normalizeReply(repliedTo: RawReply | string | null | undefined) {
+function normalizeReply(
+    repliedTo: RawReply | string | null | undefined
+): UIReplyPreview | null {
     if (!repliedTo) return null;
 
-    // Case 1: already normalized
-    if (typeof repliedTo === "object" && "text" in repliedTo) {
+    // fully populated
+    if (typeof repliedTo === "object" && ("text" in repliedTo || "content" in repliedTo)) {
         return {
             _id: repliedTo._id?.toString() ?? "",
-            text: repliedTo.text ?? repliedTo.content ?? "",
-            senderId:
-                repliedTo.senderId?.toString() ??
-                repliedTo.sender?._id?.toString() ??
-                "",
+            content: repliedTo.text ?? repliedTo.content ?? "",
+            sender: {
+                _id:
+                    repliedTo.senderId?.toString() ??
+                    repliedTo.sender?._id?.toString() ??
+                    "",
+            },
         };
     }
 
-    // Case 2: raw ObjectId → drop content (feature mode)
-    if (typeof repliedTo === "string" || repliedTo?.toString) {
-        return {
-            _id: repliedTo,
-            text: "",
-            senderId: "",
-        };
-    }
-
-    return null;
+    // ObjectId only → fallback preview
+    return {
+        _id: repliedTo.toString(),
+        content: "",
+        sender: { _id: "" },
+    };
 }
