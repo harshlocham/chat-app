@@ -11,8 +11,9 @@ import { deleteMessage } from "@/lib/utils/api";
 import useSocketStore from "@/store/useSocketStore";
 import { MessageEditPayload, MessageNewPayload } from "@/shared/types/SocketEvents";
 import { markDelivered } from "@/lib/services/delivery.service";
-import { ClientMessage } from "@/types/client-message";
+import { ClientMessage } from "@/shared/types/client-message";
 import { UIMessage } from "@/shared/types/ui-message";
+import { isClientMessage } from "@/shared/utils/message.guard";
 
 
 interface MessageContainerProps {
@@ -79,19 +80,22 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         // JOIN
 
         const handleNewMessage = (data: MessageNewPayload) => {
-            console.log('handleNewMessage', data);
+            if (!isClientMessage(data)) {
+                console.error("Invalid message payload");
+                return;
+            }
             const currentUserId = user?._id?.toString();
 
             if (!currentUserId) return;
 
             updateLastMessage(
                 String(sel),
-                data as unknown as ClientMessage
+                data
             );
 
             addMessage(
                 String(sel),
-                data as unknown as UIMessage
+                data
             );
             // Only receivers mark delivered
             if (data.sender !== currentUserId) {
