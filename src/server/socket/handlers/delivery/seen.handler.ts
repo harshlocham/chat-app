@@ -1,6 +1,6 @@
 // src/server/socket/handlers/delivery/seen.handler.ts
 import { Socket, Server } from "socket.io";
-import { SocketEvents } from "../../types/SocketEvents.js";
+import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
 
 export const SeenHandler = (_io: Server, socket: Socket) => {
     socket.on(SocketEvents.MESSAGE_SEEN, (payload: { conversationId: string, messageId: string }) => {

@@ -4,7 +4,7 @@ import {
     type ServerToClientEvents,
     type ClientToServerEvents,
     SocketEvents,
-} from "./../../types/SocketEvents.js";
+} from "../../../../shared/types/SocketEvents.js";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<

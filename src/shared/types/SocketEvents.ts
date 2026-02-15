@@ -1,6 +1,7 @@
 // ============================================================================
 // SOCKET EVENT CONSTANTS
 
+import type { ClientMessage } from "./client-message.js";
 import mongoose from "mongoose";
 
 // ============================================================================
@@ -97,7 +98,7 @@ export interface MessageNewPayload {
     _id: string;
     tempId?: string;
     conversationId: string;
-    message: IMessagePopulated;
+    message: ClientMessage;
     sender: string;
 }
 

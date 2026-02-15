@@ -4,7 +4,7 @@ import {
     ServerToClientEvents,
     ClientToServerEvents,
     SocketEvents,
-} from "./../../types/SocketEvents.js";
+} from "../../../../shared/types/SocketEvents.js";
 // import {
 //     setOnline,
 //     setOffline,

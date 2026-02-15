@@ -4,11 +4,9 @@ import { io, Socket } from "socket.io-client";
 import {
     type ServerToClientEvents,
     type ClientToServerEvents,
-    SocketEvents,
-} from "@/server/socket/types/SocketEvents";
+    // SocketEvents,
+} from "@/shared/types/SocketEvents";
 import useChatStore from "@/store/chat-store";
-import { IMessagePopulated, MessageType } from "@/models/Message";
-import { ITempMessage } from "@/models/TempMessage";
 
 // You can configure this in .env.local
 const SOCKET_URL =

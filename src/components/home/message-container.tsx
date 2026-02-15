@@ -9,7 +9,7 @@ import { useUser } from "@/context/UserContext";
 import { ITempMessage } from "@/models/TempMessage";
 import { deleteMessage } from "@/lib/utils/api";
 import useSocketStore from "@/store/useSocketStore";
-import { MessageEditPayload, MessageNewPayload } from "@/server/socket/types/SocketEvents";
+import { MessageEditPayload, MessageNewPayload } from "@/shared/types/SocketEvents";
 import { markDelivered } from "@/lib/services/delivery.service";
 import { ClientMessage } from "@/types/client-message";
 import { UIMessage } from "@/shared/types/ui-message";

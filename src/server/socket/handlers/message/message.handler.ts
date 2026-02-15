@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { MessageNewPayload, SocketEvents } from "./../../types/SocketEvents.js";
+import { MessageNewPayload, SocketEvents } from "../../../../shared/types/SocketEvents.js";
 import { normalizeMessage } from "../../../normalizers/message.normalizer.js";
 
 export function registerMessageHandlers(io: Server, socket: Socket) {

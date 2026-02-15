@@ -3,7 +3,7 @@
 
 import { create } from "zustand";
 import { getSocket } from "@/lib/socket/socketClient";
-import { MessageEditPayload, SocketEvents } from "@/server/socket/types/SocketEvents";
+import { MessageEditPayload, SocketEvents } from "@/shared/types/SocketEvents";
 import useChatStore from "./chat-store";
 interface SocketState {
     connected: boolean;

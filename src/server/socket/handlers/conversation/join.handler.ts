@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { SocketEvents } from "./../../types/SocketEvents.js";
+import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
 
 export function JoinHandler(io: Server, socket: Socket) {
 
