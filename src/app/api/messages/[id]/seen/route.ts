@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Message from "@/models/Message";
 import { io } from "socket.io-client";
 import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
-import { SocketEvents } from "@/server/socket/types/SocketEvents";
+import { SocketEvents } from "@/shared/types/SocketEvents";
 
 export async function PATCH(
     req: NextRequest,
