@@ -1,4 +1,4 @@
 import { ClientMessage } from "./client-message.js";
-import { clientTempMessage } from "./client-tempMessage.js";
+import { TempMessage } from "./temp-message.js";
 
-export type UIMessage = ClientMessage | clientTempMessage;
+export type UIMessage = ClientMessage | TempMessage;
