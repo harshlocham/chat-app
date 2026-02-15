@@ -1,4 +1,4 @@
-import { IMessagePopulated } from "@/models/Message.js";
+import { IMessagePopulated } from "../../models/Message.js";
 import type { ClientMessage } from "../../shared/types/client-message.js";
 
 // src/server/normalizers/message.normalizer.ts
