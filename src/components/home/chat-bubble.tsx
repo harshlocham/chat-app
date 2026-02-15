@@ -31,7 +31,12 @@ interface ChatBubbleProps {
     onReact: (msg: UIMessage, emoji: string) => void;
 }
 
-// --------- Small helpers ---------
+/**
+ * Determines whether a value is an IUser object (has a string `username`).
+ *
+ * @param obj - Value to test for IUser shape
+ * @returns `true` if `obj` has a string `username`, `false` otherwise.
+ */
 function isUser(obj: unknown): obj is IUser {
     return (
         typeof obj === "object" &&
@@ -41,6 +46,11 @@ function isUser(obj: unknown): obj is IUser {
     );
 }
 
+/**
+ * Type guard that determines whether a value conforms to `IMessagePopulated`.
+ *
+ * @returns `true` if `obj` is an `IMessagePopulated`, `false` otherwise.
+ */
 function isPopulatedMessage(obj: unknown): obj is IMessagePopulated {
     return (
         typeof obj === "object" &&
@@ -50,6 +60,12 @@ function isPopulatedMessage(obj: unknown): obj is IMessagePopulated {
     );
 }
 
+/**
+ * Extracts the file name from a URL's path.
+ *
+ * @param url - The URL string to parse
+ * @returns The last path segment from `url` (e.g., `photo.jpg`), or `"file"` if no segment can be determined or an error occurs
+ */
 function getFileNameFromUrl(url: string) {
     try {
         const withoutQuery = url.split("?")[0];

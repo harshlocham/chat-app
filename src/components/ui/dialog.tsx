@@ -6,6 +6,12 @@ import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Renders a dialog root element that includes a standardized `data-slot="dialog"` attribute.
+ *
+ * @param props - Props to apply to the dialog root; all props are passed through to the underlying root element.
+ * @returns The dialog root element with `data-slot="dialog"`.
+ */
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {

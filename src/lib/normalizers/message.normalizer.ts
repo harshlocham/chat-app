@@ -21,6 +21,12 @@ interface UIReplyPreview {
     };
 }
 
+/**
+ * Convert a populated IMessagePopulated into a ClientMessage suitable for client use.
+ *
+ * @param msg - The populated message object to convert (may contain populated sender and repliedTo).
+ * @returns A ClientMessage with IDs converted to strings, sender normalized to an object or preserved as a string, reactions cast for client use, and `repliedTo` recursively converted or `null`.
+ */
 export function toClientMessage(msg: IMessagePopulated): ClientMessage {
     return {
         _id: msg._id.toString(),
@@ -42,6 +48,16 @@ export function toClientMessage(msg: IMessagePopulated): ClientMessage {
         isEdited: msg.isEdited,
     };
 }
+/**
+ * Convert a temporary message record into a UIMessage suitable for client display.
+ *
+ * Produces a UIMessage with stringified `_id` and `senderId`, a populated `sender` object
+ * (including `_id`, `username`, and `profilePicture`), `isTemp` set to `true`, `isDeleted`
+ * set to `false`, and `repliedTo` normalized into a `UIReplyPreview` or `null`.
+ *
+ * @param msg - The temporary message to convert
+ * @returns The resulting `UIMessage` ready for the UI
+ */
 export function fromTempMessage(msg: ITempMessage): UIMessage {
     return {
         _id: msg._id.toString(),
@@ -64,6 +80,11 @@ export function fromTempMessage(msg: ITempMessage): UIMessage {
         repliedTo: normalizeReply(msg.repliedTo),
     };
 }
+/**
+ * Normalize a raw reply reference into a lightweight UI reply preview or `null`.
+ *
+ * @param repliedTo - A reply reference which may be `null`/`undefined`, a string/ObjectId, or a partially/fully populated reply object containing fields like `_id`, `text`, `content`, `senderId`, or `sender`.
+ * @returns A `UIReplyPreview` for the provided reply, or `null` if `repliedTo` is falsy. The preview's `_id` and `sender._id` are stringified when available; `content` is the reply text or content, or an empty string if unknown.
 function normalizeReply(
     repliedTo: RawReply | string | null | undefined
 ): UIReplyPreview | null {

@@ -5,6 +5,12 @@ import * as LabelPrimitive from "@radix-ui/react-label"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Render a styled label that forwards all props to Radix's Label primitive.
+ *
+ * @param className - Additional CSS classes to append to the component's computed classes
+ * @returns A React element for a label with composed class names and `data-slot="label"`
+ */
 function Label({
   className,
   ...props

@@ -4,6 +4,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/utils/auth/auth";
 import { connectToDatabase } from "@/lib/Db/db";
 
+/**
+ * Mark a message as delivered for the authenticated user.
+ *
+ * Adds an entry to the message's `deliveredTo` array with the current user's id and a timestamp (provided `at` or now), after verifying authentication, message existence, and that the requester is not the sender.
+ *
+ * @param req - Incoming request whose JSON body may include `at` (an ISO timestamp or value accepted by `Date`).
+ * @param params - Route params promise that resolves to an object with `id` (the message identifier).
+ * @returns A NextResponse containing `{ success: true }` on successful update; on failure returns a JSON error with an appropriate HTTP status (`401`, `403`, `404`, or `500`).
+ */
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }

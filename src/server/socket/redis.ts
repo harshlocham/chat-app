@@ -5,6 +5,13 @@ export interface RedisAdapterClients {
     subClient: RedisClientType;
 }
 
+/**
+ * Initialize and connect a pair of Redis clients for publishing and subscribing.
+ *
+ * Creates a publisher client using the `REDIS_URL` environment variable and a subscriber client by duplicating the publisher, attaches error handlers, and connects both clients.
+ *
+ * @returns An object with `pubClient` (publisher Redis client) and `subClient` (subscriber Redis client)
+ */
 export async function initRedis(): Promise<RedisAdapterClients> {
     const pubClient: RedisClientType = createClient({
         url: process.env.REDIS_URL,

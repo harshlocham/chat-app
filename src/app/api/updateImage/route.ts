@@ -4,6 +4,12 @@ import { User } from "@/models/User";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/utils/auth/auth";
 
+/**
+ * Updates the authenticated user's profile picture URL.
+ *
+ * @param request - Incoming request whose JSON body must include `imageUrl` (the new profile image URL)
+ * @returns A JSON response object. On success: `{ success: true, user }` where `user` contains `_id`, `email`, `username`, and `image`. On error: an `{ error: string }` payload with an appropriate HTTP status (`401` if unauthenticated, `400` if `imageUrl` is missing, `404` if the user is not found, `500` for internal errors).
+ */
 export async function PUT(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);

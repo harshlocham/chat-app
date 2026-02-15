@@ -2,6 +2,13 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Card container element styled for a card layout.
+ *
+ * @param className - Additional CSS classes appended to the card's base class list
+ * @param props - Other HTML div attributes forwarded to the root element
+ * @returns The root `div` element with `data-slot="card"` and composed card classes
+ */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

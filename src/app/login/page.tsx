@@ -19,6 +19,14 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react";
 
+/**
+ * Render the login page UI and manage email/password and Google authentication flows.
+ *
+ * Handles form submission, displays error toasts on failure, manages a loading state,
+ * and redirects to the home page on successful sign-in.
+ *
+ * @returns The React element for the login page UI.
+ */
 function Loginpage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");

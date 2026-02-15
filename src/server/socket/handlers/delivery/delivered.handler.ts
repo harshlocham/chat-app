@@ -12,6 +12,11 @@ type Socket = import("socket.io").Socket<
     ServerToClientEvents
 >;
 
+/**
+ * Registers a listener on the provided socket that forwards MESSAGE_DELIVERED events to the recipient's room.
+ *
+ * When a MESSAGE_DELIVERED payload contains `messageId`, `userId`, and `at`, emits MESSAGE_DELIVERED_UPDATE to room `user:<userId>` with the payload `{ messageId, userId, deliveredAt: at }`.
+ */
 export function deliveredHandler(io: IO, socket: Socket) {
     socket.on(SocketEvents.MESSAGE_DELIVERED, async ({ messageId, userId, at }: { messageId: string, userId: string, at: Date }) => {
         if (!messageId || !userId || !at) return;

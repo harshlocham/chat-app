@@ -5,6 +5,16 @@ import { io } from "socket.io-client";
 import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 import { SocketEvents } from "@/server/socket/types/SocketEvents";
 
+/**
+ * Mark a message as seen by the authenticated user and notify connected clients.
+ *
+ * Validates authentication and the provided message ID, records the current timestamp
+ * in the message's `seenBy` array if the user hasn't already been recorded, emits a
+ * `MESSAGE_SEEN_UPDATE` socket event, and returns a success response.
+ *
+ * @param params - Route parameters containing `id`, the message ID to mark as seen
+ * @returns `{ ok: true }` on success; on failure an error object is returned with an appropriate HTTP status
+ */
 export async function PATCH(
     req: NextRequest,
     res: NextResponse,

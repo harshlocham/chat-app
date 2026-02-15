@@ -13,7 +13,12 @@ import useChatStore from "@/store/chat-store";
 import { IUser } from "@/models/User";
 import { IConversationPopulated } from "@/models/Conversation";
 
-// type guard
+/**
+ * Determines whether a value represents a user object.
+ *
+ * @param p - Value to test for the user shape
+ * @returns `true` if `p` is an object (not null) that has a `username` property and can be treated as an `IUser`, `false` otherwise
+ */
 function isUser(p: unknown): p is IUser {
     return typeof p === "object" && p !== null && "username" in p;
 }

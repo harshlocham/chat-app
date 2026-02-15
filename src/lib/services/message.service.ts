@@ -5,7 +5,14 @@ import { CreateMessageInput } from "../validators/message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
 import Message from "@/models/Message";
-//import { socket } from "@/lib/socket/socketClient";
+/**
+ * Create and persist a new message and set it as the conversation's lastMessage.
+ *
+ * @param data - Input containing `conversationId`, `content`, and optional `messageType`
+ * @param senderId - ID of the user sending the message; recorded as the message sender
+ * @returns The saved message document
+ * @throws Error when the conversation identified by `data.conversationId` does not exist
+ */
 
 export async function createMessage(data: CreateMessageInput, senderId: string) {
     // correctly map senderId → sender
@@ -32,6 +39,17 @@ interface Reaction {
     emoji: string;
     users: string[];
 }
+/**
+ * Toggle or add a reaction emoji for a message on behalf of a user.
+ *
+ * Looks up the message by `messageId`, toggles the presence of `userId` in the reaction for `emoji`
+ * (adds the user if not present, removes if present), or creates a new reaction if none exists.
+ *
+ * @param messageId - The ID of the message to update
+ * @param emoji - The emoji to toggle or add as a reaction
+ * @param userId - The ID of the user performing the reaction
+ * @returns The updated message document populated with `sender` (username, avatarUrl) and `repliedTo` (with its sender), or `null` if the message was not found
+ */
 export async function updateMessageReaction({ messageId, emoji, userId }: { messageId: string; emoji: string; userId: string }) {
     const msg = await Message.findById(messageId);
     if (!msg) return null;
@@ -65,6 +83,13 @@ export async function updateMessageReaction({ messageId, emoji, userId }: { mess
         .lean();
     return updated;
 }
+/**
+ * Update a message's content, mark it as edited, and return the message populated with sender and replied-to data.
+ *
+ * @param messageId - The ID of the message to update
+ * @param text - The new message text
+ * @returns The updated message document populated with `sender` (username, avatarUrl) and `repliedTo` (with its `sender`), or `null` if no message with `messageId` exists
+ */
 export async function editMessageById(messageId: string, text: string) {
     const msg = await Message.findById(messageId);
     if (!msg) return null;

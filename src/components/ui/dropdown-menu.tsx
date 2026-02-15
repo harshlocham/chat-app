@@ -6,6 +6,11 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Render a Radix DropdownMenu root element and attach the `data-slot="dropdown-menu"` attribute.
+ *
+ * @returns A React element that renders `DropdownMenuPrimitive.Root` with all provided props and the `data-slot="dropdown-menu"` attribute
+ */
 function DropdownMenu({
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {

@@ -24,6 +24,12 @@ const UserContext = createContext<UserContextType>({
     error: null,
 });
 
+/**
+ * Provides UserContext to descendant components.
+ *
+ * @param children - The React node(s) that will receive the context.
+ * @returns A React element that supplies `user`, `usersById`, `isLoading`, and `error` via context to its children.
+ */
 export function UserProvider({ children }: { children: React.ReactNode }) {
     const { data, error, isLoading } = useSWR<IUser>("/api/me", fetcher, {
         dedupingInterval: 60 * 1000,   // avoid duplicate calls

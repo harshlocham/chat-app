@@ -18,7 +18,13 @@ import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
 import { MessageInputProps } from "@/models/Message";
 import useSocketStore from "@/store/useSocketStore";
 
-// 🧠 Small debounce util
+/**
+ * Creates a debounced wrapper around a function.
+ *
+ * @param fn - The function to debounce.
+ * @param delay - Delay in milliseconds to wait after the last call before invoking `fn`.
+ * @returns A function that postpones calling `fn` until `delay` milliseconds have elapsed since the last invocation; previous pending calls are canceled.
+ */
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
     let timeout: NodeJS.Timeout;
     return (...args: T) => {

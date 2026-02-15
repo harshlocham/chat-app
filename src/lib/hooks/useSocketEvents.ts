@@ -17,8 +17,11 @@ let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 /**
- * Create (once) and return the singleton socket instance.
+ * Return the singleton socket instance, creating it on first call.
+ *
  * Safe to call from client components.
+ *
+ * @returns The singleton socket used for client-side Socket.IO communication
  */
 export function getSocket(): TypedSocket {
     if (!socketInstance) {
@@ -42,7 +45,9 @@ export function getSocket(): TypedSocket {
 export const socket = getSocket();
 
 /**
- * Optional helper: connect with auth token (if you use JWT/header auth)
+ * Connects the singleton socket and, if provided, attaches a JWT token to the socket's `auth` payload.
+ *
+ * @param authToken - Optional JWT or bearer token to include as `token` in the socket's `auth` object before connecting
  */
 export function connectSocket(authToken?: string) {
     const s = getSocket();
@@ -60,7 +65,9 @@ export function connectSocket(authToken?: string) {
 }
 
 /**
- * Optional helper: disconnect socket
+ * Disconnects the module's singleton socket if it is currently connected.
+ *
+ * Does nothing when the socket is already disconnected.
  */
 export function disconnectSocket() {
     const s = getSocket();

@@ -16,6 +16,11 @@ type Socket = import("socket.io").Socket<
     ServerToClientEvents
 >;
 
+/**
+ * Register call-related Socket.IO listeners on the provided socket and forward signaling events to the specified target clients.
+ *
+ * Listens for CALL_OFFER, CALL_ANSWER, CALL_END, and CALL_BUSY events and emits the corresponding event to the `to` socket ID. Each forwarded payload includes `from` (the sender's user ID from `socket.data.user._id`), `to`, and any relevant signaling data (`offer` or `answer`) when applicable.
+ */
 export function callHandler(io: IO, socket: Socket) {
     socket.on(SocketEvents.CALL_OFFER, ({ to, offer }: CallOfferPayload) => {
         io.to(to).emit(SocketEvents.CALL_OFFER, {

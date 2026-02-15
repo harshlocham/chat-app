@@ -1,7 +1,12 @@
 // lib/api.ts
 //import axios from "axios";
 
-// Client-side call to fetch user info from your API
+/**
+ * Fetches information about the currently authenticated user.
+ *
+ * @returns The parsed JSON object for the current user.
+ * @throws If the request fails or the server responds with a non-OK status.
+ */
 export async function getMe() {
     const res = await fetch("/api/me");
     if (!res.ok) throw new Error("Failed to fetch current user");
@@ -67,6 +72,13 @@ export async function toggleBan(id: string, status: string) {
     if (!res.ok) throw new Error("Failed to toggle ban");
     return await res.json();
 }
+/**
+ * Change a user's role/permission via the admin API.
+ *
+ * @param id - The user ID to update
+ * @param role - The new role to assign to the user
+ * @returns The parsed JSON response from the server
+ */
 export async function changePermission(id: string, role: string) {
     const res = await fetch(`/api/admin/changeRoal`, {
         method: "PATCH",
@@ -76,6 +88,13 @@ export async function changePermission(id: string, role: string) {
     if (!res.ok) throw new Error("Failed to change role");
     return await res.json();
 }
+/**
+ * Delete a conversation by its ID.
+ *
+ * @param id - The conversation's identifier
+ * @returns The parsed JSON response from the server
+ * @throws Error with message "Failed to delete conversation" when the HTTP response status is not OK
+ */
 export async function deleteConversation(id: string) {
     const res = await fetch(`/api/conversations/${id}`, {
         method: "DELETE",
@@ -84,6 +103,13 @@ export async function deleteConversation(id: string) {
     return await res.json();
 }
 
+/**
+ * Delete a message identified by its ID.
+ *
+ * @param id - The ID of the message to delete
+ * @returns The parsed JSON response from the delete API request
+ * @throws Error if the API responds with a non-OK status
+ */
 export async function deleteMessage(id: string) {
     const res = await fetch(`/api/messages/${id}/delete`, {
         method: "DELETE",
@@ -92,6 +118,15 @@ export async function deleteMessage(id: string) {
     //socket.emit("message:delete", { messageId: id });
     return await res.json();
 }
+/**
+ * Send an emoji reaction for a specific message on behalf of a user.
+ *
+ * @param id - The ID of the message to react to
+ * @param emoji - The emoji to add as the reaction
+ * @param userId - The ID of the user adding the reaction
+ * @returns The parsed JSON response from the server
+ * @throws Error if the server responds with a non-OK status
+ */
 export async function reactToMessage(id: string, emoji: string, userId: string) {
     const res = await fetch(`/api/messages/${id}/react`, {
         method: "POST",

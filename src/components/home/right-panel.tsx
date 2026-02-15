@@ -10,7 +10,12 @@ import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
 import { IUser } from "@/models/User";
 
-// type guard
+/**
+ * Narrow a value to an `IUser` when it represents a user object.
+ *
+ * @param p - The value to test for `IUser` shape
+ * @returns `true` if `p` is an `IUser` (an object containing an `email` property), `false` otherwise.
+ */
 function isUser(p: unknown): p is IUser {
     return typeof p === "object" && p !== null && "email" in p;
 }

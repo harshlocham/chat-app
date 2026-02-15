@@ -8,6 +8,13 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 
+/**
+ * Admin dashboard page that displays live user and message statistics and charts.
+ *
+ * Enforces admin-only access by redirecting unauthorized users and synchronizes live statistics from the server to update the displayed metrics in real time.
+ *
+ * @returns A React element containing the admin dashboard UI
+ */
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ activeUsers: 0, totalMessagesToday: 0 });
     const { data: session, status } = useSession();

@@ -9,7 +9,13 @@ import { registerMessageHandlers } from "./handlers/message/message.handler.js";
 
 import { typingHandler } from "./handlers/typing/typing.handler.js";
 import type { Socket } from "socket.io";
-//import { Server as SocketIOServer } from "socket.io";
+/**
+ * Initialize Redis and Socket.IO, attach the IO server to the provided HTTP server, apply connection authentication, and register per-connection handlers.
+ *
+ * Sets up user-specific rooms on connection and installs handlers for admin, presence, messages, typing, edits, and deletions.
+ *
+ * @param server - The HTTP(S) server instance to attach Socket.IO to (e.g., Node `http.Server` or equivalent)
+ */
 
 export async function initSocket(server: any) {
     const redis = await initRedis();

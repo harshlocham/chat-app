@@ -20,8 +20,11 @@ let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 /**
- * Create (once) and return the singleton socket instance.
- * Safe to call from client components.
+ * Return the application's singleton Socket.io client instance.
+ *
+ * The instance is created lazily on first call and configured to use the app's socket endpoint.
+ *
+ * @returns The singleton Socket.io client instance
  */
 export function getSocket(): TypedSocket {
     if (!socketInstance) {
@@ -45,7 +48,9 @@ export function getSocket(): TypedSocket {
 export const socket = getSocket();
 
 /**
- * Optional helper: connect with auth token (if you use JWT/header auth)
+ * Ensures the singleton socket is connected and, if provided, attaches a Bearer authorization header.
+ *
+ * @param authToken - Optional JWT or token string to set as `Authorization: Bearer <token>` in the socket's extra headers
  */
 export function connectSocket(authToken?: string) {
     const s = getSocket();
@@ -63,7 +68,7 @@ export function connectSocket(authToken?: string) {
 }
 
 /**
- * Optional helper: disconnect socket
+ * Disconnects the singleton socket client if it is currently connected.
  */
 export function disconnectSocket() {
     const s = getSocket();
@@ -72,6 +77,14 @@ export function disconnectSocket() {
     }
 }
 let listenersRegistered = false;
+/**
+ * Registers global socket event handlers used by the client.
+ *
+ * Ensures handlers are attached only once; currently listens for `message:new`
+ * and forwards incoming payloads to the chat store via `receiveMessage`
+ * (converting `conversationId` to a string). Future events may include typing,
+ * presence, edits, and deletes.
+ */
 export function registerGlobalSocketListeners() {
     if (listenersRegistered) return;
     listenersRegistered = true;

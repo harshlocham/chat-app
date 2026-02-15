@@ -5,6 +5,12 @@ import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { Conversation } from "@/models/Conversation";
 
+/**
+ * Edits a message's content if the authenticated user is the message sender and returns the updated message.
+ *
+ * @param params - An object (awaitable) with the route parameters; must contain an `id` string for the message to update.
+ * @returns A NextResponse containing `{ success: true, message }` with the populated updated message on success, or `{ error: string }` with an appropriate HTTP status code on failure.
+ */
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }

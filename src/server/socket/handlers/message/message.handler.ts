@@ -2,6 +2,11 @@ import { Server, Socket } from "socket.io";
 import { MessageNewPayload, SocketEvents } from "./../../types/SocketEvents.js";
 import { normalizeMessage } from "../../../normalizers/message.normalizer.js";
 
+/**
+ * Registers socket event handlers that manage conversation room membership and message delivery.
+ *
+ * Sets up handlers for conversation join/leave, forwards new messages to conversation members and the admin dashboard, and broadcasts message delivered/seen updates to the corresponding conversation room.
+ */
 export function registerMessageHandlers(io: Server, socket: Socket) {
     const conversationRoom = (id: string) => `conversation:${id}`;
     /**

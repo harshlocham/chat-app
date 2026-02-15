@@ -7,12 +7,29 @@ const redis = createClient({
     url: process.env.REDIS_URL,
 });
 
+/**
+ * Ensure the shared Redis client is connected.
+ *
+ * Does nothing if the client is already open; otherwise establishes a connection.
+ */
 async function connectRedis() {
     if (!redis.isOpen) {
         await redis.connect();
     }
 }
 
+/**
+ * Handle GET requests for the admin dashboard and return aggregated usage metrics.
+ *
+ * Ensures the requester is an authenticated user with the "admin" role, fetches
+ * dashboard counts from Redis, and returns them in the response body.
+ *
+ * @returns A NextResponse with JSON:
+ * - On success: `{ success: true, data: { activeUsers: number, totalMessagesToday: number } }`
+ * - On unauthorized: `{ error: "Unauthorized" }` with HTTP 401
+ * - On forbidden: `{ error: "Forbidden" }` with HTTP 403
+ * - On internal error: `{ success: false, error: "Failed to fetch dashboard data" }` with HTTP 500
+ */
 export async function GET() {
     try {
         const session = await getServerSession(authOptions);

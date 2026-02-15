@@ -6,7 +6,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/utils/auth/auth";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 
-//import { messageRateLimiter } from "@/lib/utils/rateLimiter";
+/**
+ * Create a new message for the currently authenticated user and return the normalized client payload.
+ *
+ * Validates the request body against the CreateMessageSchema, requires an active server session, and normalizes the created message for the client.
+ *
+ * @param req - The incoming NextRequest containing the message payload in the request body.
+ * @returns A NextResponse containing the normalized created message with status 201 on success; an error object with status 401 if the user is not authenticated; or an error object with status 400 on validation or creation failure.
+ */
 
 export async function POST(req: NextRequest) {
     try {
@@ -33,6 +40,15 @@ export async function POST(req: NextRequest) {
         );
     }
 }
+/**
+ * Retrieve paginated messages for a conversation and return them normalized for the client.
+ *
+ * Reads `conversationId` (required) and `cursor` (optional) from the request URL's query parameters,
+ * fetches the corresponding page of messages, and returns each message in client-facing form.
+ *
+ * @param req - Incoming request containing `conversationId` and optional `cursor` query parameters
+ * @returns An array of normalized message objects; returns an empty array if an error occurs
+ */
 export async function GET(req: NextRequest) {
     try {
 

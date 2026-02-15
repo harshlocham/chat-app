@@ -5,6 +5,12 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Renders an avatar root element with default layout and styling, allowing additional classes and props.
+ *
+ * @param className - Additional CSS classes to merge with the component's default classes
+ * @returns The AvatarPrimitive.Root element with applied classes and forwarded props
+ */
 function Avatar({
   className,
   ...props

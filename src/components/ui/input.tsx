@@ -2,6 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils/utils"
 
+/**
+ * Render a text input element with the component's standardized styling and forwarded props.
+ *
+ * The rendered input receives a composed className (base styles plus any `className` prop), a
+ * `data-slot="input"` attribute, the provided `type`, and all other passed input props.
+ *
+ * @returns A JSX input element with the component's default styling and all supplied props applied.
+ */
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (
     <input

@@ -16,7 +16,12 @@ type ConversationProps = {
     conversation: IConversationPopulated & { unreadCount?: number };
 };
 
-// type guard
+/**
+ * Determines whether a value is an object representing an `IUser`.
+ *
+ * @param p - Value to test
+ * @returns `true` if `p` is a non-null object containing a `username` property, `false` otherwise.
+ */
 function isUser(p: unknown): p is IUser {
     return typeof p === "object" && p !== null && "username" in p;
 }

@@ -5,6 +5,17 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { authRateLimiter } from "@/lib/utils/rateLimiter"
 
+/**
+ * Handle POST requests that issue a time-limited OTP to the provided email address.
+ *
+ * Stores a hashed 6-digit OTP in the database (valid for 5 minutes), enforces a 1-minute per-email cooldown
+ * and IP-based rate limiting, and sends the plaintext OTP to the email.
+ *
+ * @returns A JSON HTTP response:
+ * - On success: `{ success: true, message: "OTP sent successfully" }`.
+ * - If rate-limited (IP or per-email cooldown): `{ error: string }` with status `429`.
+ * - On internal failure: `{ success: false, message: "Failed to send OTP" }` with status `500`.
+ */
 export async function POST(req: NextRequest) {
     try {
         const ip = req.headers.get("x-forwarded-for") ?? "unknown";

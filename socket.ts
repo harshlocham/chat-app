@@ -45,7 +45,13 @@ console.log("🔗 Redis adapter connected");
 const PRESENCE_KEY = "active_users";
 const MESSAGE_COUNT_KEY = "total_messages_today";
 
-// Reset at midnight
+/**
+ * Reset the Redis daily message counter if a new day has started.
+ *
+ * Checks the stored "last_reset" midnight timestamp and, when it differs from
+ * the current day's midnight, sets MESSAGE_COUNT_KEY to 0 and updates
+ * "last_reset" in Redis.
+ */
 async function resetDailyCounterIfNeeded() {
     const now = new Date().setHours(0, 0, 0, 0);
     const lastReset = Number(await pubClient.get("last_reset") || 0);

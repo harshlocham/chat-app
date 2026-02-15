@@ -4,6 +4,13 @@ import { authOptions } from "@/lib/utils/auth/auth";
 import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 
+/**
+ * Toggle the authenticated user's reaction (emoji) on the message identified by the route `id`.
+ *
+ * @param req - Incoming request whose JSON body must include an `emoji` string.
+ * @param params - An object (promise) resolving to route parameters containing `id` of the target message.
+ * @returns A JSON response: on success `{ success: true, message }`; returns `401` with `{ error: "Unauthorized" }` if the user is not authenticated, or `404` with `{ error: "Message not found" }` if the message does not exist.
+ */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

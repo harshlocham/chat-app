@@ -7,6 +7,19 @@ import { socket } from "@/lib/socket/socketClient";
 import useChatStore from "@/store/chat-store"; // adjust import path
 import toast from "react-hot-toast";
 
+/**
+ * Synchronizes and resends messages queued while offline when connectivity is restored.
+ *
+ * Loads the offline message queue on mount and, when the app is online and the socket is connected,
+ * processes queued messages: it attempts to persist each queued message to the server with retries
+ * and exponential backoff, replaces temporary local messages with the saved server message,
+ * removes successfully sent messages from the offline queue, emits a socket event for the new message,
+ * and shows a success toast when finished. Prevents concurrent resend operations.
+ *
+ * Notes:
+ * - Each message is retried up to 5 times with exponential backoff.
+ * - Side effects: updates chat state, modifies the offline queue, emits socket events, and displays a toast.
+ */
 export function useOfflineMessageSync() {
     const isOnline = useNetworkStatus();
     const { offlineQueue, loadQueue, removeFromQueue } = useOfflineStore();

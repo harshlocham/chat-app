@@ -4,6 +4,15 @@ import useChatStore from "@/store/chat-store";
 import useSocketStore from "@/store/useSocketStore";
 import { IMessagePopulated } from "@/models/Message";
 
+/**
+ * Attach application event handlers to the singleton socket instance.
+ *
+ * Registers a one-time set of listeners for connection status, message lifecycle (new, edited, deleted),
+ * typing indicators, user presence, delivery/seen placeholders, and basic call signaling. Event handlers
+ * update the chat store (useChatStore) and socket state store (useSocketStore) as events arrive.
+ *
+ * This function is idempotent: calling it multiple times will not register duplicate listeners.
+ */
 export function registerSocketListeners() {
     const socket = getSocket();
     const chat = useChatStore.getState();
