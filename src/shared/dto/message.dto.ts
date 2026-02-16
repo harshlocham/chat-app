@@ -1,10 +1,38 @@
-import { z } from "zod";
+export interface MessageDTO {
+    _id: string;
+    conversationId: string;
 
-export const CreateMessageSchema = z.object({
-    conversationId: z.string(),
-    content: z.string().min(1).max(5000),
-    messageType: z.enum(["text", "image", "video", "audio", "file"]),
-    repliedTo: z.string().optional(),
-});
+    content: string;
+    messageType: "text" | "image" | "file" | "system" | "video" | "audio" | "voice";
 
-export type CreateMessageDTO = z.infer<typeof CreateMessageSchema>;
+    sender: {
+        _id: string;
+        username: string;
+        profilePicture?: string;
+    };
+
+    createdAt: string;   // ISO string
+    updatedAt?: string;  // ISO string
+
+    isDeleted?: boolean;
+    isEdited?: boolean;
+    editedAt?: string;
+
+    reactions?: {
+        emoji: string;
+        users: string[];
+    }[];
+
+    seenBy?: string[];
+    deliveredTo?: string[];
+
+    repliedTo?: {
+        _id: string;
+        content: string;
+        sender: {
+            _id: string;
+            username: string;
+            profilePicture?: string;
+        };
+    } | null;
+}
