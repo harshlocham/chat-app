@@ -1,4 +1,4 @@
-import { ClientUser } from "@/types/user";
+import { ClientUser } from "@/shared/types/user";
 import Image from "next/image";
 
 interface UserAvatarProps {

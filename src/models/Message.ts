@@ -1,6 +1,6 @@
 // src/models/Message.ts
 import mongoose, { Schema } from "mongoose";
-import { IUser } from "./User";
+import { IUser } from "./User.js";
 
 export type MessageType = "text" | "image" | "video" | "audio" | "voice" | "file";
 
@@ -25,6 +25,8 @@ export interface IMessage {
     conversationId: mongoose.Types.ObjectId;
     seenBy?: IDeliveredTo[];
     deliveredTo?: IDeliveredTo[];
+    createdAt: Date;
+    updatedAt?: Date;
 }
 
 // Fully populated version for FE usage

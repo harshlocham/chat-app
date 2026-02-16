@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import UserAvatar from "./UserAvatar";
 import { useUser } from "@/context/UserContext";
-import { ClientUser } from "@/types/user";
+import { ClientUser } from "@/shared/types/user";
 interface ProfilePictureUploadProps {
     onUpdate?: (imageUrl: string) => void;
     className?: string;
