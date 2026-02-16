@@ -179,7 +179,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                         <div key={String(msg._id)}>
                             {showSeparator && <ChatDaySeparator date={msgDate} />}
                             <ChatBubble
-                                message={msg as UIMessage}
+                                message={msg}
                                 currentUserId={user?._id?.toString()}
                                 onDelete={deleteMessage}
                                 onReply={() => { }}
