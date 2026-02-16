@@ -1,5 +1,5 @@
 import { IMessagePopulated } from "../../models/Message.js";
-import type { ClientMessage } from "../../shared/types/client-message.js";
+import type { ClientMessage, ClientReaction } from "../../shared/types/client-message.js";
 
 // src/server/normalizers/message.normalizer.ts
 export function normalizeMessage(doc: IMessagePopulated): ClientMessage {
@@ -48,4 +48,14 @@ export function normalizeMessage(doc: IMessagePopulated): ClientMessage {
         isEdited: doc.isEdited,
         isDeleted: doc.isDeleted,
     };
+}
+export function normalizeReactions(
+    reactions?: Record<string, string[]>
+): ClientReaction[] | undefined {
+    if (!reactions) return undefined;
+
+    return Object.entries(reactions).map(([emoji, users]) => ({
+        emoji,
+        users,
+    }));
 }
