@@ -8,6 +8,7 @@ import { getMe } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
 import { getSocket } from "@/lib/socket/socketClient";
 import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 import { ImageUpload } from "./ImageUpload";
 import { toast } from "sonner"
 import { ITempMessage } from "@/models/TempMessage";
@@ -17,6 +18,7 @@ import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
 import { MessageInputProps } from "@/models/Message";
 import useSocketStore from "@/store/useSocketStore";
+import { UIMessage } from "@/shared/types/ui-message";
 
 // 🧠 Small debounce util
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
@@ -29,7 +31,7 @@ function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) 
 
 const MessageInput = ({ replyTo }: MessageInputProps) => {
     const [msgText, setMsgText] = useState("");
-    const [me, setMe] = useState<IUser | null>(null);
+    const [me, setMe] = useState<ClientUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -105,15 +107,18 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
 
 
         const tempId = uuidv4();
-        const tempMessage: ITempMessage = {
+        const tempMessage: UIMessage = {
             _id: tempId,
-            isDeleted: false,
             conversationId: String(sel),
-            senderId: String(me._id),
+            sender: {
+                _id: String(me._id),
+                username: me.username,
+                profilePicture: me.profilePicture
+            },
             content: msgText.trim(),
             messageType: "text",
             status: isOnline ? "pending" : "queued",
-            sender: me,
+            isDeleted: false,
             createdAt: new Date(),
         };
 
