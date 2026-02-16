@@ -17,10 +17,9 @@ import {
     Paperclip,
 } from "lucide-react";
 import { ReactionBar } from "../chat/reaction-bar";
-import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 //import { Check, CheckCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ClientMessage } from "@/types/client-message";
 import { UIMessage } from "@/shared/types/ui-message";
 
 interface ChatBubbleProps {
@@ -32,12 +31,12 @@ interface ChatBubbleProps {
 }
 
 // --------- Small helpers ---------
-function isUser(obj: unknown): obj is IUser {
+function isUser(obj: unknown): obj is ClientUser {
     return (
         typeof obj === "object" &&
         obj !== null &&
         "username" in obj &&
-        typeof (obj as IUser).username === "string"
+        typeof (obj as ClientUser).username === "string"
     );
 }
 

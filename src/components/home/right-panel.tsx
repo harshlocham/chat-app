@@ -8,10 +8,10 @@ import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import GroupMembersDialog from "./group-members-dialog";
 import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
-import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 
 // type guard
-function isUser(p: unknown): p is IUser {
+function isUser(p: ClientUser) {
     return typeof p === "object" && p !== null && "email" in p;
 }
 
@@ -40,7 +40,7 @@ const RightPanel = () => {
     const otherUser = selectedConversation.participants.find(
         (p) =>
             isUser(p) && p.email !== currentUserEmail
-    ) as IUser | undefined;
+    );
 
     const conversationName = selectedConversation.isGroup
         ? selectedConversation.groupName

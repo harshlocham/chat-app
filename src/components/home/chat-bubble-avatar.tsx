@@ -1,8 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 
 type ChatBubbleAvatarProps = {
-    sender: IUser;
+    sender: ClientUser;
     isMember: boolean;
     isGroup: boolean | undefined;
 };

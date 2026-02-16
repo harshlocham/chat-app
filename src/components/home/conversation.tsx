@@ -8,16 +8,16 @@ import { useSession } from "next-auth/react";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
 import { useUser } from "@/context/UserContext";
 import useChatStore from "@/store/chat-store";
-import { IConversation, IConversationPopulated } from "@/models/Conversation";
-import { IUser } from "@/models/User";
+import { ClientConversation } from "@/shared/types/client-conversation";
+import { ClientUser } from "@/shared/types/user";
 
 
 type ConversationProps = {
-    conversation: IConversationPopulated & { unreadCount?: number };
+    conversation: ClientConversation & { unreadCount?: number };
 };
 
 // type guard
-function isUser(p: unknown): p is IUser {
+function isUser(p: unknown): p is ClientUser {
     return typeof p === "object" && p !== null && "username" in p;
 }
 
@@ -29,7 +29,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
     const { setSelectedConversation, selectedConversationId } = useChatStore();
 
     const otherUser = conversation.participants.find(
-        (p): p is IUser =>
+        (p): p is ClientUser =>
             isUser(p) && p.email !== currentUserEmail
     );
 
@@ -55,9 +55,9 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 onClick={() => setSelectedConversation(conversation)}
             >
                 <Avatar className="border border-gray-900 overflow-visible relative">
-                    {conversation.isOnline && (
+                    {/* {conversation.isOnline && (
                         <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-foreground" />
-                    )}
+                    )} */}
                     <AvatarImage
                         src={getAvatarUrl(conversationImage, 128)}
                         className="object-cover rounded-full"
@@ -75,12 +75,10 @@ const Conversation = ({ conversation }: ConversationProps) => {
 
                         <span className="text-xs text-gray-500 ml-auto">
                             {formatDate(
-                                (lastMessage?._creationTime instanceof Date
-                                    ? lastMessage._creationTime.getTime()
-                                    : lastMessage?._creationTime) ??
-                                (conversation._creationTime instanceof Date
-                                    ? conversation._creationTime.getTime()
-                                    : conversation._creationTime) ??
+                                (lastMessage?.createdAt
+                                ) ??
+                                (conversation.createdAt
+                                ) ??
                                 Date.now()
                             )}
                         </span>

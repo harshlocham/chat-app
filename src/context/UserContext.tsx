@@ -1,7 +1,7 @@
 // context/UserContext.tsx
 "use client";
 
-import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 import Error from "next/error";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
@@ -11,9 +11,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 
 type UserContextType = {
-    user: IUser | null;
+    user: ClientUser | null;
     isLoading: boolean;
-    usersById: Record<string, IUser>;
+    usersById: Record<string, ClientUser>;
     error: Error | null;
 };
 
@@ -25,7 +25,7 @@ const UserContext = createContext<UserContextType>({
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { data, error, isLoading } = useSWR<IUser>("/api/me", fetcher, {
+    const { data, error, isLoading } = useSWR<ClientUser>("/api/me", fetcher, {
         dedupingInterval: 60 * 1000,   // avoid duplicate calls
         revalidateOnFocus: false,      // don’t refetch when switching tabs
     });

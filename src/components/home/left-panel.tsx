@@ -10,11 +10,10 @@ import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import { getConversations } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
-import { IUser } from "@/models/User";
-import { IConversationPopulated } from "@/models/Conversation";
+import { ClientUser } from "@/shared/types/user";
 
 // type guard
-function isUser(p: unknown): p is IUser {
+function isUser(p: unknown): p is ClientUser {
     return typeof p === "object" && p !== null && "username" in p;
 }
 
@@ -91,7 +90,7 @@ const LeftPanel = () => {
         );
 
         if (existingDM) {
-            setSelectedConversation(existingDM as unknown as IConversationPopulated);
+            setSelectedConversation(existingDM);
         }
     };
 
@@ -157,7 +156,7 @@ const LeftPanel = () => {
                     filteredConversations.map((c) => (
                         <Conversation
                             key={String(c._id)}
-                            conversation={c as unknown as IConversationPopulated}
+                            conversation={c}
                         />
                     ))}
             </div>
