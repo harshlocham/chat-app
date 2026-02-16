@@ -25,10 +25,19 @@ const eslintConfig = [
             {
               target: "./src/components",
               from: "./src/models",
-              message:
-                " Do not import server-side models inside client components.",
+              message: "Client cannot import server models.",
             },
-          ],
+            {
+              target: "./src/components",
+              from: "./src/server",
+              message: "Client cannot import server code.",
+            },
+            {
+              target: "./src/server",
+              from: "./src/components",
+              message: "Server should not depend on UI.",
+            },
+          ]
         },
       ],
     },
