@@ -1,6 +1,5 @@
 // src/store/chat-store.ts
 import { create } from "zustand";
-import { ITempMessage } from "@/models/TempMessage";
 import { ClientConversation } from "@/shared/types/client-conversation";
 import { UIMessage } from "@/shared/types/ui-message";
 interface ChatStore {
