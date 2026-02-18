@@ -14,7 +14,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { useOfflineStore } from '@/store/offline-store';
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
-import { MessageInputProps } from "@/models/Message";
 import useSocketStore from "@/store/useSocketStore";
 import { UIMessage } from "@/shared/types/ui-message";
 
@@ -27,13 +26,13 @@ function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) 
     };
 }
 
-const MessageInput = ({ replyTo }: MessageInputProps) => {
+const MessageInput = () => {
     const [msgText, setMsgText] = useState("");
     const [me, setMe] = useState<ClientUser | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { selectedConversation, addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage, updateEditedMessage } = useChatStore();
+    const { selectedConversation, addMessage, updateLastMessage, replaceTempMessage, editingMessage, clearEditingMessage, updateEditedMessage, repliedTo } = useChatStore();
     const sel = useChatStore((s) => s.selectedConversationId);
     const isOnline = useNetworkStatus();
     const { addToQueue } = useOfflineStore();
@@ -41,7 +40,9 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
     const socket = getSocket();
     //  Rate limit handler
     const { isRateLimited, timeLeft, triggerRateLimit } = useRateLimitHandler(5000);
-    const conversationmembers = selectedConversation?.participants.map(m => m._id);
+    const conversationMembers =
+        selectedConversation?.participants.map(m => m._id) ?? [];
+    const activeReply = sel ? repliedTo[sel] : undefined;
 
     //  Fetch logged-in user once
     useEffect(() => {
@@ -165,7 +166,7 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
             if (!res.ok) throw new Error("Failed to send message");
             const message = await res.json();
 
-            sendMessage(message, conversationmembers);
+            sendMessage(message, conversationMembers);
             updateLastMessage(String(sel), message);
             replaceTempMessage(String(sel), tempId, message);
         } catch (err) {
@@ -194,7 +195,7 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
 
             const message = await res.json();
             addMessage(String(sel), message);
-            sendMessage(message, conversationmembers);
+            sendMessage(message, conversationMembers);
             toast.success("Image sent successfully!");
             setShowImageUpload(false);
         } catch (err) {
@@ -232,9 +233,9 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
             <form className="w-full flex gap-3" onSubmit={handleSendMessage}>
                 <div className="flex-1">
                     {/* Reply or Edit Preview */}
-                    {(replyTo || editingMessage) && (
+                    {(activeReply || editingMessage) && (
                         <div className="absolute -top-8 left-3 w-lg bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-t-md flex justify-between">
-                            {replyTo && <span>Replying to: {replyTo.content}</span>}
+                            {activeReply && <span>Replying to: {activeReply.content}</span>}
                             {editingMessage && <span>Editing: {editingMessage.content}</span>}
                             <button
                                 type="button"
@@ -245,6 +246,7 @@ const MessageInput = ({ replyTo }: MessageInputProps) => {
                             </button>
                         </div>
                     )}
+
                     <Input
                         type="text"
                         placeholder={
