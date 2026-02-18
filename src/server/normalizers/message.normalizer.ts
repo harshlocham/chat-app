@@ -1,9 +1,19 @@
-import { MessageDTO } from "@/shared/dto/message.dto.js";
+import { MessageDTO } from "../../shared/dto/message.dto.js";
 import { IMessagePopulated } from "../../models/Message.js";
-import type { ClientMessage, ClientReaction } from "../../shared/types/client-message.js";
+import type { ClientReaction } from "../../shared/types/client-message.js";
 
 // src/server/normalizers/message.normalizer.ts
 export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
+    type ReactionUser =
+        | string
+        | { _id: { toString(): string } }
+        | { toString(): string };
+    type DeliveryEntry =
+        | { user?: { toString(): string } }
+        | { toString(): string };
+    type SeenEntry =
+        | { user?: { toString(): string } }
+        | { toString(): string };
     return {
         _id: doc._id.toString(),
         conversationId: doc.conversationId.toString(),
@@ -31,10 +41,10 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
         reactions: doc.reactions
             ? doc.reactions.map((reaction) => ({
                 emoji: reaction.emoji,
-                users: (reaction.users ?? []).map((user: any) =>
+                users: (reaction.users ?? []).map((user: ReactionUser) =>
                     typeof user === "string"
                         ? user
-                        : user._id
+                        : "_id" in user
                             ? user._id.toString()
                             : user.toString()
                 ),
@@ -42,16 +52,16 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
             : [],
 
         seenBy: doc.seenBy
-            ? doc.seenBy.map((entry: any) =>
-                entry.user
+            ? doc.seenBy.map((entry: SeenEntry) =>
+                "user" in entry && entry.user
                     ? entry.user.toString()
                     : entry.toString()
             )
             : [],
 
         deliveredTo: doc.deliveredTo
-            ? doc.deliveredTo.map((entry: any) =>
-                entry.user
+            ? doc.deliveredTo.map((entry: DeliveryEntry) =>
+                "user" in entry && entry.user
                     ? entry.user.toString()
                     : entry.toString()
             )

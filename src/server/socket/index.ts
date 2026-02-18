@@ -9,11 +9,13 @@ import { registerMessageHandlers } from "./handlers/message/message.handler.js";
 
 import { typingHandler } from "./handlers/typing/typing.handler.js";
 import type { Socket } from "socket.io";
-//import { Server as SocketIOServer } from "socket.io";
+import { registerIO } from "./emit.js";
+import type { Server as HTTPServer } from "http";
 
-export async function initSocket(server: any) {
+export async function initSocket(server: HTTPServer) {
     const redis = await initRedis();
     const io = initIO(server, redis);
+    registerIO(io);
 
     io.use(socketAuth);
 

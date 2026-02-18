@@ -1,6 +1,6 @@
 import { Server, Socket } from "socket.io";
 import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
-import { MessageDTO } from "@/shared/dto/message.dto.js";
+import { MessageDTO } from "../../../../shared/dto/message.dto.js";
 
 export function registerMessageHandlers(io: Server, socket: Socket) {
     const conversationRoom = (id: string) => `conversation:${id}`;
