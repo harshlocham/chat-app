@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatDate(input: number | string) {
+export function formatDate(input: number | string | Date) {
   const date = new Date(input); // works for ms timestamp OR ISO string
   const today = new Date();
   today.setHours(0, 0, 0, 0);
