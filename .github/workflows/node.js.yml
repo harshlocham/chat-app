@@ -2,9 +2,9 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
@@ -12,12 +12,29 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [22.x, 23.x, 24.x]
-    
+        node-version: [22.x, 24.x]
+
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+
     env:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
-      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      MONGODB_URI: mongodb://localhost:27017/test
+      NEXTAUTH_SECRET: testSecret
       NEXTAUTH_URL: http://localhost:3000
+      REDIS_URL: redis://localhost:6379
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +43,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: "npm"
 
       - run: npm ci
-      - run: npm run build
+
+      - name: wait for mongodb to start
+        run: sleep 5
+      
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Next.js
+        run: npm run build
+
+      - name: Build Server
+        run: npm run build:server
