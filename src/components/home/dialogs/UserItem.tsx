@@ -1,8 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { IUser } from "@/models/User";
+import { ClientUser } from "@/shared/types/user";
 
 interface Props {
-    user: IUser;
+    user: ClientUser;
     selected: boolean;
     onClick: () => void;
 }
