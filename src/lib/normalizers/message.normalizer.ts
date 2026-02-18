@@ -62,7 +62,7 @@ export function fromTempMessage(msg: ITempMessage): UIMessage {
         status: "pending",
     };
 }
-function normalizeReply(
+export function normalizeReply(
     repliedTo: RawReply | string | null | undefined
 ): UIReplyPreview | null {
     if (!repliedTo) return null;
