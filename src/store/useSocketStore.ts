@@ -74,14 +74,13 @@ const useSocketStore = create<SocketState>((set, get) => ({
         if (payload.tempId) {
             useChatStore.getState().addOptimisticMessage(payload.conversationId, {
                 _id: payload.tempId,
-                senderId: payload.senderId,
+                sender: payload,
                 conversationId: payload.conversationId,
                 isDeleted: false,
                 content: payload.content,
                 messageType: payload.type,
                 status: "pending",
-                sender: payload.sender,
-                timestamp: new Date().toISOString(),
+                createdAt: new Date(),
             });
         }
     },

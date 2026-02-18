@@ -1,29 +1,14 @@
 // ============================================================================
 // SOCKET EVENT CONSTANTS
 
+import { MessageDTO } from "../dto/message.dto.js";
 import type { ClientMessage } from "./client-message.js";
-import mongoose from "mongoose";
-
 // ============================================================================
 //  interface IReaction {
 //     emoji: string;
 //     users: mongoose.Types.ObjectId[] | (mongoose.Types.ObjectId | IUser)[];
 // }
-interface IMessagePopulated {
-    _id: mongoose.Types.ObjectId;
-    sender: mongoose.Types.ObjectId; // populated or just id
-    content: string;
-    repliedTo?: mongoose.Types.ObjectId | IMessagePopulated;
-    //reactions?: IReaction[];
-    isEdited: boolean;
-    isDeleted: boolean;
-    //messageType: MessageType;
-    timestamp: Date;
-    conversationId: mongoose.Types.ObjectId;
-    createdAt: Date;
-    seenBy?: mongoose.Types.ObjectId[];
-    deliveredTo?: mongoose.Types.ObjectId[];
-}
+
 export const SocketEvents = {
     // ---------- MESSAGE ----------
     MESSAGE_NEW: "message:new",
@@ -94,13 +79,6 @@ export type ValueOf<T> = T[keyof T];
 
 // ---------- MESSAGE ----------
 
-export interface MessageNewPayload {
-    _id: string;
-    tempId?: string;
-    conversationId: string;
-    message: ClientMessage;
-    sender: string;
-}
 
 export interface MessageSendAckPayload {
     tempId: string;
@@ -295,7 +273,7 @@ export interface SocketErrorPayload {
 
 export interface ServerToClientEvents {
     // Messages
-    [SocketEvents.MESSAGE_NEW]: (data: MessageNewPayload) => void;
+    [SocketEvents.MESSAGE_NEW]: (data: MessageDTO) => void;
     [SocketEvents.MESSAGE_SEND_ACK]: (data: MessageSendAckPayload) => void;
     [SocketEvents.MESSAGE_FAILED]: (data: MessageFailedPayload) => void;
     [SocketEvents.MESSAGE_DELIVERED_UPDATE]: (data: MessageDeliveredUpdatePayload) => void;
@@ -350,10 +328,10 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
     // Messages
     [SocketEvents.MESSAGE_SEND]: (payload: {
-        data: MessageNewPayload;
+        data: MessageDTO;
         conversationMembers: string[];
     }) => void;
-    [SocketEvents.MESSAGE_NEW]: (data: MessageNewPayload) => void;
+    [SocketEvents.MESSAGE_NEW]: (data: MessageDTO) => void;
     [SocketEvents.MESSAGE_RETRY]: (data: MessageRetryPayload) => void;
     [SocketEvents.MESSAGE_DELIVERED]: (data: MessageDeliveredPayload) => void;
     [SocketEvents.MESSAGE_SEEN]: (data: MessageSeenPayload) => void;
