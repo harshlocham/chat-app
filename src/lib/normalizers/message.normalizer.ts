@@ -1,6 +1,6 @@
 import { IMessagePopulated } from "@/models/Message";
 import { ITempMessage } from "@/models/TempMessage";
-import { ClientMessage, ClientReaction } from "@/types/client-message";
+import { ClientMessage, ClientReaction } from "@/shared/types/client-message";
 import { UIMessage } from "@/shared/types/ui-message";
 
 interface RawReply {
@@ -37,17 +37,16 @@ export function toClientMessage(msg: IMessagePopulated): ClientMessage {
                 : msg.sender,
         reactions: msg.reactions as unknown as ClientReaction[],
         repliedTo: msg.repliedTo ? toClientMessage(msg.repliedTo) : null,
-        createdAt: msg.createdAt,
+        createdAt: String(msg.createdAt),
         isDeleted: msg.isDeleted,
         isEdited: msg.isEdited,
+        status: msg.status,
     };
 }
 export function fromTempMessage(msg: ITempMessage): UIMessage {
     return {
         _id: msg._id.toString(),
         conversationId: msg.conversationId,
-
-        senderId: msg.senderId.toString(),
         sender: {
             _id: msg.sender._id.toString(),
             username: msg.sender.username,
@@ -60,8 +59,7 @@ export function fromTempMessage(msg: ITempMessage): UIMessage {
 
         isTemp: true,
         isDeleted: false,
-
-        repliedTo: normalizeReply(msg.repliedTo),
+        status: "pending",
     };
 }
 function normalizeReply(
@@ -85,7 +83,7 @@ function normalizeReply(
 
     // ObjectId only → fallback preview
     return {
-        _id: repliedTo.toString(),
+        _id: "",
         content: "",
         sender: { _id: "" },
     };
