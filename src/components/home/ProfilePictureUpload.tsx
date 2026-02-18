@@ -65,7 +65,8 @@ export const ProfilePictureUpload = ({ onUpdate, className }: ProfilePictureUplo
             <div className="relative group">
                 {user && (
                     <UserAvatar
-                        user={user}
+                        username={user.username}
+                        profilePicture={user.profilePicture}
                         size={150}
                     />
                 )}
