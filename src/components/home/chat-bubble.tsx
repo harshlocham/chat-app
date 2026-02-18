@@ -1,4 +1,3 @@
-import { IMessagePopulated } from "@/models/Message";
 import ChatBubbleAvatar from "./chat-bubble-avatar";
 import useChatStore from "@/store/chat-store";
 import { Image } from "@imagekit/next";
@@ -40,7 +39,7 @@ function isUser(obj: unknown): obj is ClientUser {
     );
 }
 
-function isPopulatedMessage(obj: unknown): obj is IMessagePopulated {
+function isPopulatedMessage(obj: unknown): obj is UIMessage {
     return (
         typeof obj === "object" &&
         obj !== null &&
