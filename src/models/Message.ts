@@ -38,17 +38,6 @@ export interface IMessagePopulated extends Omit<IMessage, "sender" | "repliedTo"
     updatedAt?: Date;
 }
 
-// For optimistic UI / temp messages
-export interface ITempMessage extends Omit<IMessage, "_id" | "timestamp" | "createdAt"> { }
-// Import from canonical location
-//export { ITempMessage } from "./TempMessage";
-export interface MessageInputProps {
-    onSend: (content: string) => void;
-    replyTo?: IMessage;
-    onCancelReply?: () => void;
-    editMessage?: IMessage;
-    onCancelEdit?: () => void;
-}
 const DeliveredSchema = new Schema<IDeliveredTo>(
     {
         userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
