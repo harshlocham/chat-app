@@ -1,14 +1,10 @@
-import { ClientUser } from "@/shared/types/user";
+"use client";
 import Image from "next/image";
 
-interface UserAvatarProps {
-    user: ClientUser;
-    size?: number;
-}
 
-const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40 }) => {
-    const src = user.profilePicture;
-    const initials = user.username?.charAt(0).toUpperCase() || "U";
+const UserAvatar = ({ profilePicture, username, size = 48 }: { profilePicture?: string, username?: string, size?: number }) => {
+    const src = profilePicture;
+    const initials = username?.charAt(0).toUpperCase() || "U";
 
     return (
         <div
@@ -18,7 +14,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 40 }) => {
             {src ? (
                 <Image
                     src={src}
-                    alt={user.username || "User"}
+                    alt={username || "User"}
                     fill
                     className="object-cover"
                 />

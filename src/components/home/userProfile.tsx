@@ -14,18 +14,15 @@ import UserAvatar from "./UserAvatar";
 import { ProfilePictureUpload } from "./ProfilePictureUpload"
 import { useUser } from "@/context/UserContext";
 const UserProfile = () => {
-    const { user, } = useUser();
-    const formattedUser = {
-        name: user?.username,
-        oauthImage: null,
-        imageKitUrl: user?.profilePicture,
-    }
+    const { user } = useUser();
+
     //console.log(user)
     return (
         <Dialog >
             <DialogTrigger asChild>
                 <Button><UserAvatar
-                    user={formattedUser}
+                    username={user?.username}
+                    profilePicture={user?.profilePicture}
                     size={48}
                 /></Button>
             </DialogTrigger>
