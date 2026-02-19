@@ -100,6 +100,8 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                 status: "delivered",
                 isTemp: false,
             };
+            const conversationId = data.conversationId;
+            if (conversationId != sel) return;
 
             updateLastMessage(String(sel), normalized);
             addMessage(String(sel), normalized);
