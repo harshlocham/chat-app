@@ -78,21 +78,26 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         // JOIN
 
         const handleNewMessage = (data: unknown) => {
-            if (!isMessageDTO(data)) {
-                console.error("Invalid message payload", data);
-                return;
-            }
+            if (!isMessageDTO(data)) return;
 
             const currentUserId = user?._id?.toString();
             if (!currentUserId) return;
 
-            const isOwn = data.sender._id === currentUserId;
+            const senderId = String(data.sender._id);
+            const isOwn = senderId === currentUserId;
+
+            // Ignore own message:new
+            if (isOwn) return;
 
             const normalized: UIMessage = {
                 ...data,
+                sender: {
+                    ...data.sender,
+                    _id: senderId,
+                },
                 createdAt: new Date(data.createdAt),
                 updatedAt: data.updatedAt ? new Date(data.updatedAt) : undefined,
-                status: isOwn ? "sent" : "delivered",
+                status: "delivered",
                 isTemp: false,
             };
 
@@ -170,7 +175,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                             {showSeparator && <ChatDaySeparator date={msgDate} />}
                             <ChatBubble
                                 message={msg}
-                                currentUserId={user?._id?.toString()}
+                                currentUserId={user?._id}
                                 onDelete={deleteMessage}
                                 onReply={() => { }}
                                 onReact={(id, emoji) => socket.emit('message:reaction', { userId: user?._id?.toString(), messageId: String(id), emoji })} // 👈 socket.emit
