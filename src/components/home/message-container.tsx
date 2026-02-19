@@ -58,10 +58,6 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     useEffect(() => {
         fetchMessages();
     }, [sel, fetchMessages]);
-    useEffect(() => {
-        connect();
-    }, [connect]);
-    // SOCKET EVENTS
 
     useEffect(() => {
         joinConversation(conversationId);
