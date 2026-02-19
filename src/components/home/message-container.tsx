@@ -9,9 +9,7 @@ import { useUser } from "@/context/UserContext";
 import { deleteMessage } from "@/lib/utils/api";
 import useSocketStore from "@/store/useSocketStore";
 import { MessageEditPayload } from "@/shared/types/SocketEvents";
-import { markDelivered } from "@/lib/services/delivery.service";
 import { UIMessage } from "@/shared/types/ui-message";
-import { isMessageDTO } from "@/shared/utils/message.guard";
 
 
 interface MessageContainerProps {
@@ -26,7 +24,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const bottomRef = useRef<HTMLDivElement>(null);
     const { user } = useUser();
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
-    const { connect, joinConversation, leaveConversation } = useSocketStore();
+    const { joinConversation, leaveConversation } = useSocketStore();
 
     const fetchMessages = useCallback(async (cursor?: string) => {
         if (!sel) return;
