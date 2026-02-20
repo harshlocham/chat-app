@@ -32,7 +32,7 @@ interface ChatStore {
         tempId: string,
         newMsg: UIMessage
     ) => void;
-    updateMessage: (conversationId: string, updated: UIMessage) => void;
+    updateMessage: (updatedMessage: UIMessage) => void;
     removeMessage: (conversationId: string, messageId: string) => void;
     updateMessageReactions: (conversationId: string, updated: UIMessage) => void;
     clearTempMessages: (conversationId: string) => void;
@@ -188,15 +188,20 @@ const useChatStore = create<ChatStore>((set) => ({
                 },
             };
         }),
-    updateMessage: (conversationId, updated) =>
+    updateMessage: (updatedMessage) =>
         set((state) => {
-            const current = state.messagesByConversation[conversationId] || [];
+            const convId = updatedMessage.conversationId;
+            const messages = state.messagesByConversation[convId];
+            if (!messages) return {};
+
+            const updated = messages.map((m) =>
+                m._id === updatedMessage._id ? updatedMessage : m
+            );
+
             return {
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: current.map((m) =>
-                        idOf(m) === idOf(updated) ? updated : m
-                    ),
+                    [convId]: updated,
                 },
             };
         }),

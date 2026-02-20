@@ -2,7 +2,7 @@ import type { ClientUser } from "./user.js";
 
 export interface ClientReaction {
     emoji: string;
-    users: string[];
+    users: ClientUser[];
 }
 export interface ClientMessage {
     _id: string;
