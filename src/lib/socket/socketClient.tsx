@@ -93,6 +93,12 @@ export function registerGlobalSocketListeners() {
         console.log("🔌 MESSAGE_DELETE", payload);
         useChatStore.getState().updateDeletedMessage(convertDTOToUI(payload));
     });
+    socket.on("message:reaction", (dto) => {
+        if (!isMessageDTO(dto)) return;
+
+        const uiMessage = convertDTOToUI(dto);
+        useChatStore.getState().updateMessage(uiMessage);
+    });
 }
 
 function convertDTOToUI(dto: MessageDTO): UIMessage {
