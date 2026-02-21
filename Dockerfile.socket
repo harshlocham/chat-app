@@ -38,4 +38,4 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
     CMD node -e "require('net').connect(3001).on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
 
-CMD ["node", "dist/server/index.js"]
+CMD ["node", "dist/server/server/index.js"]
