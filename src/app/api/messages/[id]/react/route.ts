@@ -29,7 +29,7 @@ export async function POST(
 
         const message = await Message.findById(id)
             .populate("sender")
-            .populate("reactions.user");
+            .populate("reactions.users");
 
         if (!message) {
             return NextResponse.json({ error: "Message not found" }, { status: 404 });
@@ -46,7 +46,7 @@ export async function POST(
 
         const existingIndex = message.reactions.findIndex(
             (r: { emoji: string; user: mongoose.Types.ObjectId }) =>
-                r.user.toString() === userId && r.emoji === emoji
+                r.user.toString() === userId.toString() && r.emoji === emoji
         );
 
         if (existingIndex > -1) {

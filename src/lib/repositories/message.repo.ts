@@ -14,7 +14,7 @@ export async function getPaginatedMessages(conversationId: string, cursor?: stri
         .sort({ _id: -1 })
         .limit(limit)
         .populate("sender", "username email profilePicture status _id")
-        .populate("reactions.user", "username profilePicture _id")
+        .populate("reactions.users", "username email profilePicture status _id")
         .lean<IMessagePopulated[]>();
 
     return messages;
