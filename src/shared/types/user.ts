@@ -1,4 +1,3 @@
-import { ClientConversation } from "./client-conversation.js";
 
 export interface ClientUser {
     _id: string;

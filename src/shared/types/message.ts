@@ -1,4 +1,3 @@
-import { ClientUser } from "./user.js";
 
 export type MessageType = "text" | "image" | "file" | "voice" | "video" | "audio";
 
