@@ -361,7 +361,7 @@ const ChatBubble = ({
                         })}
                     </span>
                     {/* Read receipts (placeholder, replace with real logic) */}
-                    {isMine && message.seenBy?.length! > 0 && (
+                    {isMine && message.seenBy && message.seenBy.length > 0 && (
                         <span className="ml-1 text-blue-400 text-xs">✓✓</span>
                     )}
                 </div>

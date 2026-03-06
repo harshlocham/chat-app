@@ -25,7 +25,6 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const { user } = useUser();
     const [typingUsers, setTypingUsers] = useState<string[]>([]);
     const { joinConversation, leaveConversation } = useSocketStore();
-    const [isNearBottom, setIsNearBottom] = useState(true);
     const [newMessages, setNewMessages] = useState(false);
 
     const fetchMessages = useCallback(async (cursor?: string) => {
@@ -107,17 +106,13 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
         setNewMessages(false);
     };
 
-    const typingText =
-        typingUsers.length === 0
-            ? ""
-            : typingUsers.length === 1
-                ? `${typingUsers[0]} is typing`
-                : `${typingUsers.join(", ")} are typing`;
+    // typingText is not used, so removed.
 
     // Group messages by sender and time
     function groupMessages(messages: UIMessage[]) {
         const groups: Array<{ messages: UIMessage[]; showAvatar: boolean; showUsername: boolean }> = [];
         let prev: UIMessage | null = null;
+        // ...existing code...
         for (const msg of messages) {
             const msgDate = new Date(msg.createdAt);
             let showAvatar = true;
@@ -155,7 +150,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
             <div className="mx-auto flex flex-col gap-3 h-full w-full max-w-3xl px-2 sm:px-6 py-4">
                 <div ref={topRef} />
                 <AnimatePresence initial={false}>
-                    {user && grouped.map((group, idx) => (
+                    {user && grouped.map((group) => (
                         <motion.div
                             key={String(group.messages[0]._id)}
                             initial={{ opacity: 0, y: 16 }}

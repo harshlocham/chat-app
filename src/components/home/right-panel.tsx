@@ -5,8 +5,8 @@ import {
     // Video,
     X
 } from "lucide-react";
-import MessageInput from "./message-input";
-import MessageContainer from "./message-container";
+import MessageInput from "../chat/message-input";
+import MessageContainer from "../chat/message-container";
 import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import GroupMembersDialog from "./group-members-dialog";
 import useChatStore from "@/store/chat-store";

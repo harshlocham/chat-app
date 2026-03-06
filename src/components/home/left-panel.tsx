@@ -5,7 +5,7 @@ import { ListFilter, LogOut, Search } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
-import Conversation from "../sidebar/Conversation";
+import { Conversation } from "../sidebar/Conversation";
 import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import { getConversations } from "@/lib/utils/api";
@@ -20,9 +20,8 @@ function isUser(p: unknown): p is ClientUser {
 const LeftPanel = () => {
     const conversations = useChatStore((s) => s.conversations);
     const setConversations = useChatStore((s) => s.setConversations);
-    const setSelectedConversation = useChatStore(
-        (s) => s.setSelectedConversation
-    );
+    const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
+    const selectedConversationId = useChatStore((s) => s.selectedConversationId);
 
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -153,6 +152,8 @@ const LeftPanel = () => {
                         <Conversation
                             key={String(c._id)}
                             conversation={c}
+                            onSelect={id => setSelectedConversation(conversations.find(conv => String(conv._id) === id) || null)}
+                            active={selectedConversationId === String(c._id)}
                         />
                     ))}
             </div>
