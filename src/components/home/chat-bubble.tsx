@@ -213,7 +213,7 @@ const ChatBubble = ({
     };
 
     return (
-        <div className={`flex w-full ${isMine ? "justify-end" : "justify-start"} px-2`}>
+        <div className={`flex w-full ${isMine ? "justify-end" : "justify-start"} px-1 sm:px-2`}>
             {/* Avatar only for others in group chats */}
             {!isMine && selectedConversation?.isGroup && isUser(message.sender) && (
                 <ChatBubbleAvatar
@@ -224,28 +224,14 @@ const ChatBubble = ({
             )}
 
             <div
-                className={`relative flex flex-col max-w-[70%] group ${isMine ? "items-end" : "items-start"
-                    }`}
+                className={`relative flex flex-col max-w-[90vw] sm:max-w-[70%] group ${isMine ? "items-end" : "items-start"}`}
             >
-                {/* iMessage-style floating reaction badges */}
+                {/* Modern SaaS-style reaction badges */}
                 {hasReactions && (
-                    <div
-                        className={`absolute -top-3 ${isMine ? "right-4" : "left-4"
-                            } flex gap-1 z-20`}
-                    >
+                    <div className={`absolute -top-3 ${isMine ? "right-4" : "left-4"} flex gap-1 z-20`}>
                         <AnimatePresence>
                             {Object.entries(groupedReactions).map(([emoji, users]) => {
-                                const reactedByMe = users.some(
-                                    (u) => {
-                                        const id =
-                                            typeof u === "string"
-                                                ? u
-                                                : u;
-
-                                        return id === currentUserId;
-                                    }
-                                );
-
+                                const reactedByMe = users.some((u) => String(u) === String(currentUserId));
                                 return (
                                     <motion.span
                                         key={emoji}
@@ -253,11 +239,7 @@ const ChatBubble = ({
                                         animate={{ scale: 1, y: 0, opacity: 1 }}
                                         exit={{ scale: 0, opacity: 0 }}
                                         transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                                        className={`px-2 py-[2px] text-[11px] rounded-full shadow 
-                ${reactedByMe
-                                                ? "bg-blue-500 text-white"
-                                                : "bg-white dark:bg-gray-900"
-                                            }`}
+                                        className={`px-2 py-[2px] text-[11px] rounded-full shadow ${reactedByMe ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"}`}
                                     >
                                         {emoji}
                                         {users.length > 1 && ` ${users.length}`}
@@ -267,16 +249,15 @@ const ChatBubble = ({
                         </AnimatePresence>
                     </div>
                 )}
-
                 <div
-                    className={`w-full rounded-xl transition duration-300 ease-in-out relative
-                            ${isMine
-                            ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+                    className={`w-full rounded-2xl transition duration-300 ease-in-out relative
+                        ${isMine
+                            ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white"
+                            : "bg-gray-800/80 text-gray-100 border border-gray-700"
                         }
-                            ${(message).messageType !== "text"
+                        ${(message).messageType !== "text"
                             ? "p-0 bg-transparent shadow-none"
-                            : "p-3 shadow-md"
+                            : "p-4 shadow-sm"
                         }
                         `}
                 >
@@ -335,15 +316,20 @@ const ChatBubble = ({
                 )}
 
                 {/* Timestamp */}
-                <span
-                    className={`text-[10px] text-gray-400 mt-1 block ${isMine ? "text-right" : "text-left"
-                        } w-full`}
-                >
-                    {new Date(message.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    })}
-                </span>
+                <div className="flex items-center gap-1 mt-1">
+                    <span
+                        className={`text-[10px] text-gray-400 block ${isMine ? "text-right ml-auto" : "text-left"} w-full`}
+                    >
+                        {new Date(message.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        })}
+                    </span>
+                    {/* Read receipts (placeholder, replace with real logic) */}
+                    {isMine && message.seenBy?.length! > 0 && (
+                        <span className="ml-1 text-blue-400 text-xs">✓✓</span>
+                    )}
+                </div>
             </div>
         </div>
     );

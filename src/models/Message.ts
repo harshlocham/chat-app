@@ -4,10 +4,11 @@ import { IUser } from "./User.js";
 
 export type MessageType = "text" | "image" | "video" | "audio" | "voice" | "file";
 
-export interface IReaction {
-    emoji: string;
-    users: (mongoose.Types.ObjectId | IUser)[];
-}
+// Deprecated: IReaction interface (use reactions map instead)
+// export interface IReaction {
+//     emoji: string;
+//     users: (mongoose.Types.ObjectId | IUser)[];
+// }
 export interface IDeliveredTo {
     userId: mongoose.Types.ObjectId;
     at: Date;
@@ -18,7 +19,9 @@ export interface IMessage {
     sender: mongoose.Types.ObjectId; // populated or just id
     content: string;
     repliedTo?: mongoose.Types.ObjectId | IMessagePopulated;
-    reactions?: IReaction[];
+    reactions?: {
+        [emoji: string]: mongoose.Types.ObjectId[];
+    };
     isEdited: boolean;
     isDeleted: boolean;
     messageType: MessageType;
@@ -38,6 +41,12 @@ export interface IMessagePopulated extends Omit<IMessage, "sender" | "repliedTo"
     updatedAt?: Date;
 }
 
+// MIGRATION NOTE:
+// If you have existing messages with the old reactions array format,
+// write a migration script to convert:
+//   [{ emoji, users: [userId, ...] }]  =>  { [emoji]: [userId, ...] }
+// This enables atomic updates and efficient grouping.
+
 const DeliveredSchema = new Schema<IDeliveredTo>(
     {
         userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
@@ -50,12 +59,11 @@ const MessageSchema = new Schema<IMessage>({
     sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
     content: { type: String, required: true },
     repliedTo: { type: Schema.Types.ObjectId, ref: "Message" },
-    reactions: [
-        {
-            emoji: String,
-            users: [{ type: Schema.Types.ObjectId, ref: "User" }],
-        },
-    ],
+    reactions: {
+        type: Map,
+        of: [{ type: Schema.Types.ObjectId, ref: "User" }],
+        default: {},
+    },
     isEdited: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false },
     messageType: {

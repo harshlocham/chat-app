@@ -111,8 +111,8 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                 : `${typingUsers.join(", ")} are typing`;
 
     return (
-        <div className="relative p-3 flex-1 overflow-auto h-full bg-chat-tile-light dark:bg-chat-tile-dark">
-            <div className="mx-12 flex flex-col gap-3 h-full">
+        <div className="relative flex-1 overflow-auto h-full bg-chat-tile-light dark:bg-chat-tile-dark">
+            <div className="mx-auto flex flex-col gap-3 h-full w-full max-w-3xl px-2 sm:px-6 py-4">
                 <div ref={topRef} />
                 {user && (messagesByConversation[conversationId] ?? []).map((msg) => {
                     const msgDate = new Date(msg.createdAt);

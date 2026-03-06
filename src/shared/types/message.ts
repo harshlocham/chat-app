@@ -1,6 +1,7 @@
 import { ClientUser } from "./user.js";
 
 export type MessageType = "text" | "image" | "file" | "voice" | "video" | "audio";
+
 export interface ReplyPreview {
     _id: string;
     content: string;
@@ -10,21 +11,15 @@ export interface ReplyPreview {
 export interface ClientMessage {
     _id: string;
     conversationId: string;
-
     content: string;
     messageType: MessageType;
-
-    sender: ClientUser;
-
+    sender: import("./user.js").ClientUser;
     repliedTo?: ReplyPreview | null;
-
     reactions?: Record<string, string[]>;
     seenBy?: string[];
     deliveredTo?: string[];
     createdAt: string;
-    editedAt?: string;
-    deletedAt?: string;
-
+    updatedAt?: string;
     isEdited: boolean;
     isDeleted: boolean;
 }

@@ -5,7 +5,7 @@ import { ListFilter, LogOut, Search } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
-import Conversation from "./conversation";
+import Conversation from "../sidebar/Conversation";
 import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import { getConversations } from "@/lib/utils/api";
@@ -95,44 +95,40 @@ const LeftPanel = () => {
     };
 
     return (
-        <div className="w-1/4 border-r border-gray-600 min-w-[250px] flex flex-col">
+        <aside className="bg-gray-900 w-72 h-full flex flex-col border-r border-gray-800 shadow-lg">
             {/* Header */}
-            <div className="sticky top-0 bg-left-panel z-10">
-                <div className="flex justify-between bg-gray-primary p-3 items-center">
-                    <UserProfile />
-                    <div className="flex items-center gap-3">
-                        <UserListDialog />
-                        <ThemeSwitch />
-                        <LogOut
-                            size={20}
-                            className="cursor-pointer text-gray-400 hover:text-white transition"
-                            onClick={() => signOut({ callbackUrl: "/login" })}
-                        />
-                    </div>
+            <div className="p-4 flex items-center gap-2 border-b border-gray-800">
+                <UserProfile />
+                <div className="ml-auto flex items-center gap-3">
+                    <UserListDialog />
+                    <ThemeSwitch />
+                    <LogOut
+                        size={20}
+                        className="cursor-pointer text-gray-400 hover:text-white transition"
+                        onClick={() => signOut({ callbackUrl: "/login" })}
+                    />
                 </div>
-
-                {/* Search */}
-                <div className="p-3 flex items-center">
-                    <div className="relative h-10 mx-3 flex-1">
-                        <Search
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-                            size={18}
-                        />
-                        <Input
-                            type="text"
-                            placeholder="Search or start a new chat"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            className="pl-10 py-2 text-sm w-full rounded bg-gray-primary focus-visible:ring-transparent"
-                        />
-                    </div>
-                    <ListFilter className="cursor-pointer text-gray-500 hover:text-gray-300" />
+            </div>
+            <div className="p-3 flex items-center border-b border-gray-800 bg-gray-900/80">
+                <div className="relative h-10 mx-3 flex-1">
+                    <Search
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                        size={18}
+                    />
+                    <Input
+                        type="text"
+                        placeholder="Search or start a new chat"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        className="pl-10 py-2 text-sm w-full rounded-lg border border-gray-700 bg-gray-800 text-white focus-visible:ring-2 focus-visible:ring-blue-500 transition"
+                    />
                 </div>
+                <ListFilter className="cursor-pointer text-gray-500 hover:text-gray-300" />
             </div>
 
             {/* Conversation list */}
-            <div className="flex-1 overflow-y-auto px-1 pb-4">
+            <div className="flex-1 overflow-y-auto px-1 pb-4 custom-scrollbar">
                 {loading && (
                     <p className="text-center text-gray-400 text-sm mt-6">
                         Loading conversations...
@@ -160,7 +156,7 @@ const LeftPanel = () => {
                         />
                     ))}
             </div>
-        </div>
+        </aside>
     );
 };
 

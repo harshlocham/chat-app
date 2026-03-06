@@ -215,51 +215,43 @@ const MessageInput = () => {
                 </div>
             </div>
         )}
-        <div className="relative bg-gray-primary p-2 flex gap-4 items-center">
-            <div className="relative flex gap-2 ml-2">
-                <Laugh className="text-gray-600 dark:text-gray-400" />
-                <Plus className="text-gray-600 dark:text-gray-400" />
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowImageUpload(!showImageUpload)}
-                    className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
-                >
-                    <ImageIcon size={20} />
-                </Button>
-            </div>
-
-            <form className="w-full flex gap-3" onSubmit={handleSendMessage}>
-                <div className="flex-1">
-                    {/* Reply or Edit Preview */}
+        <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 py-2 bg-gray-900/90 rounded-b-2xl shadow-lg border-t border-gray-800 flex flex-col gap-2">
+            <form className="flex items-center gap-2 w-full" onSubmit={handleSendMessage}>
+                {/* Emoji, Attach, Image */}
+                <div className="flex items-center gap-1 sm:gap-2">
+                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Add emoji">
+                        <Laugh className="text-gray-400" size={22} />
+                    </button>
+                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Attach file">
+                        <Plus className="text-gray-400" size={22} />
+                    </button>
+                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Upload image" onClick={() => setShowImageUpload(!showImageUpload)}>
+                        <ImageIcon className="text-gray-400" size={22} />
+                    </button>
+                </div>
+                {/* Input */}
+                <div className="flex-1 relative">
                     {(activeReply || editingMessage) && (
-                        <div className="absolute -top-8 left-3 w-lg bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-t-md flex justify-between">
-                            {activeReply && <span>Replying to: {activeReply.content}</span>}
-                            {editingMessage && <span>Editing: {editingMessage.content}</span>}
+                        <div className="absolute -top-10 left-0 w-full bg-gray-800 text-xs text-gray-200 p-2 rounded-t-md flex justify-between items-center z-10">
+                            {activeReply && <span>Replying to: <span className="font-semibold">{activeReply.content}</span></span>}
+                            {editingMessage && <span>Editing: <span className="font-semibold">{editingMessage.content}</span></span>}
                             <button
                                 type="button"
-                                className="text-xs text-blue-500"
+                                className="ml-2 text-xs text-blue-400 hover:underline"
                                 onClick={clearEditingMessage}
                             >
                                 Cancel
                             </button>
                         </div>
                     )}
-
                     <Input
                         type="text"
-                        placeholder={
-                            isRateLimited
-                                ? `Please wait ${timeLeft}s...`
-                                : "Type a message"
-                        }
-                        className="py-2 text-sm w-full rounded-lg shadow-sm bg-[hsl(var(--gray-tertiary))] focus-visible:ring-transparent"
+                        placeholder={isRateLimited ? `Please wait ${timeLeft}s...` : "Type a message"}
+                        className="py-2 px-4 text-sm w-full rounded-full border border-gray-700 bg-gray-800 text-white focus-visible:ring-2 focus-visible:ring-blue-500 transition shadow-sm"
                         value={msgText}
                         onChange={(e) => {
                             setMsgText(e.target.value);
-                            if (sel && !isRateLimited)
-                                debouncedTyping(String(sel));
+                            if (sel && !isRateLimited) debouncedTyping(String(sel));
                         }}
                         disabled={isRateLimited}
                         onKeyDown={(e) => {
@@ -268,42 +260,44 @@ const MessageInput = () => {
                                 handleSendMessage(e);
                             }
                             if (e.key === "Escape") {
-                                clearEditingMessage()
+                                clearEditingMessage();
                             }
                         }}
                     />
                 </div>
-
-                <div className="mr-4 flex items-center gap-3">
+                {/* Send / Mic */}
+                <div className="flex items-center gap-1">
                     {msgText.trim().length > 0 ? (
                         <Button
                             type="submit"
-                            size="sm"
-                            className="bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent"
+                            size="icon"
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow"
                             disabled={isRateLimited}
+                            aria-label="Send message"
                         >
-                            <Send />
+                            <Send size={20} />
                         </Button>
                     ) : (
                         <Button
                             type="button"
-                            size="sm"
-                            className="bg-transparent text-[hsl(var(--foreground))] hover:bg-transparent"
+                            size="icon"
+                            className="bg-gray-700 hover:bg-gray-600 text-white rounded-full p-2"
                             disabled={isRateLimited}
+                            aria-label="Record voice"
                         >
-                            <Mic />
+                            <Mic size={20} />
                         </Button>
                     )}
                 </div>
             </form>
-
+            {/* Image upload popover */}
             {showImageUpload && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 p-4 border rounded-xl bg-background shadow-xl">
+                <div className="absolute bottom-full left-0 mb-2 w-64 p-4 border border-gray-700 rounded-xl bg-gray-900 shadow-xl z-20">
                     <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-sm font-medium">Send Image</h3>
+                        <h3 className="text-sm font-medium text-white">Send Image</h3>
                         <button
                             onClick={() => setShowImageUpload(false)}
-                            className="text-muted-foreground hover:text-foreground"
+                            className="text-gray-400 hover:text-white"
                             aria-label="Close upload panel"
                         >
                             ✕

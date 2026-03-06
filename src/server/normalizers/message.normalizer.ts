@@ -5,6 +5,11 @@ import { ClientUser } from "../../shared/types/user.js";
 
 // src/server/normalizers/message.normalizer.ts
 export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
+    // DEBUG: Log reactions to diagnose missing reactions
+    if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log('normalizeMessage reactions:', JSON.stringify(doc.reactions));
+    }
     type ReactionUser =
         | string
         | { _id: { toString(): string } }
@@ -40,16 +45,30 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
             : undefined,
 
         reactions: doc.reactions
-            ? doc.reactions.map((reaction) => ({
-                emoji: reaction.emoji,
-                users: (reaction.users ?? []).map((user: ReactionUser) =>
-                    typeof user === "string"
-                        ? user
-                        : "_id" in user
-                            ? user._id.toString()
-                            : user.toString()
-                ),
-            }))
+            ? normalizeReactions(
+                Object.fromEntries(
+                    Object.entries(doc.reactions).map(([emoji, users]) => {
+                        let userArr: any[] = [];
+                        if (Array.isArray(users)) {
+                            userArr = users;
+                        } else if (users && typeof users === 'object' && typeof (users as Map<any, any>).values === 'function') {
+                            userArr = Array.from((users as Map<any, any>).values());
+                        } else if (users) {
+                            userArr = [users];
+                        }
+                        return [
+                            emoji,
+                            userArr.map((user: any) =>
+                                typeof user === "string"
+                                    ? user
+                                    : "_id" in user
+                                        ? user._id.toString()
+                                        : user.toString()
+                            )
+                        ];
+                    })
+                )
+            )
             : [],
 
         seenBy: doc.seenBy
@@ -79,12 +98,28 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
     };
 }
 export function normalizeReactions(
-    reactions?: Record<string, ClientUser[]>
-): ClientReaction[] | undefined {
+    reactions?: Record<string, any[]>
+): { emoji: string; users: string[] }[] | undefined {
     if (!reactions) return undefined;
 
-    return Object.entries(reactions).map(([emoji, users]) => ({
-        emoji,
-        users,
-    }));
+    return Object.entries(reactions).map(([emoji, users]) => {
+        let userArr: any[] = [];
+        if (Array.isArray(users)) {
+            userArr = users;
+        } else if (users && typeof users === 'object' && typeof (users as Map<any, any>).values === 'function') {
+            userArr = Array.from((users as Map<any, any>).values()); // handle Map
+        } else if (users) {
+            userArr = [users];
+        }
+        return {
+            emoji,
+            users: userArr.map((user: any) =>
+                typeof user === "string"
+                    ? user
+                    : "_id" in user
+                        ? user._id.toString()
+                        : user.toString()
+            ),
+        };
+    });
 }
