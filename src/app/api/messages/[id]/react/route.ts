@@ -44,7 +44,7 @@ export async function POST(
 
 
         // Step 1: Remove user from all emoji arrays
-        const pullUpdate: any = {};
+        const pullUpdate: Record<string, mongoose.Types.ObjectId> = {};
         const messageDoc = await Message.findById(id).select('reactions');
         if (messageDoc && messageDoc.reactions) {
             for (const emojiKey of Object.keys(messageDoc.reactions)) {
@@ -56,7 +56,7 @@ export async function POST(
         // Step 2: Check if user was already in the target emoji (toggle off)
         const refreshed = await Message.findById(id).select('reactions');
         const alreadyReacted = Array.isArray(refreshed?.reactions?.[emoji]) &&
-            refreshed.reactions[emoji].some((uid: any) => String(uid) === String(userId));
+            refreshed.reactions[emoji].some((uid: mongoose.Types.ObjectId | string) => String(uid) === String(userId));
 
         if (!alreadyReacted) {
             // Toggle on: add user to target emoji
