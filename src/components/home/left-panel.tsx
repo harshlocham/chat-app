@@ -5,7 +5,6 @@ import { ListFilter, LogOut, Search } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
-import Conversation from "../sidebar/Conversation";
 import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import { getConversations } from "@/lib/utils/api";
@@ -115,10 +114,10 @@ const LeftPanel = () => {
     };
 
     return (
-        <aside className="bg-gray-900 w-[320px] min-w-[280px] max-w-[360px] h-full flex flex-col border-r border-gray-800 shadow-lg">
+        <aside className="bg-[hsl(var(--left-panel))] w-[320px] min-w-[280px] max-w-[360px] h-full flex flex-col border-r border-[hsl(var(--border))] shadow-lg text-[hsl(var(--foreground))]">
 
             {/* Header */}
-            <div className="p-4 flex items-center gap-2 border-b border-gray-800">
+            <div className="p-4 flex items-center gap-2 border-b border-[hsl(var(--border))]">
                 <UserProfile />
 
                 <div className="ml-auto flex items-center gap-3">
@@ -134,7 +133,7 @@ const LeftPanel = () => {
             </div>
 
             {/* Search */}
-            <div className="p-3 flex items-center border-b border-gray-800 bg-gray-900/80">
+            <div className="p-3 flex items-center border-b border-[hsl(var(--border))] bg-[hsl(var(--left-panel))]">
                 <div className="relative h-10 mx-3 flex-1">
                     <Search
                         className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
@@ -147,7 +146,7 @@ const LeftPanel = () => {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="pl-10 py-2 text-sm w-full rounded-lg border border-gray-700 bg-gray-800 text-white focus-visible:ring-2 focus-visible:ring-blue-500 transition"
+                        className="pl-10 py-2 text-sm w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--input))] text-[hsl(var(--foreground))] focus-visible:ring-2 focus-visible:ring-blue-500 transition"
                     />
                 </div>
 

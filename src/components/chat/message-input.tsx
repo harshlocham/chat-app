@@ -215,7 +215,7 @@ const MessageInput = () => {
                 </div>
             </div>
         )}
-        <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 py-2 bg-gray-900/90 rounded-b-2xl shadow-lg border-t border-gray-800 flex flex-col gap-2">
+        <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 py-2 bg-[hsl(var(--card))] rounded-b-2xl shadow-lg border-t border-[hsl(var(--border))] flex flex-col gap-2 text-[hsl(var(--foreground))]">
             <form className="flex items-center gap-2 w-full" onSubmit={handleSendMessage}>
                 {/* Emoji, Attach, Image */}
                 <div className="flex items-center gap-1 sm:gap-2">

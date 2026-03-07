@@ -137,7 +137,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const grouped = groupMessages(messagesByConversation[conversationId] ?? []);
 
     return (
-        <div className="relative flex-1 overflow-auto h-full bg-chat-tile-light dark:bg-chat-tile-dark">
+        <div className="relative flex-1 overflow-auto h-full bg-[hsl(var(--container))] text-[hsl(var(--foreground))]">
             {/* Floating New Messages button */}
             {newMessages && (
                 <button

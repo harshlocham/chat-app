@@ -50,12 +50,12 @@ const Conversation = ({ conversation }: ConversationProps) => {
     return (
         <div
             className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors
-      ${isActive ? "bg-gray-800/80 border-l-4 border-blue-500" : "hover:bg-gray-800/50"}
+      ${isActive ? "bg-[hsl(var(--card))] border-l-4 border-blue-500" : "hover:bg-[hsl(var(--chat-hover))]"}
       `}
             onClick={() => setSelectedConversation(conversation)}
         >
             {/* Avatar */}
-            <Avatar className="relative w-11 h-11 border border-gray-900">
+            <Avatar className="relative w-11 h-11 border border-[hsl(var(--border))]">
                 {conversation.isOnline && (
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
                 )}
@@ -66,7 +66,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 />
 
                 <AvatarFallback>
-                    <div className="animate-pulse bg-gray-700 w-full h-full rounded-full" />
+                    <div className="animate-pulse bg-[hsl(var(--card))] w-full h-full rounded-full" />
                 </AvatarFallback>
             </Avatar>
 
@@ -74,11 +74,11 @@ const Conversation = ({ conversation }: ConversationProps) => {
             <div className="flex-1 min-w-0">
                 {/* Name + time */}
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate text-white">
+                    <span className="font-medium text-sm truncate text-[hsl(var(--foreground))]">
                         {conversationName}
                     </span>
 
-                    <span className="text-xs text-gray-400 ml-auto whitespace-nowrap">
+                    <span className="text-xs text-[hsl(var(--muted-foreground))] ml-auto whitespace-nowrap">
                         {formatDate(
                             conversation?.updatedAt ??
                             conversation.createdAt ??
@@ -88,7 +88,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 </div>
 
                 {/* Message preview */}
-                <div className="flex items-center gap-1 text-xs text-gray-400 mt-1 truncate">
+                <div className="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] mt-1 truncate">
                     {lastMessage?.sender === user?._id && <MessageSeenSvg />}
 
                     {conversation.isGroup && <Users size={14} />}
