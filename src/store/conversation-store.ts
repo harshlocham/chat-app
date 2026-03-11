@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { ClientConversation } from "@/shared/types/client-conversation";
 import { ClientMessage } from "@/shared/types/client-message";
 import { socket } from "@/lib/socket/socketClient";
+import { SocketEvents } from "@/shared/types/SocketEvents";
 
 interface ChatStore {
     selectedConversation: ClientConversation | null;
@@ -32,14 +33,13 @@ interface ChatStore {
     clearUnread: (conversationId: string) => void;
 }
 export const reactToMessage = (msg: ClientMessage, emoji: string) => {
-    socket.emit("message:reaction", {
-        userId: msg.sender._id,
+    socket.emit(SocketEvents.MESSAGE_REACTION, {
         messageId: msg._id,
         emoji,
     });
 };
 
-export const useConversationStore = create<ChatStore>((set, get) => ({
+const useConversationStore = create<ChatStore>((set, get) => ({
     selectedConversation: null,
     conversations: [],
     messages: [],
@@ -145,3 +145,4 @@ export const useConversationStore = create<ChatStore>((set, get) => ({
             ) as (ClientConversation & { unreadCount?: number })[],
         })),
 }));
+console.log(useConversationStore);
