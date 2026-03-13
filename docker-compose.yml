@@ -3,13 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     env_file:
       - .env
     depends_on:
-      mongo:
-        condition: service_healthy
       redis:
         condition: service_healthy
       socket:
@@ -21,40 +19,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.socket
-    ports:
-      - "3001:3001"
+    expose:
+      - "3001"
     env_file:
       - .env
     environment:
       REDIS_URL: redis://redis:6379
     depends_on:
-      mongo:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
       - chatnet
 
-  mongo:
-    image: mongo:6
-    restart: always
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - chatnet
-
   redis:
     image: redis:7
-    restart: always
-    ports:
-      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
@@ -64,7 +45,7 @@ services:
       - chatnet
 
 volumes:
-  mongo_data:
+  redis_data:
 
 
 networks:
