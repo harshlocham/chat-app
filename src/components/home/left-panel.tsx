@@ -162,7 +162,7 @@ const LeftPanel = () => {
                         {[...Array(6)].map((_, i) => (
                             <div
                                 key={i}
-                                className="h-12 bg-gray-800 animate-pulse rounded-lg"
+                                className="h-12 bg-[hsl(var(--gray-secondary))] animate-pulse rounded-lg"
                             />
                         ))}
                     </div>
