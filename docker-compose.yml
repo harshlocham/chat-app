@@ -1,4 +1,16 @@
 services:
+  nginx:
+    image: nginx:stable
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - nextapp
+      - socket
+    networks:
+      - chatnet
+
   nextapp:
     build:
       context: .
@@ -7,11 +19,6 @@ services:
       - "3000"
     env_file:
       - .env
-    depends_on:
-      redis:
-        condition: service_healthy
-      socket:
-        condition: service_started
     networks:
       - chatnet
 
