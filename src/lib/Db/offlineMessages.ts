@@ -4,6 +4,7 @@ export interface OfflineMessage {
     id?: number; // auto increment
     tempId: string; // unique client-side id
     conversationId: string;
+    conversationMembers?: string[];
     content: string;
     messageType: string;
     createdAt: string | Date;
