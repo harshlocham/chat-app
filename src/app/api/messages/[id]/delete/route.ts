@@ -19,9 +19,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     message.isDeleted = true;
-    message.text = "This message was deleted";
+    message.content = "This message was deleted";
+    await message.save();
     const normalized = normalizeMessage(message);
-
     const res = await fetch(`${getInternalSocketServerUrl()}/internal/message-deleted`, {
         method: "POST",
         headers: {
@@ -33,8 +33,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         }),
     });
     if (!res.ok) throw new Error("Failed to send message");
-
-    await message.save();
 
     return NextResponse.json({ success: true });
 }
