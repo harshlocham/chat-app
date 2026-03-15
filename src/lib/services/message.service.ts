@@ -14,6 +14,9 @@ export async function createMessage(data: CreateMessageInput, senderId: string) 
         conversationId: new Types.ObjectId(data.conversationId),
         content: data.content,
         messageType: data.messageType ?? "text",
+        status: "sent",
+        delivered: false,
+        seen: false,
         ...(data.replyTo ? { repliedTo: new Types.ObjectId(data.replyTo) } : {}),
     };
     const conversation = await Conversation.findById(data.conversationId);

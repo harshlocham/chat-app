@@ -1,7 +1,7 @@
 // models/Conversation.ts
 // models/Conversation.ts
 import mongoose, { Schema, model, Document, Types } from 'mongoose';
-import { IUser } from './User';
+import { IUser } from './User.js';
 
 export interface ILastMessage {
     _id: Types.ObjectId;
