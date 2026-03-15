@@ -30,6 +30,7 @@ export const SocketEvents = {
     //  PRESENCE 
     USER_ONLINE: "user:online",
     USER_OFFLINE: "user:offline",
+    PRESENCE_PING: "presence:ping",
     USER_IDLE: "user:idle",
     USER_ACTIVE: "user:active",
 
@@ -59,7 +60,10 @@ export const SocketEvents = {
     ERROR_MESSAGE: "error:message",
     ERROR_CALL: "error:call",
     ERROR_AUTH: "error:auth",
-    // admin
+    // Admin
+    ADMIN_JOIN: "admin:join",
+    DASHBOARD_INIT: "dashboard:init",
+    DASHBOARD_UPDATE: "dashboard:update",
 
 } as const;
 
@@ -86,27 +90,28 @@ export interface MessageRetryPayload {
 export interface MessageDeliveredPayload {
     messageId: string;
     conversationId: string;
-    userId: string;
-    at: Date;
+    senderId?: string;
+    at?: Date | string;
 }
 
 export interface MessageDeliveredUpdatePayload {
     messageId: string;
+    conversationId: string;
     userId: string;
-    deliveredAt: Date;
+    deliveredAt: Date | string;
 }
 
 export interface MessageSeenPayload {
-    messageId: string;
     conversationId: string;
-    userId: string;
-    at: Date;
+    messageIds: string[];
+    at?: Date | string;
 }
 
 export interface MessageSeenUpdatePayload {
-    messageId: string;
+    conversationId: string;
+    messageIds: string[];
     userId: string;
-    seenAt: Date;
+    seenAt: Date | string;
 }
 
 export interface MessageEditPayload {
@@ -157,6 +162,10 @@ export interface UserIdlePayload {
 
 export interface UserActivePayload {
     userId: string;
+}
+
+export interface PresencePingPayload {
+    at?: Date | string;
 }
 
 
@@ -253,6 +262,16 @@ export interface SocketErrorPayload {
     data?: unknown;
 }
 
+export interface DashboardInitPayload {
+    activeUsers: number;
+    totalMessagesToday: number;
+}
+
+export interface DashboardUpdatePayload {
+    activeUsers?: number;
+    totalMessagesToday?: number;
+}
+
 // SERVER → CLIENT MAP
 
 export interface ServerToClientEvents {
@@ -302,6 +321,10 @@ export interface ServerToClientEvents {
     [SocketEvents.ERROR_MESSAGE]: (data: SocketErrorPayload) => void;
     [SocketEvents.ERROR_CALL]: (data: SocketErrorPayload) => void;
     [SocketEvents.ERROR_AUTH]: (data: SocketErrorPayload) => void;
+
+    // Admin
+    [SocketEvents.DASHBOARD_INIT]: (data: DashboardInitPayload) => void;
+    [SocketEvents.DASHBOARD_UPDATE]: (data: DashboardUpdatePayload) => void;
 }
 
 // CLIENT → SERVER MAP
@@ -325,6 +348,9 @@ export interface ClientToServerEvents {
     [SocketEvents.TYPING_START]: (data: TypingPayload) => void;
     [SocketEvents.TYPING_STOP]: (data: TypingPayload) => void;
 
+    // Presence
+    [SocketEvents.PRESENCE_PING]: (data?: PresencePingPayload) => void;
+
     // Calls
     [SocketEvents.CALL_OFFER]: (data: CallOfferPayload) => void;
     [SocketEvents.CALL_ANSWER]: (data: CallAnswerPayload) => void;
@@ -341,4 +367,7 @@ export interface ClientToServerEvents {
 
     // Error reporting (optional)
     [SocketEvents.ERROR_GENERIC]?: (data: SocketErrorPayload) => void;
+
+    // Admin
+    [SocketEvents.ADMIN_JOIN]: () => void;
 }
