@@ -11,11 +11,7 @@ import useChatStore from "@/store/chat-store";
 import { MessageDTO } from "@/shared/dto/message.dto.js";
 import { isMessageDTO } from "@/shared/utils/message.guard";
 import { UIMessage } from "@/shared/types/ui-message";
-
-
-// You can configure this in .env.local
-const SOCKET_URL =
-    process.env.NEXT_PUBLIC_SOCKET_URL || undefined; // undefined = same origin
+import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =
     null;
@@ -28,7 +24,7 @@ export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
  */
 export function getSocket(): TypedSocket {
     if (!socketInstance) {
-        socketInstance = io(SOCKET_URL, {
+        socketInstance = io(getClientSocketUrl(), {
             path: "/api/socket",
             autoConnect: false, // you control when to connect
             transports: ["websocket"], // prefer ws
