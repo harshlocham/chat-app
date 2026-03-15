@@ -46,6 +46,8 @@ export const config = {
         /**
          * Pages ONLY — never APIs
          */
+        "/login",
+        "/register",
         "/",
         "/dashboard/:path*",
         "/profile/:path*",
