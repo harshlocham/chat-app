@@ -3,6 +3,38 @@ import { IMessagePopulated } from "../../models/Message.js";
 
 type Stringable = { toString(): string };
 type ReactionUser = string | (Stringable & { _id?: string | Stringable });
+type ReceiptEntry =
+    | string
+    | Stringable
+    | {
+        userId?: string | Stringable;
+        user?: string | Stringable;
+    };
+
+function normalizeReceiptUsers(entries?: ReceiptEntry[]): string[] {
+    if (!entries || !Array.isArray(entries)) return [];
+
+    return entries
+        .map((entry) => {
+            if (!entry) return "";
+            if (typeof entry === "string") return entry;
+
+            if (typeof entry === "object" && "userId" in entry && entry.userId) {
+                return typeof entry.userId === "string"
+                    ? entry.userId
+                    : entry.userId.toString();
+            }
+
+            if (typeof entry === "object" && "user" in entry && entry.user) {
+                return typeof entry.user === "string"
+                    ? entry.user
+                    : entry.user.toString();
+            }
+
+            return entry.toString();
+        })
+        .filter(Boolean);
+}
 
 export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
     return {
@@ -25,6 +57,8 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
 
         isDeleted: doc.isDeleted,
         isEdited: doc.isEdited,
+        delivered: Boolean(doc.delivered),
+        seen: Boolean(doc.seen),
         editedAt: doc.isEdited && doc.updatedAt
             ? new Date(doc.updatedAt).toISOString()
             : undefined,
@@ -37,21 +71,8 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
             )
             : [],
 
-        seenBy: doc.seenBy
-            ? doc.seenBy.map((entry) =>
-                typeof entry === "object" && entry !== null && "user" in entry && entry.user
-                    ? (entry.user as { toString(): string }).toString()
-                    : (entry as { toString(): string }).toString()
-            )
-            : [],
-
-        deliveredTo: doc.deliveredTo
-            ? doc.deliveredTo.map((entry) =>
-                typeof entry === "object" && entry !== null && "user" in entry && entry.user
-                    ? (entry.user as { toString(): string }).toString()
-                    : (entry as { toString(): string }).toString()
-            )
-            : [],
+        seenBy: normalizeReceiptUsers(doc.seenBy as unknown as ReceiptEntry[]),
+        deliveredTo: normalizeReceiptUsers(doc.deliveredTo as unknown as ReceiptEntry[]),
         repliedTo: doc.repliedTo ? {
             _id: doc.repliedTo._id.toString(),
             content: doc.repliedTo.content,
