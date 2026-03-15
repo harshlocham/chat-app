@@ -16,6 +16,7 @@ import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
 import useSocketStore from "@/store/useSocketStore";
 import { UIMessage } from "@/shared/types/ui-message";
+import { SocketEvents } from "@/shared/types/SocketEvents";
 
 // 🧠 Small debounce util
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
@@ -40,8 +41,11 @@ const MessageInput = () => {
     const socket = getSocket();
     //  Rate limit handler
     const { isRateLimited, timeLeft, triggerRateLimit } = useRateLimitHandler(5000);
-    const conversationMembers =
-        selectedConversation?.participants.map(m => m._id) ?? [];
+    const conversationMembers = useMemo(
+        () =>
+            selectedConversation?.participants.map((member) => String(member._id)) ?? [],
+        [selectedConversation]
+    );
     const activeReply = sel ? repliedTo[sel] : undefined;
 
     //  Fetch logged-in user once
@@ -66,14 +70,22 @@ const MessageInput = () => {
     const handleTyping = useCallback(
         (conversationId: string) => {
             if (!me) return;
-            socket.emit("typing:start", { conversationId, userId: String(me._id) });
+            socket.emit(SocketEvents.TYPING_START, {
+                conversationId,
+                userId: String(me._id),
+                conversationMembers,
+            });
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
             typingTimeoutRef.current = setTimeout(() => {
-                socket.emit("typing:stop", { conversationId: conversationId, userId: String(me._id) });
+                socket.emit(SocketEvents.TYPING_STOP, {
+                    conversationId,
+                    userId: String(me._id),
+                    conversationMembers,
+                });
             }, 2000);
         },
-        [me, socket]
+        [me, socket, conversationMembers]
     );
 
     const debouncedTyping = useMemo(() => debounce(handleTyping, 300), [handleTyping]);

@@ -13,6 +13,7 @@ import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
 import { ClientUser } from "@/shared/types/user";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
+import TypingIndicator from "./typing-indicator";
 
 // type guard
 function isUser(p: ClientUser) {
@@ -97,6 +98,8 @@ const RightPanel = () => {
             <MessageContainer
                 conversationId={String(selectedConversation._id)}
             />
+
+            <TypingIndicator conversationId={String(selectedConversation._id)} />
 
             {/* INPUT */}
             <MessageInput />

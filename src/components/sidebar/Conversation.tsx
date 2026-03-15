@@ -29,7 +29,13 @@ const Conversation = ({ conversation }: ConversationProps) => {
     const { user } = useUser();
     const currentUserEmail = session?.user?.email;
 
-    const { setSelectedConversation, selectedConversationId, onlineUsers } = useChatStore();
+    const {
+        setSelectedConversation,
+        selectedConversationId,
+        onlineUsers,
+        typingByConversation,
+        currentUserId,
+    } = useChatStore();
 
     const otherUser = conversation.participants.find(
         (p): p is ClientUser => isUser(p) && p.email !== currentUserEmail
@@ -57,6 +63,29 @@ const Conversation = ({ conversation }: ConversationProps) => {
         otherUser?._id &&
         onlineUsers.includes(String(otherUser._id))
     );
+
+    const typingUserIds = typingByConversation[String(conversation._id)] || [];
+    const typingUserNames = Array.from(
+        new Set(
+            typingUserIds
+                .filter((userId) => userId && userId !== currentUserId)
+                .map((userId) => {
+                    const participant = conversation.participants.find(
+                        (p): p is ClientUser =>
+                            isUser(p) && String(p._id) === String(userId)
+                    );
+
+                    return participant?.username || "Someone";
+                })
+        )
+    );
+
+    const typingPreview =
+        typingUserNames.length === 1
+            ? `${typingUserNames[0]} typing...`
+            : typingUserNames.length > 1
+                ? "typing..."
+                : null;
 
     const onlineDotBorderClass = isActive
         ? "border-[hsl(var(--card))]"
@@ -115,8 +144,8 @@ const Conversation = ({ conversation }: ConversationProps) => {
 
                     {conversation.isGroup && <Users size={14} />}
 
-                    {conversation.isTyping ? (
-                        <span className="text-green-400 italic">typing...</span>
+                    {typingPreview ? (
+                        <span className="text-green-400 italic">{typingPreview}</span>
                     ) : (
                         <>
                             {!lastMessage && <span>Say Hi 👋</span>}

@@ -7,7 +7,7 @@ import ChatBubble from "./chat-bubble";
 import ChatDaySeparator from "../home/ChatDaySeparator";
 import { useUser } from "@/context/UserContext";
 import { deleteMessage, reactToMessage } from "@/lib/utils/api";
-import { MessageEditPayload } from "@/shared/types/SocketEvents";
+import { MessageEditPayload, SocketEvents } from "@/shared/types/SocketEvents";
 import { UIMessage } from "@/shared/types/ui-message";
 import { AnimatePresence, motion } from "framer-motion";
 import { useConversationPresence } from "@/lib/hooks/useConversationPresence";
@@ -20,11 +20,16 @@ interface MessageContainerProps {
 const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const sel = useChatStore(s => s.selectedConversationId);
     let lastDate: string | null = null;
-    const { messagesByConversation, setMessages, setHasMore, updateEditedMessage, setReplyTo } = useChatStore();
+    const {
+        messagesByConversation,
+        setMessages,
+        setHasMore,
+        updateEditedMessage,
+        setReplyTo,
+    } = useChatStore();
     const topRef = useRef<HTMLDivElement>(null);
     const bottomRef = useRef<HTMLDivElement>(null);
     const { user } = useUser();
-    const [typingUsers, setTypingUsers] = useState<string[]>([]);
     const currentUserId = user?._id ?? null;
     const [newMessages, setNewMessages] = useState(false);
 
@@ -75,25 +80,10 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
             updateEditedMessage(data.conversationId, data.messageId, data.text);
         };
 
-        const handleTyping = ({ userId }: { userId: string }) => {
-            setTypingUsers(prev => {
-                if (!prev.includes(userId)) return [...prev, userId];
-                return prev;
-            });
-        };
-
-        const handleStopTyping = ({ userId }: { userId: string }) => {
-            setTypingUsers(prev => prev.filter(u => u !== userId));
-        };
-
-        socket.on("message:edited", handleEditMessage);
-        socket.on("typing:start", handleTyping);
-        socket.on("typing:stop", handleStopTyping);
+        socket.on(SocketEvents.MESSAGE_EDITED, handleEditMessage);
 
         return () => {
-            socket.off("message:edited", handleEditMessage);
-            socket.off("typing:start", handleTyping);
-            socket.off("typing:stop", handleStopTyping);
+            socket.off(SocketEvents.MESSAGE_EDITED, handleEditMessage);
         };
     }, [updateEditedMessage, sel]);
 
@@ -177,22 +167,6 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
                         </motion.div>
                     ))}
                 </AnimatePresence>
-                {/* ✅ Typing indicator */}
-                {typingUsers.length > 0 && (
-                    <div className="flex items-center gap-2 ml-4 mt-2 text-sm text-blue-400 dark:text-blue-300">
-                        <span>
-                            {typingUsers.length === 1
-                                ? `${typingUsers[0]} is typing`
-                                : `${typingUsers.join(", ")} are typing`}
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-typing-dot" />
-                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-typing-dot animation-delay-150" />
-                            <span className="w-2 h-2 rounded-full bg-blue-400 animate-typing-dot animation-delay-300" />
-                        </div>
-                    </div>
-                )}
-
                 <div ref={bottomRef} />
             </div>
         </div>
