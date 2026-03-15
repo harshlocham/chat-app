@@ -373,5 +373,3 @@ npm run dev
 └── utils
     └── imagekit.ts
 ```
-
-## Screenshots
