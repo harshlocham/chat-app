@@ -20,3 +20,11 @@ export function emitToConversation(conversationId: string, event: string, payloa
 
     io.to(`conversation:${conversationId}`).emit(event, payload);
 }
+
+export function emitToUser(userId: string, event: string, payload: unknown) {
+    if (!io) {
+        throw new Error("Socket.IO server not initialized");
+    }
+
+    io.to(`user:${userId}`).emit(event, payload);
+}
