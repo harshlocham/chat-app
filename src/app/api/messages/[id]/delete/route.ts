@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
+import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
@@ -24,15 +25,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const normalized = normalizeMessage(message);
     const res = await fetch(`${getInternalSocketServerUrl()}/internal/message-deleted`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
+        headers: createInternalRequestHeaders(),
         body: JSON.stringify({
             conversationId: message.conversationId.toString(),
             payload: normalized,
         }),
     });
-    if (!res.ok) throw new Error("Failed to send message");
+    if (!res.ok) throw new Error("Failed to broadcast message deletion");
 
     return NextResponse.json({ success: true });
 }

@@ -5,6 +5,11 @@ import cors from "cors";
 import { initSocket } from "./socket/index.js";
 import { emitToConversation, emitToUser } from "./socket/emit.js";
 import { SocketEvents } from "../shared/types/SocketEvents.js";
+import {
+    getInternalSecret,
+    hasValidInternalSecret,
+    INTERNAL_SECRET_HEADER,
+} from "../shared/utils/internal-bridge-auth.js";
 
 
 const app = express();
@@ -12,6 +17,18 @@ app.use(cors({
     origin: process.env.ORIGIN,
 }));
 app.use(express.json());
+
+const internalSecret = getInternalSecret();
+
+app.use("/internal", (req, res, next) => {
+    const providedSecret = req.header(INTERNAL_SECRET_HEADER);
+
+    if (!hasValidInternalSecret(providedSecret, internalSecret)) {
+        return res.status(401).json({ error: "Unauthorized internal request" });
+    }
+
+    next();
+});
 
 const server = http.createServer(app);
 
@@ -33,9 +50,13 @@ app.post("/internal/message-deleted", (req, res) => {
 app.post("/internal/message-reaction", (req, res) => {
     const { conversationId, payload } = req.body;
 
-    emitToConversation(conversationId, "message:reaction", payload);
+    if (!conversationId || !payload) {
+        return res.status(400).json({ error: "Invalid payload" });
+    }
 
-    res.json({ success: true });
+    emitToConversation(conversationId, SocketEvents.MESSAGE_REACTION, payload);
+
+    return res.json({ success: true });
 });
 
 app.post("/internal/message-delivered", (req, res) => {

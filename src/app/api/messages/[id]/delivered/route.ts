@@ -4,6 +4,7 @@ import Message from "@/models/Message";
 import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 import { markMessageDelivered } from "@/lib/services/message-receipt.service";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
+import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
 
 export async function PATCH(
     req: NextRequest,
@@ -40,9 +41,9 @@ export async function PATCH(
         const deliveredAt = at ? new Date(at) : new Date();
         await markMessageDelivered({ messageId: id, userId, at: deliveredAt });
 
-        await fetch(`${getInternalSocketServerUrl()}/internal/message-delivered`, {
+        const response = await fetch(`${getInternalSocketServerUrl()}/internal/message-delivered`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: createInternalRequestHeaders(),
             body: JSON.stringify({
                 messageId: id,
                 conversationId: message.conversationId.toString(),
@@ -51,6 +52,10 @@ export async function PATCH(
                 senderId: message.sender.toString(),
             }),
         });
+
+        if (!response.ok) {
+            throw new Error("Failed to broadcast delivery update");
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

@@ -44,6 +44,7 @@ services:
     expose:
       - "3001"
     environment:
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
       ORIGIN: http://localhost
       REDIS_URL: redis://redis:6379
     healthcheck:

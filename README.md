@@ -25,6 +25,7 @@ NEXTAUTH_URL=http://localhost:3000
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
+INTERNAL_SECRET=generate_a_long_random_secret_shared_by_next_and_socket_server
 NEXT_PUBLIC_PUBLIC_KEY=your_imagekit_public_key
 IMAGEKIT_PRIVATE_KEY=your_imagekit_private_key
 ```

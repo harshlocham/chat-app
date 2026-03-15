@@ -4,6 +4,7 @@ import Message from "@/models/Message";
 import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 import { markMessagesSeen } from "@/lib/services/message-receipt.service";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
+import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
 
 export async function PATCH(
     request: NextRequest,
@@ -62,9 +63,9 @@ export async function PATCH(
             return NextResponse.json({ ok: true, updated: [] });
         }
 
-        await fetch(`${getInternalSocketServerUrl()}/internal/message-seen`, {
+        const response = await fetch(`${getInternalSocketServerUrl()}/internal/message-seen`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: createInternalRequestHeaders(),
             body: JSON.stringify({
                 conversationId,
                 messageIds: updatedIds,
@@ -72,6 +73,10 @@ export async function PATCH(
                 seenAt,
             }),
         });
+
+        if (!response.ok) {
+            throw new Error("Failed to broadcast seen update");
+        }
 
         return NextResponse.json({ ok: true, updated: updatedIds });
     } catch (error) {

@@ -6,6 +6,7 @@ import Message from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
+import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
 
 
 export async function POST(
@@ -81,17 +82,18 @@ export async function POST(
         const normalized = normalizeMessage(populated.toObject());
 
         // Emit socket event
-        await fetch(`${getInternalSocketServerUrl()}/internal/message-reaction`, {
+        const response = await fetch(`${getInternalSocketServerUrl()}/internal/message-reaction`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-internal-secret": process.env.INTERNAL_SECRET!,
-            },
+            headers: createInternalRequestHeaders(),
             body: JSON.stringify({
                 conversationId: populated.conversationId.toString(),
                 payload: normalized,
             }),
         });
+
+        if (!response.ok) {
+            throw new Error("Failed to broadcast reaction update");
+        }
 
         return NextResponse.json({ success: true, reactions: populated.reactions });
     } catch (error) {
