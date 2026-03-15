@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
+import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 
 
 export async function POST(
@@ -80,7 +81,7 @@ export async function POST(
         const normalized = normalizeMessage(populated.toObject());
 
         // Emit socket event
-        await fetch(`${process.env.NEXT_PUBLIC_SOCKET_URL}/internal/message-reaction`, {
+        await fetch(`${getInternalSocketServerUrl()}/internal/message-reaction`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",

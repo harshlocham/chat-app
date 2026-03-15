@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 
 
 export default function AdminDashboard() {
@@ -19,7 +20,7 @@ export default function AdminDashboard() {
         }
     }, [session, status, router])
     useEffect(() => {
-        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL, {
+        const socket = io(getClientSocketUrl(), {
             path: "/api/socket",
             autoConnect: true, // you control when to connect
             transports: ["websocket"], // prefer ws
