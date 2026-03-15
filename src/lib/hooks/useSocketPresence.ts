@@ -5,7 +5,7 @@ import { getSocket } from "@/lib/socket/socketClient";
 import useChatStore from "@/store/chat-store";
 import { SocketEvents } from "@/shared/types/SocketEvents";
 
-const HEARTBEAT_MS = 15_000;
+const HEARTBEAT_MS = 4_000;
 
 export function useSocketPresence(currentUserId?: string | null) {
     const addOnlineUser = useChatStore((s) => s.addOnlineUser);

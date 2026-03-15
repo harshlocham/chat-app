@@ -6,6 +6,9 @@ import { useUser } from "@/context/UserContext";
 import { useSocketPresence } from "@/lib/hooks/useSocketPresence";
 import { useNetworkStatus } from "@/lib/hooks/useNetworkStatus";
 
+const isTabVisible = () =>
+    typeof document === "undefined" || document.visibilityState === "visible";
+
 export function SocketProvider({ children }: { children: React.ReactNode }) {
     const { user } = useUser();
     const isOnline = useNetworkStatus();
@@ -29,6 +32,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
         const ensureConnected = () => {
             if (!isOnline) return;
+            if (!isTabVisible()) return;
             if (!socket.connected) {
                 socket.connect();
             }
@@ -59,6 +63,47 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
             clearInterval(reconnectInterval);
             socket.off("disconnect", handleDisconnect);
             socket.off("connect_error", handleConnectError);
+        };
+    }, [user?._id, isOnline]);
+
+    useEffect(() => {
+        if (!user?._id) return;
+
+        const disconnectNow = () => {
+            if (socket.connected) {
+                socket.disconnect();
+            }
+        };
+
+        const reconnectNow = () => {
+            if (!isOnline) return;
+            if (!socket.connected) {
+                socket.connect();
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "hidden") {
+                disconnectNow();
+                return;
+            }
+            reconnectNow();
+        };
+
+        const handlePageHide = () => {
+            disconnectNow();
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        window.addEventListener("pagehide", handlePageHide);
+        window.addEventListener("beforeunload", handlePageHide);
+
+        handleVisibilityChange();
+
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+            window.removeEventListener("pagehide", handlePageHide);
+            window.removeEventListener("beforeunload", handlePageHide);
         };
     }, [user?._id, isOnline]);
 

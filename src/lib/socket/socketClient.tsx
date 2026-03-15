@@ -33,6 +33,7 @@ export function getSocket(): TypedSocket {
             reconnectionDelay: 1000,
             reconnectionDelayMax: 7000,
             timeout: 20000,
+            closeOnBeforeunload: true,
             withCredentials: true,
         });
     }

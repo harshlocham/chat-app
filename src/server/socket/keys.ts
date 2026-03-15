@@ -1,4 +1,4 @@
-export const PRESENCE_HEARTBEAT_TTL_SECONDS = 30;
+export const PRESENCE_HEARTBEAT_TTL_SECONDS = 12;
 export const MESSAGE_DELIVERY_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export const redisKeys = {

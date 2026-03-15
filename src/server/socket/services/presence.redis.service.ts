@@ -6,6 +6,60 @@ import {
     type MessageDeliveryState,
 } from "../keys.js";
 
+type PresenceSnapshot = {
+    onlineUsers: string[];
+    staleUsers: string[];
+};
+
+async function clearPresenceState(redis: Redis, userId: string) {
+    await redis
+        .multi()
+        .del(redisKeys.userSockets(userId))
+        .del(redisKeys.onlineUser(userId))
+        .del(redisKeys.userActiveConversation(userId))
+        .del(redisKeys.userPresence(userId))
+        .srem(redisKeys.activeUsersSet, userId)
+        .exec();
+}
+
+async function getPresenceSnapshot(redis: Redis): Promise<PresenceSnapshot> {
+    const userIds = await redis.smembers(redisKeys.activeUsersSet);
+    if (userIds.length === 0) {
+        return { onlineUsers: [], staleUsers: [] };
+    }
+
+    const pipeline = redis.pipeline();
+    for (const userId of userIds) {
+        pipeline.exists(redisKeys.userPresence(userId));
+        pipeline.scard(redisKeys.userSockets(userId));
+    }
+
+    const results = await pipeline.exec();
+    if (!results) {
+        return { onlineUsers: [], staleUsers: userIds };
+    }
+
+    const onlineUsers: string[] = [];
+    const staleUsers: string[] = [];
+
+    for (let index = 0; index < userIds.length; index += 1) {
+        const userId = userIds[index];
+        const heartbeatResult = results[index * 2];
+        const socketsCountResult = results[index * 2 + 1];
+
+        const heartbeatExists = Number(heartbeatResult?.[1] ?? 0) > 0;
+        const socketCount = Number(socketsCountResult?.[1] ?? 0);
+
+        if (heartbeatExists && socketCount > 0) {
+            onlineUsers.push(userId);
+        } else {
+            staleUsers.push(userId);
+        }
+    }
+
+    return { onlineUsers, staleUsers };
+}
+
 export async function trackSocketConnected(redis: Redis, userId: string, socketId: string) {
     await redis
         .multi()
@@ -78,7 +132,27 @@ export async function getActiveConversation(redis: Redis, userId: string) {
 }
 
 export async function getActiveUsers(redis: Redis) {
-    return redis.smembers(redisKeys.activeUsersSet);
+    const snapshot = await getPresenceSnapshot(redis);
+
+    if (snapshot.staleUsers.length > 0) {
+        for (const staleUserId of snapshot.staleUsers) {
+            await clearPresenceState(redis, staleUserId);
+        }
+    }
+
+    return snapshot.onlineUsers;
+}
+
+export async function cleanupStaleActiveUsers(redis: Redis) {
+    const snapshot = await getPresenceSnapshot(redis);
+
+    if (snapshot.staleUsers.length > 0) {
+        for (const staleUserId of snapshot.staleUsers) {
+            await clearPresenceState(redis, staleUserId);
+        }
+    }
+
+    return snapshot.staleUsers;
 }
 
 export async function isUserOnline(redis: Redis, userId: string) {
