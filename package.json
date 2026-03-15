@@ -36,6 +36,7 @@
     "framer-motion": "^12.24.11",
     "imagekit": "^6.0.0",
     "imagekit-javascript": "^4.0.1",
+    "ioredis": "^5.10.0",
     "lucide-react": "^0.525.0",
     "mongodb": "^4.17.2",
     "mongoose": "^8.16.2",
