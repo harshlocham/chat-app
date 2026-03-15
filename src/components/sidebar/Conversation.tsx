@@ -42,6 +42,9 @@ const Conversation = ({ conversation }: ConversationProps) => {
         ? conversation.groupName
         : otherUser?.username || "Unknown";
 
+    const avatarFallbackInitial =
+        conversationName?.trim().charAt(0).toUpperCase() || "U";
+
     const lastMessage = conversation.lastMessage;
     const lastMessageType = lastMessage?.messageType;
 
@@ -52,26 +55,37 @@ const Conversation = ({ conversation }: ConversationProps) => {
         onlineUsers.includes(String(otherUser._id))
     );
 
+    const onlineDotBorderClass = isActive
+        ? "border-[hsl(var(--card))]"
+        : "border-[hsl(var(--left-panel))]";
+
     return (
         <div
-            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors
-      ${isActive ? "bg-[hsl(var(--card))] border-l-4 border-blue-500" : "hover:bg-[hsl(var(--chat-hover))]"}
+            className={`relative flex items-center gap-3 px-4 py-3 min-h-[72px] cursor-pointer transition-colors
+      ${isActive ? "bg-[hsl(var(--card))]" : "hover:bg-[hsl(var(--chat-hover))]"}
       `}
             onClick={() => setSelectedConversation(conversation)}
         >
+            {isActive ? (
+                <span className="absolute inset-y-0 left-0 w-1 bg-blue-500" />
+            ) : null}
+
             {/* Avatar */}
-            <Avatar className="relative w-11 h-11 border border-[hsl(var(--border))]">
+            <Avatar className="relative w-11 h-11 shrink-0 overflow-visible border border-[hsl(var(--border))]">
                 {isDirectOnline && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
+                    <span
+                        className={`absolute -bottom-0.5 -right-0.5 z-10 h-3 w-3 rounded-full bg-green-500 border-2 ${onlineDotBorderClass}`}
+                    />
                 )}
 
                 <AvatarImage
                     src={getAvatarUrl(conversationImage, 128)}
+                    alt={conversationName || "User avatar"}
                     className="object-cover rounded-full"
                 />
 
-                <AvatarFallback>
-                    <div className="animate-pulse bg-[hsl(var(--card))] w-full h-full rounded-full" />
+                <AvatarFallback className="bg-slate-700 text-slate-100 text-sm font-semibold">
+                    {avatarFallbackInitial}
                 </AvatarFallback>
             </Avatar>
 

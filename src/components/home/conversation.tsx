@@ -40,6 +40,9 @@ const Conversation = ({ conversation }: ConversationProps) => {
         ? conversation.groupName
         : otherUser?.username || "Unknown";
 
+    const avatarFallbackInitial =
+        conversationName?.trim().charAt(0).toUpperCase() || "U";
+
     const lastMessage = conversation.lastMessage;
     const lastMessageType = lastMessage?.messageType;
 
@@ -65,10 +68,11 @@ const Conversation = ({ conversation }: ConversationProps) => {
                     )}
                     <AvatarImage
                         src={getAvatarUrl(conversationImage, 128)}
+                        alt={conversationName || "User avatar"}
                         className="object-cover rounded-full"
                     />
-                    <AvatarFallback>
-                        <div className="animate-pulse bg-gray-tertiary w-full h-full rounded-full" />
+                    <AvatarFallback className="bg-slate-700 text-slate-100 text-sm font-semibold">
+                        {avatarFallbackInitial}
                     </AvatarFallback>
                 </Avatar>
 
