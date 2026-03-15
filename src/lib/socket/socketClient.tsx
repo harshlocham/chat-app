@@ -5,6 +5,7 @@ import {
     type ServerToClientEvents,
     type ClientToServerEvents,
     SocketEvents,
+    type TypingPayload,
     // SocketEvents,
 } from "@/shared/types/SocketEvents";
 import useChatStore from "@/store/chat-store";
@@ -15,6 +16,7 @@ import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =
     null;
+const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -100,6 +102,41 @@ export function registerGlobalSocketListeners() {
 
         const uiMessage = convertDTOToUI(dto);
         useChatStore.getState().updateMessage(uiMessage);
+    });
+
+    const typingKey = (payload: TypingPayload) =>
+        `${String(payload.conversationId)}:${String(payload.userId)}`;
+
+    const clearTypingTimer = (key: string) => {
+        const timer = typingExpiryTimers.get(key);
+        if (!timer) return;
+        clearTimeout(timer);
+        typingExpiryTimers.delete(key);
+    };
+
+    socket.on(SocketEvents.TYPING_START, (payload: TypingPayload) => {
+        if (!payload?.conversationId || !payload?.userId) return;
+
+        useChatStore.getState().setTyping(payload.conversationId, payload.userId, true);
+
+        const key = typingKey(payload);
+        clearTypingTimer(key);
+
+        const timer = setTimeout(() => {
+            useChatStore
+                .getState()
+                .setTyping(payload.conversationId, payload.userId, false);
+            typingExpiryTimers.delete(key);
+        }, 4500);
+
+        typingExpiryTimers.set(key, timer);
+    });
+
+    socket.on(SocketEvents.TYPING_STOP, (payload: TypingPayload) => {
+        if (!payload?.conversationId || !payload?.userId) return;
+
+        useChatStore.getState().setTyping(payload.conversationId, payload.userId, false);
+        clearTypingTimer(typingKey(payload));
     });
 }
 
