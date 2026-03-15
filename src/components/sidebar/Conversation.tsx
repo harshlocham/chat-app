@@ -37,6 +37,9 @@ const Conversation = ({ conversation }: ConversationProps) => {
 
     const conversationImage =
         conversation.image || otherUser?.profilePicture || "";
+    const avatarSrc = conversationImage
+        ? getAvatarUrl(conversationImage, 128)
+        : undefined;
 
     const conversationName = conversation.isGroup
         ? conversation.groupName
@@ -79,7 +82,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 )}
 
                 <AvatarImage
-                    src={getAvatarUrl(conversationImage, 128)}
+                    src={avatarSrc}
                     alt={conversationName || "User avatar"}
                     className="object-cover rounded-full"
                 />

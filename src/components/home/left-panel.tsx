@@ -11,6 +11,7 @@ import { getConversations } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
 import { ClientUser } from "@/shared/types/user";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
+import { socket } from "@/lib/socket/socketClient";
 
 // type guard
 function isUser(p: unknown): p is ClientUser {
@@ -127,7 +128,12 @@ const LeftPanel = () => {
                     <LogOut
                         size={20}
                         className="cursor-pointer text-gray-400 hover:text-white transition"
-                        onClick={() => signOut({ callbackUrl: "/login" })}
+                        onClick={() => {
+                            if (socket.connected) {
+                                socket.disconnect();
+                            }
+                            void signOut({ callbackUrl: "/login" });
+                        }}
                     />
                 </div>
             </div>

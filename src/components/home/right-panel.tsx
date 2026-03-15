@@ -12,6 +12,7 @@ import GroupMembersDialog from "./group-members-dialog";
 import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
 import { ClientUser } from "@/shared/types/user";
+import { getAvatarUrl } from "@/lib/utils/imagekit";
 
 // type guard
 function isUser(p: ClientUser) {
@@ -49,10 +50,10 @@ const RightPanel = () => {
         ? selectedConversation.groupName
         : otherUser?.username || "Unknown";
 
-    const avatarSrc =
-        selectedConversation.image ||
-        otherUser?.profilePicture ||
-        "/placeholder.png";
+    const rawAvatarSrc = selectedConversation.image || otherUser?.profilePicture;
+    const avatarSrc = rawAvatarSrc ? getAvatarUrl(rawAvatarSrc, 128) : undefined;
+    const avatarFallbackInitial =
+        conversationName?.trim().charAt(0).toUpperCase() || "U";
 
     return (
         <div className="w-3/4 flex flex-col">
@@ -63,10 +64,11 @@ const RightPanel = () => {
                         <Avatar>
                             <AvatarImage
                                 src={avatarSrc}
+                                alt={conversationName || "User avatar"}
                                 className="object-cover"
                             />
-                            <AvatarFallback>
-                                <div className="animate-pulse bg-gray-tertiary w-full h-full rounded-full" />
+                            <AvatarFallback className="bg-slate-700 text-slate-100 text-sm font-semibold">
+                                {avatarFallbackInitial}
                             </AvatarFallback>
                         </Avatar>
 
