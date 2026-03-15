@@ -1,17 +1,20 @@
-import mongoose from "mongoose";
-
-export async function markDelivered(messageId: string, at: Date | number) {
-    if (!mongoose.Types.ObjectId.isValid(messageId)) return null;
+export async function markDelivered(
+    messageId: string,
+    params?: { conversationId?: string; at?: Date | number }
+) {
+    const at = params?.at ?? Date.now();
 
     const res = await fetch(`/api/messages/${messageId}/delivered`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ at }),
+        body: JSON.stringify({
+            at,
+            conversationId: params?.conversationId,
+        }),
     });
     if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed to mark delivered");
     }
-    // socket.emit("message:delivered", { messageId, userId, at });
     return await res.json();
 }
