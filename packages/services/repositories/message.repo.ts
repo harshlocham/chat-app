@@ -8,7 +8,7 @@ export async function getPaginatedMessages(conversationId: string, cursor?: stri
     if (cursor) {
         query._id = { $lt: new Types.ObjectId(cursor) };
     }
-    connectToDatabase();
+    await connectToDatabase();
 
     const messages = await Message.find(query)
         .sort({ _id: -1 })
@@ -25,6 +25,7 @@ export async function getPaginatedMessages(conversationId: string, cursor?: stri
     return messages;
 }
 export async function saveMessage(data: Partial<IMessage>) {
+    await connectToDatabase();
     const message = new Message(data);
     await message.save();
     return message;

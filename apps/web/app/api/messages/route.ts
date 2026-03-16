@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleCreateMessage } from "@/lib/socket/controllers/message.controller";
+import { createMessage } from "@/lib/services/message.service";
 import { CreateMessageSchema } from "@/lib/validators/message.schema";
 import { getPaginatedMessages } from "@/lib/repositories/message.repo";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/utils/auth/auth";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
+import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 
 //import { messageRateLimiter } from "@/lib/utils/rateLimiter";
 
 export async function POST(req: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
+        const authUser = await getAuthUser();
+        if (!authUser) {
             return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
         }
-        const senderId = session.user.id;
+        const senderId = authUser.id;
         // const identifier = session.user.email;
         //const { success } = await messageRateLimiter.limit(identifier);
         //if (!success) return NextResponse.json({ error: "Too many messages" }, { status: 429 });
         const requestBody = await req.json();
         const parsed = CreateMessageSchema.parse(requestBody);
-        const message = await handleCreateMessage(parsed, senderId);
+        const message = await createMessage(parsed, senderId);
         const clientMessage = normalizeMessage(message);
 
         return NextResponse.json(clientMessage, { status: 201 });

@@ -5,9 +5,12 @@ import { CreateMessageInput } from "@/lib/validators/message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
 import Message, { IMessagePopulated } from "@/models/Message";
+import { connectToDatabase } from "@/lib/Db/db";
 //import { socket } from "@/lib/socket/socketClient";
 
 export async function createMessage(data: CreateMessageInput, senderId: string) {
+    await connectToDatabase();
+
     // correctly map senderId → sender
     const toSave: Parameters<typeof messageRepo.saveMessage>[0] = {
         sender: new Types.ObjectId(senderId),
