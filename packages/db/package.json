@@ -1,4 +1,8 @@
 {
     "name": "@chat/db",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "dependencies": {
+        "mongoose": "^8.16.2",
+        "mongodb": "^4.17.2"
+    }
 }
