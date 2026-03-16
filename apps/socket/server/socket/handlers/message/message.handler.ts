@@ -2,12 +2,12 @@ import type { Redis } from "ioredis";
 import type { Server as IOServer } from "socket.io";
 import {
     type ClientToServerEvents,
+    type MessageDTO,
     type MessageDeliveredUpdatePayload,
     type MessageSeenUpdatePayload,
     type ServerToClientEvents,
     SocketEvents,
-} from "../../../../shared/types/SocketEvents.js";
-import type { MessageDTO } from "../../../../shared/dto/message.dto.js";
+} from "@chat/types";
 import {
     clearActiveConversation,
     getActiveConversation,

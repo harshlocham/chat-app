@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "ES2017",
     "lib": [
       "dom",
@@ -26,7 +27,38 @@
       }
     ],
     "paths": {
+      "@/models/*": [
+        "./packages/db/models/*"
+      ],
+      "@/lib/Db/*": [
+        "./packages/db/*"
+      ],
+      "@/lib/services/*": [
+        "./packages/services/*"
+      ],
+      "@/lib/repositories/*": [
+        "./packages/services/repositories/*"
+      ],
+      "@/lib/validators/*": [
+        "./packages/services/validators/*"
+      ],
+      "@/server/normalizers/*": [
+        "./packages/services/normalizers/*"
+      ],
+      "@/lib/socket/controllers/*": [
+        "./apps/socket/server/socket/controllers/*"
+      ],
+      "@/lib/socket/*": [
+        "./apps/web/hooks/*"
+      ],
+      "@/lib/hooks/*": [
+        "./apps/web/hooks/*"
+      ],
+      "@/lib/utils/*": [
+        "./apps/web/lib/utils/*"
+      ],
       "@/*": [
+        "./apps/web/*",
         "./src/*"
       ]
     }
@@ -35,7 +67,6 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
     "types/**/*.d.ts",
     "server.js",
     "types"

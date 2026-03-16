@@ -9,8 +9,8 @@ import { useSession } from "next-auth/react";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
 import { useUser } from "@/context/UserContext";
 import useChatStore from "@/store/chat-store";
-import { ClientConversation } from "@/shared/types/client-conversation";
-import { ClientUser } from "@/shared/types/user";
+import { ClientConversation } from "@chat/types";
+import { ClientUser } from "@chat/types";
 
 type ConversationProps = {
     conversation: ClientConversation & {

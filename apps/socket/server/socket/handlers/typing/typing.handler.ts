@@ -6,7 +6,7 @@ import {
     //TypingStartPayload,
     // TypingStopPayload,
     SocketEvents,
-} from "../../../../shared/types/SocketEvents.js";
+} from "@chat/types";
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<

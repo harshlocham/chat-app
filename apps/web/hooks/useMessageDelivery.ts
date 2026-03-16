@@ -3,12 +3,12 @@
 import { useEffect, useRef } from "react";
 import { getSocket } from "@/lib/socket/socketClient";
 import {
+    type MessageDTO,
     MessageDeliveredUpdatePayload,
     MessageSeenUpdatePayload,
     SocketEvents,
-} from "@/shared/types/SocketEvents";
+} from "@chat/types";
 import useChatStore from "@/store/chat-store";
-import { MessageDTO } from "@/shared/dto/message.dto";
 import { markDelivered } from "@/lib/services/delivery.service";
 import { markSeen } from "@/lib/services/seen.service";
 

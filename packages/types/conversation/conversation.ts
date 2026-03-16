@@ -1,7 +1,7 @@
-import { ClientUser } from "./user.js";
-import { ClientMessage } from "./message.js";
+import type { Message } from "../message/message.js";
+import type { ClientUser } from "../user/user.js";
 
-export interface ClientConversation {
+export interface Conversation {
     _id: string;
     type: 'direct' | 'group';
     isGroup: boolean;
@@ -10,7 +10,7 @@ export interface ClientConversation {
     image?: string;
     groupName?: string;
     participants: ClientUser[];
-    lastMessage?: ClientMessage;
+    lastMessage?: Message;
     createdAt: string;
     updatedAt: string;
 }

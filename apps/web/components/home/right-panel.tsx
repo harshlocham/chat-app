@@ -11,7 +11,7 @@ import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import GroupMembersDialog from "./group-members-dialog";
 import useChatStore from "@/store/chat-store";
 import { useSession } from "next-auth/react";
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
 import TypingIndicator from "./typing-indicator";
 

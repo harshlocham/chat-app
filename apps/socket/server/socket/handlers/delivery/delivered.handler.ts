@@ -5,7 +5,7 @@ import {
     type ServerToClientEvents,
     type ClientToServerEvents,
     SocketEvents,
-} from "../../../../shared/types/SocketEvents.js";
+} from "@chat/types";
 import {
     getMessageDeliveryState,
     setMessageDeliveryState,

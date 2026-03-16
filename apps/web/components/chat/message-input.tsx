@@ -7,7 +7,7 @@ import { Button } from "../ui/button";
 import { getMe } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
 import { getSocket } from "@/lib/socket/socketClient";
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 import { ImageUpload } from "../home/ImageUpload";
 import { toast } from "sonner"
 import { v4 as uuidv4 } from 'uuid';
@@ -15,8 +15,8 @@ import { useOfflineStore } from '@/store/offline-store';
 import { useNetworkStatus } from '@/lib/hooks/useNetworkStatus';
 import { useRateLimitHandler } from "@/lib/hooks/useRateLimitHandler";
 import useSocketStore from "@/store/useSocketStore";
-import { UIMessage } from "@/shared/types/ui-message";
-import { SocketEvents } from "@/shared/types/SocketEvents";
+import { UIMessage } from "@chat/types";
+import { SocketEvents } from "@chat/types";
 
 // 🧠 Small debounce util
 function debounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {

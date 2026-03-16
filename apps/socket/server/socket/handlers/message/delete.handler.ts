@@ -1,5 +1,5 @@
 import { Server, Socket } from "socket.io";
-import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
+import { SocketEvents } from "@chat/types";
 
 export function DeleteHandler(io: Server, socket: Socket) {
     socket.on(SocketEvents.MESSAGE_DELETE, (payload: { conversationId: string, messageId: string }) => {

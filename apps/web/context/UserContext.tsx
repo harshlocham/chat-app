@@ -1,7 +1,7 @@
 // context/UserContext.tsx
 "use client";
 
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 import Error from "next/error";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";

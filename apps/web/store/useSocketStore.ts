@@ -3,9 +3,10 @@
 
 import { create } from "zustand";
 import { getSocket } from "@/lib/socket/socketClient";
-import { MessageEditPayload, SocketEvents } from "@/shared/types/SocketEvents";
+import { MessageEditPayload, SocketEvents } from "@chat/types";
+import type { MessageDTO } from "@chat/types";
 import useChatStore from "./chat-store";
-import { MessageDTO } from "@/shared/dto/message.dto";
+
 interface SocketState {
     connected: boolean;
     currentConversationId: string | null;

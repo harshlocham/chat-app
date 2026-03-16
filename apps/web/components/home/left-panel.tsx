@@ -9,7 +9,7 @@ import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import { getConversations } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
 import { socket } from "@/lib/socket/socketClient";
 

@@ -1,40 +1,63 @@
-// SOCKET EVENT CONSTANTS
-
-import { MessageDTO } from "../dto/message.dto.js";
-
+import type { MessageDTO } from "../dto/message.dto.js";
+import type {
+    CallAnswerPayload,
+    CallEndPayload,
+    CallIceCandidatePayload,
+    CallOfferPayload,
+    CallReconnectPayload,
+    CallRingingPayload,
+    ConversationJoinPayload,
+    ConversationJoinedPayload,
+    ConversationLeavePayload,
+    ConversationLeftPayload,
+    ConversationUpdatedPayload,
+    DashboardInitPayload,
+    DashboardUpdatePayload,
+    MessageDeletePayload,
+    MessageDeliveredPayload,
+    MessageDeliveredUpdatePayload,
+    MessageEditPayload,
+    MessageFailedPayload,
+    MessageReactionPayload,
+    MessageRetryPayload,
+    MessageSeenPayload,
+    MessageSeenUpdatePayload,
+    MessageSendAckPayload,
+    MessageUnsendPayload,
+    PresencePingPayload,
+    SocketErrorPayload,
+    SyncConversationsPayload,
+    SyncMessagesPayload,
+    SyncStatusPayload,
+    TypingPayload,
+    UserActivePayload,
+    UserIdlePayload,
+    UserOfflinePayload,
+    UserOnlinePayload,
+} from "./payloads.js";
 
 export const SocketEvents = {
-    //  MESSAGE 
     MESSAGE_NEW: "message:new",
     MESSAGE_SEND: "message:send",
     MESSAGE_SEND_ACK: "message:send:ack",
     MESSAGE_FAILED: "message:failed",
     MESSAGE_RETRY: "message:retry",
-
-    MESSAGE_DELIVERED: "message:delivered",           // client → server
-    MESSAGE_DELIVERED_UPDATE: "message:delivered:update", // server → clients
-
-    MESSAGE_SEEN: "message:seen",                    // client → server
-    MESSAGE_SEEN_UPDATE: "message:seen:update",      // server → clients
-
+    MESSAGE_DELIVERED: "message:delivered",
+    MESSAGE_DELIVERED_UPDATE: "message:delivered:update",
+    MESSAGE_SEEN: "message:seen",
+    MESSAGE_SEEN_UPDATE: "message:seen:update",
     MESSAGE_EDIT: "message:edit",
     MESSAGE_EDITED: "message:edited",
     MESSAGE_DELETE: "message:delete",
-    MESSAGE_UNSEND: "message:unsend",                // delete for everyone
+    MESSAGE_UNSEND: "message:unsend",
     MESSAGE_REACTION: "message:reaction",
-
-    // TYPING 
     TYPING_START: "typing:start",
     TYPING_STOP: "typing:stop",
-
-    //  PRESENCE 
     USER_ONLINE: "user:online",
     USER_OFFLINE: "user:offline",
     PRESENCE_PING: "presence:ping",
     USER_IDLE: "user:idle",
     USER_ACTIVE: "user:active",
-
-    //  CALL 
     CALL_OFFER: "call:offer",
     CALL_ANSWER: "call:answer",
     CALL_ICE_CANDIDATE: "call:ice-candidate",
@@ -42,236 +65,25 @@ export const SocketEvents = {
     CALL_BUSY: "call:busy",
     CALL_END: "call:end",
     CALL_RECONNECT: "call:reconnect",
-
-    //  CONVERSATION 
     CONVERSATION_JOIN: "conversation:join",
     CONVERSATION_LEAVE: "conversation:leave",
-    CONVERSATION_JOINED: "conversation:joined",  // server → others
+    CONVERSATION_JOINED: "conversation:joined",
     CONVERSATION_LEFT: "conversation:left",
     CONVERSATION_UPDATED: "conversation:updated",
-
-    //  SYNC 
     SYNC_MESSAGES: "sync:messages",
     SYNC_CONVERSATIONS: "sync:conversations",
     SYNC_STATUS: "sync:status",
-
-    //  ERRORS 
     ERROR_GENERIC: "error:generic",
     ERROR_MESSAGE: "error:message",
     ERROR_CALL: "error:call",
     ERROR_AUTH: "error:auth",
-    // Admin
     ADMIN_JOIN: "admin:join",
     DASHBOARD_INIT: "dashboard:init",
     DASHBOARD_UPDATE: "dashboard:update",
-
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
 export type ValueOf<T> = T[keyof T];
-
-// PAYLOAD TYPES
-
-export interface MessageSendAckPayload {
-    tempId: string;
-    realId: string;
-}
-
-export interface MessageFailedPayload {
-    tempId: string;
-    reason: string;
-}
-
-export interface MessageRetryPayload {
-    tempId: string;
-    conversationId: string;
-}
-
-export interface MessageDeliveredPayload {
-    messageId: string;
-    conversationId: string;
-    senderId?: string;
-    at?: Date | string;
-}
-
-export interface MessageDeliveredUpdatePayload {
-    messageId: string;
-    conversationId: string;
-    userId: string;
-    deliveredAt: Date | string;
-}
-
-export interface MessageSeenPayload {
-    conversationId: string;
-    messageIds: string[];
-    at?: Date | string;
-}
-
-export interface MessageSeenUpdatePayload {
-    conversationId: string;
-    messageIds: string[];
-    userId: string;
-    seenAt: Date | string;
-}
-
-export interface MessageEditPayload {
-    messageId: string;
-    text: string;
-    conversationId: string;
-}
-
-export interface MessageDeletePayload {
-    messageId: string;
-    conversationId: string;
-}
-
-export interface MessageUnsendPayload {
-    messageId: string;
-}
-
-export interface MessageReactionPayload {
-    messageId: string;
-    emoji: string;
-}
-
-
-// ---------- TYPING ----------
-
-export interface TypingPayload {
-    conversationId: string;
-    userId: string;
-    conversationMembers?: string[];
-    name?: string;
-    avatar?: string;
-}
-
-
-// ---------- PRESENCE ----------
-
-export interface UserOnlinePayload {
-    userId: string;
-}
-
-export interface UserOfflinePayload {
-    userId: string;
-    lastSeen: Date;
-}
-
-export interface UserIdlePayload {
-    userId: string;
-}
-
-export interface UserActivePayload {
-    userId: string;
-}
-
-export interface PresencePingPayload {
-    at?: Date | string;
-}
-
-
-//  CALL (WebRTC) 
-
-export interface CallOfferPayload {
-    from: string;
-    to: string;
-    conversationId?: string;
-    offer: RTCSessionDescriptionInit;
-}
-
-export interface CallAnswerPayload {
-    from: string;
-    to: string;
-    answer: RTCSessionDescriptionInit;
-}
-
-export interface CallIceCandidatePayload {
-    from: string;
-    to: string;
-    candidate: RTCIceCandidateInit;
-}
-
-export interface CallRingingPayload {
-    from: string;
-    to: string;
-}
-
-export interface CallEndPayload {
-    from: string;
-    to: string;
-}
-
-export interface CallReconnectPayload {
-    from: string;
-    to: string;
-}
-
-
-//  CONVERSATION 
-
-export interface ConversationJoinPayload {
-    conversationId: string;
-}
-
-export interface ConversationLeavePayload {
-    conversationId: string;
-}
-
-export interface ConversationJoinedPayload {
-    conversationId: string;
-    userId: string;
-    at: Date;
-}
-
-export interface ConversationLeftPayload {
-    conversationId: string;
-    userId: string;
-    at: Date;
-}
-
-export interface ConversationUpdatedPayload {
-    conversationId: string;
-    changes: {
-        name?: string;
-        image?: string;
-        members?: string[];
-    };
-}
-
-
-//  SYNC 
-
-export interface SyncMessagesPayload {
-    conversationId: string;
-    since: Date;
-}
-
-export interface SyncConversationsPayload {
-    userId: string;
-}
-
-export interface SyncStatusPayload {
-    userId: string;
-}
-
-
-//  ERRORS 
-
-export interface SocketErrorPayload {
-    type: string;
-    message?: string;
-    data?: unknown;
-}
-
-export interface DashboardInitPayload {
-    activeUsers: number;
-    totalMessagesToday: number;
-}
-
-export interface DashboardUpdatePayload {
-    activeUsers?: number;
-    totalMessagesToday?: number;
-}
 
 // SERVER → CLIENT MAP
 

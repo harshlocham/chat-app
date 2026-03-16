@@ -2,6 +2,7 @@
     "name": "@chat/services",
     "version": "1.0.0",
     "dependencies": {
+        "@chat/types": "workspace:*",
         "zod": "^4.0.5"
     }
 }

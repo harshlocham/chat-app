@@ -4,7 +4,7 @@ import Message from "@/models/Message";
 import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 import { markMessagesSeen } from "@/lib/services/message-receipt.service";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
-import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
+import { createInternalRequestHeaders } from "@chat/types";
 
 export async function PATCH(
     request: NextRequest,

@@ -16,9 +16,9 @@ import {
     Paperclip,
 } from "lucide-react";
 import { ReactionBar } from "../chat/reaction-bar";
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 import { motion, AnimatePresence } from "framer-motion";
-import { UIMessage } from "@/shared/types/ui-message";
+import { UIMessage } from "@chat/types";
 import ChatBubbleAvatar from "../home/chat-bubble-avatar";
 
 interface ChatBubbleProps {

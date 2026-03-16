@@ -1,4 +1,4 @@
-import type { ClientUser } from "./user.js";
+import type { ClientUser } from "../user/user.js";
 
 export interface ClientReaction {
     emoji: string;

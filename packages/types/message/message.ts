@@ -1,3 +1,4 @@
+import type { ClientUser } from "../user/user.js";
 
 export type MessageType = "text" | "image" | "file" | "voice" | "video" | "audio";
 
@@ -7,12 +8,12 @@ export interface ReplyPreview {
     senderId: string;
 }
 
-export interface ClientMessage {
+export interface Message {
     _id: string;
     conversationId: string;
     content: string;
     messageType: MessageType;
-    sender: import("./user.js").ClientUser;
+    sender: ClientUser;
     repliedTo?: ReplyPreview | null;
     reactions?: Record<string, string[]>;
     seenBy?: string[];

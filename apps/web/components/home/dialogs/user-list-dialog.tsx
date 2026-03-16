@@ -18,8 +18,8 @@ import { getMe, getUsers, createConversation } from "@/lib/utils/api";
 import { useEffect, useRef, useState } from "react";
 import { UserItem } from "./UserItem";
 import { upload } from "@imagekit/next";
-import { ClientUser } from "@/shared/types/user";
-import { ClientConversation } from "@/shared/types/client-conversation";
+import { ClientUser } from "@chat/types";
+import { ClientConversation } from "@chat/types";
 
 const UserListDialog = () => {
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);

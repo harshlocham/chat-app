@@ -1,7 +1,7 @@
 // src/server/socket/handlers/delivery/seen.handler.ts
 import type { Redis } from "ioredis";
 import { Socket, Server } from "socket.io";
-import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
+import { SocketEvents } from "@chat/types";
 import { setMessageDeliveryState } from "../../services/presence.redis.service.js";
 
 export const SeenHandler = (io: Server, socket: Socket, redis: Redis) => {

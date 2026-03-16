@@ -6,7 +6,7 @@ import Message from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
-import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
+import { createInternalRequestHeaders } from "@chat/types";
 
 
 export async function POST(

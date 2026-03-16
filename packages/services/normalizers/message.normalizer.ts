@@ -1,5 +1,5 @@
-import { MessageDTO } from "../../shared/dto/message.dto.js";
-import { IMessagePopulated } from "../../models/Message.js";
+import type { MessageDTO } from "@chat/types";
+import { IMessagePopulated } from "@/models/Message";
 
 type Stringable = { toString(): string };
 type ReactionUser = string | (Stringable & { _id?: string | Stringable });

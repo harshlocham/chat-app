@@ -2,16 +2,16 @@
 
 import { io, Socket } from "socket.io-client";
 import {
+    type MessageDTO,
     type ServerToClientEvents,
     type ClientToServerEvents,
     SocketEvents,
     type TypingPayload,
     // SocketEvents,
-} from "@/shared/types/SocketEvents";
+} from "@chat/types";
 import useChatStore from "@/store/chat-store";
-import { MessageDTO } from "@/shared/dto/message.dto.js";
-import { isMessageDTO } from "@/shared/utils/message.guard";
-import { UIMessage } from "@/shared/types/ui-message";
+import { isMessageDTO } from "@chat/types/utils/message.guard";
+import { UIMessage } from "@chat/types";
 import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =

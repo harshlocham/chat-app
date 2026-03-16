@@ -5,7 +5,7 @@ import {
     ServerToClientEvents,
     ClientToServerEvents,
     SocketEvents,
-} from "../../../../shared/types/SocketEvents.js";
+} from "@chat/types";
 import {
     getActiveUsers,
     refreshPresence,

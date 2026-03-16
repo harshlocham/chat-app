@@ -1,7 +1,7 @@
 // src/lib/services/message.service.ts
 'use server';
 import * as messageRepo from "@/lib/repositories/message.repo";
-import { CreateMessageInput } from "../validators/message.schema";
+import { CreateMessageInput } from "@/lib/validators/message.schema";
 import { Types } from "mongoose";
 import { Conversation } from "@/models/Conversation";
 import Message, { IMessagePopulated } from "@/models/Message";

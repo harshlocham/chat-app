@@ -2,14 +2,14 @@ import "dotenv/config";
 import express from "express";
 import http from "http";
 import cors from "cors";
-import { initSocket } from "./socket/index.js";
-import { emitToConversation, emitToUser } from "./socket/emit.js";
-import { SocketEvents } from "../shared/types/SocketEvents.js";
+import { initSocket } from "./server/socket/index.js";
+import { emitToConversation, emitToUser } from "./server/socket/emit.js";
+import { SocketEvents } from "@chat/types";
 import {
     getInternalSecret,
     hasValidInternalSecret,
     INTERNAL_SECRET_HEADER,
-} from "../shared/utils/internal-bridge-auth.js";
+} from "@chat/types";
 
 
 const app = express();

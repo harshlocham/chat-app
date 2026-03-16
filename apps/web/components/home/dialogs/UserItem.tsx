@@ -1,5 +1,5 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ClientUser } from "@/shared/types/user";
+import { ClientUser } from "@chat/types";
 
 interface Props {
     user: ClientUser;

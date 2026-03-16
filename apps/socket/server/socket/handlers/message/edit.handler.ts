@@ -1,6 +1,6 @@
 // src/server/socket/handlers/message/edit.handler.ts
 import { Server, Socket } from "socket.io";
-import { SocketEvents } from "../../../../shared/types/SocketEvents.js";
+import { SocketEvents } from "@chat/types";
 
 
 export default function messageEditHandler(io: Server, socket: Socket) {

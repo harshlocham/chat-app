@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
-import { createInternalRequestHeaders } from "@/shared/utils/internal-bridge-auth";
+import { createInternalRequestHeaders } from "@chat/types";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
