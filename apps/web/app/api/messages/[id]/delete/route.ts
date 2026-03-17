@@ -1,28 +1,41 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/utils/auth/auth";
+import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 import { connectToDatabase } from "@/lib/Db/db";
-import Message from "@/models/Message";
+import Message, { IMessagePopulated } from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authUser = await getAuthUser();
+    if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     await connectToDatabase();
     const message = await Message.findById(id);
     if (!message) return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    if (message.sender.toString() !== session.user.id) {
+    if (String(message.sender) !== authUser.id) {
         return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 
     message.isDeleted = true;
     message.content = "This message was deleted";
     await message.save();
-    const normalized = normalizeMessage(message);
+
+    const populated = await Message.findById(id)
+        .populate("sender", "username profilePicture _id")
+        .populate({
+            path: "repliedTo",
+            select: "content sender messageType",
+            populate: { path: "sender", select: "username profilePicture _id" },
+        })
+        .lean<IMessagePopulated>();
+
+    if (!populated) {
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    const normalized = normalizeMessage(populated);
     const res = await fetch(`${getInternalSocketServerUrl()}/internal/message-deleted`, {
         method: "POST",
         headers: createInternalRequestHeaders(),

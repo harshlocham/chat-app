@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/utils/auth/auth";
 import { connectToDatabase } from "@/lib/Db/db";
-import Message from "@/models/Message";
+import Message, { IMessagePopulated } from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
@@ -78,8 +78,20 @@ export async function POST(
             );
         }
         // Populate sender for normalization and return updated reactions
-        const populated = await Message.findById(id).populate("sender");
-        const normalized = normalizeMessage(populated.toObject());
+        const populated = await Message.findById(id)
+            .populate("sender", "username profilePicture _id")
+            .populate({
+                path: "repliedTo",
+                select: "content sender messageType",
+                populate: { path: "sender", select: "username profilePicture _id" },
+            })
+            .lean<IMessagePopulated>();
+
+        if (!populated) {
+            return NextResponse.json({ error: "Message not found" }, { status: 404 });
+        }
+
+        const normalized = normalizeMessage(populated);
 
         // Emit socket event
         const response = await fetch(`${getInternalSocketServerUrl()}/internal/message-reaction`, {

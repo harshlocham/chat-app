@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest) {
                 _id: user._id,
                 email: user.email,
                 username: user.username,
-                image: user.image
+                image: user.profilePicture
             }
         });
     } catch (error) {

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         await connectToDatabase();
         const { email } = await req.json();
         const existing = await Otp.findOne({ email });
-        if (existing && existing.createdAt > Date.now() - 60 * 1000) { // 1 minute cooldown
+        if (existing && existing.createdAt.getTime() > Date.now() - 60 * 1000) { // 1 minute cooldown
             return NextResponse.json({ error: "Please wait before requesting another OTP" }, { status: 429 });
         }
         // Generate a random 6-digit OTP

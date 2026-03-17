@@ -22,7 +22,7 @@ export async function GET(
             name: user.username,
             email: user.email,
             profilePicture: user.profilePicture,
-            isAdmin: user.isAdmin,
+            isAdmin: user.role === "admin",
         });
     } catch (error) {
         console.error("Error fetching user:", error);
