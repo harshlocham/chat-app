@@ -35,6 +35,7 @@ jobs:
       NEXTAUTH_SECRET: testSecret
       NEXTAUTH_URL: http://localhost:3000
       REDIS_URL: redis://localhost:6379
+      INTERNAL_SECRET: testInternalSecret
 
     steps:
       - uses: actions/checkout@v4
@@ -56,8 +57,5 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Build Next.js
+      - name: Build Turpo Repo
         run: npm run build
-
-      - name: Build Server
-        run: npm run build:server
