@@ -20,6 +20,7 @@ import { UserItem } from "./UserItem";
 import { upload } from "@imagekit/next";
 import { ClientUser } from "@chat/types";
 import { ClientConversation } from "@chat/types";
+import { getImageKitUploadAuth } from "@/lib/utils/imagekit";
 
 const UserListDialog = () => {
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -57,28 +58,12 @@ const UserListDialog = () => {
 
     // 📤 Upload to ImageKit
     const uploadToImageKit = async (file: File) => {
-        const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
-        const auth: {
-            signature?: string;
-            expire?: number;
-            token?: string;
-            publicKey?: string;
-            error?: string;
-        } = await authRes.json();
-
-        if (!authRes.ok) {
-            throw new Error(auth.error || "Unable to authenticate image upload.");
-        }
-
-        const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
-        if (!publicKey) {
-            throw new Error("Image upload key is missing.");
-        }
+        const auth = await getImageKitUploadAuth();
 
         const result = await upload({
             file,
             fileName: file.name,
-            publicKey,
+            publicKey: auth.publicKey,
             signature: auth.signature,
             token: auth.token,
             expire: auth.expire,
@@ -152,7 +137,7 @@ const UserListDialog = () => {
             <DialogTrigger>
                 <MessageSquareDiff size={20} />
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--card))] shadow-xl rounded-xl">
+            <DialogContent className="sm:max-w-106.25 bg-[hsl(var(--card))] shadow-xl rounded-xl">
                 <DialogHeader>
                     <DialogClose ref={dialogCloseRef} />
                     <DialogTitle>Users</DialogTitle>

@@ -10,6 +10,7 @@ import {
 } from "@imagekit/next";
 import { Button } from "../ui/button";
 import { ImageIcon } from "lucide-react";
+import { getImageKitUploadAuth } from "@/lib/utils/imagekit";
 
 interface ImageUploadProps {
     onSuccess: (res: { url?: string; fileId?: string }) => void;
@@ -40,28 +41,12 @@ export const ImageUpload = ({ onSuccess, onProgress, className, disabled }: Imag
         setError(null);
 
         try {
-            const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
-            const auth: {
-                signature?: string;
-                expire?: number;
-                token?: string;
-                publicKey?: string;
-                error?: string;
-            } = await authRes.json();
-
-            if (!authRes.ok) {
-                throw new Error(auth.error || "Unable to authenticate image upload.");
-            }
-
-            const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
-            if (!publicKey) {
-                throw new Error("Image upload key is missing.");
-            }
+            const auth = await getImageKitUploadAuth();
 
             const res = await upload({
                 file,
                 fileName: `chat-${Date.now()}-${file.name}`,
-                publicKey,
+                publicKey: auth.publicKey,
                 signature: auth.signature,
                 expire: auth.expire,
                 token: auth.token,

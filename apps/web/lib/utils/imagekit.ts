@@ -14,6 +14,43 @@ function appendImageKitTransform(url: string, size: number): string {
     }
 }
 
+type ImageKitUploadAuthResponse = {
+    signature?: string;
+    expire?: number;
+    token?: string;
+    publicKey?: string;
+    error?: string;
+};
+
+export type ImageKitUploadAuth = {
+    signature: string;
+    expire: number;
+    token: string;
+    publicKey: string;
+};
+
+export async function getImageKitUploadAuth(): Promise<ImageKitUploadAuth> {
+    const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
+    const auth = (await authRes.json()) as ImageKitUploadAuthResponse;
+
+    if (!authRes.ok) {
+        throw new Error(auth.error || "Unable to authenticate image upload.");
+    }
+
+    const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
+
+    if (!publicKey || !auth.signature || typeof auth.expire !== "number" || !auth.token) {
+        throw new Error("Image upload authentication response is incomplete.");
+    }
+
+    return {
+        signature: auth.signature,
+        expire: auth.expire,
+        token: auth.token,
+        publicKey,
+    };
+}
+
 export function getAvatarUrl(source?: string, size = 128): string {
     if (!source) return "";
 

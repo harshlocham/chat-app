@@ -1,0 +1,6 @@
+{
+    "$schema": "https://openapi.vercel.sh/vercel.json",
+    "framework": "nextjs",
+    "buildCommand": "turbo run build --filter=@chat/web",
+    "outputDirectory": "apps/web/.next"
+}

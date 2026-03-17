@@ -8,6 +8,7 @@ import {
     ImageKitUploadNetworkError,
     upload,
 } from "@imagekit/next";
+import { getImageKitUploadAuth } from "@/lib/utils/imagekit";
 
 interface FileUploadProps {
     onSuccess: (res: { url?: string; fileId?: string }) => void;
@@ -42,28 +43,12 @@ export const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps)
         setError(null);
 
         try {
-            const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
-            const auth: {
-                signature?: string;
-                expire?: number;
-                token?: string;
-                publicKey?: string;
-                error?: string;
-            } = await authRes.json();
-
-            if (!authRes.ok) {
-                throw new Error(auth.error || "Unable to authenticate image upload.");
-            }
-
-            const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
-            if (!publicKey) {
-                throw new Error("Image upload key is missing.");
-            }
+            const auth = await getImageKitUploadAuth();
 
             const res = await upload({
                 file,
                 fileName: file.name,
-                publicKey,
+                publicKey: auth.publicKey,
                 signature: auth.signature,
                 expire: auth.expire,
                 token: auth.token,
