@@ -1,12 +1,12 @@
 // models/Conversation.ts
 // models/Conversation.ts
-import mongoose, { Schema, model, Document, Types } from 'mongoose';
+import mongoose, { Schema, model, Document, Types, Model } from 'mongoose';
 import { IUser } from './User.js';
 
 export interface ILastMessage {
     _id: Types.ObjectId;
-    sender: Types.ObjectId | IUser;  // 🆕 Allow populated sender
-    messageType: 'text' | 'image' | 'video' | 'file' | 'system';
+    sender: Types.ObjectId | IUser;
+    messageType: 'text' | 'image' | 'video' | 'file' | 'system' | 'audio' | 'voice';
     content?: string;
     _creationTime: Date;
 }
@@ -42,7 +42,7 @@ const conversationSchema = new Schema<IConversation>({
         sender: { type: Schema.Types.ObjectId, ref: 'User' },
         messageType: {
             type: String,
-            enum: ['text', 'image', 'video', 'file', 'system']
+            enum: ['text', 'image', 'video', 'file', 'system', 'audio', 'voice']
         },
         content: { type: String },
         _creationTime: { type: Date }
@@ -55,4 +55,5 @@ export interface IConversationPopulated extends IConversation {
     participants: IUser[];
 }
 
-export const Conversation = mongoose.models.Conversation || model<IConversation>('Conversation', conversationSchema);
+export const Conversation: Model<IConversation> =
+    (mongoose.models.Conversation as Model<IConversation>) || model<IConversation>('Conversation', conversationSchema);

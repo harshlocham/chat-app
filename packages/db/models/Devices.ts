@@ -1,4 +1,4 @@
-import { Schema, model, models, Document, Types } from "mongoose";
+import { Schema, model, models, Document, Types, Model } from "mongoose";
 
 export interface IDevice extends Document {
     userId: Types.ObjectId;
@@ -18,4 +18,5 @@ const deviceSchema = new Schema<IDevice>({
     createdAt: { type: Date, default: Date.now },
     lastActiveAt: { type: Date, default: Date.now },
 });
-export const Devices = models.deviceSchema || model<IDevice>("Devices", deviceSchema);
+export const Devices: Model<IDevice> =
+    (models.Devices as Model<IDevice>) || model<IDevice>("Devices", deviceSchema);

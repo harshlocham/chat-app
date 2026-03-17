@@ -1,5 +1,5 @@
 // src/models/Message.ts
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Model } from "mongoose";
 import { IUser } from "./User.js";
 
 export type MessageType = "text" | "image" | "video" | "audio" | "voice" | "file";
@@ -99,4 +99,8 @@ const MessageSchema = new Schema<IMessage>({
     timestamps: true,
 });
 
-export default mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema);
+const MessageModel: Model<IMessage> =
+    (mongoose.models.Message as Model<IMessage>) ||
+    mongoose.model<IMessage>("Message", MessageSchema);
+
+export default MessageModel;
