@@ -20,6 +20,7 @@ jobs:
       NEXTAUTH_URL: http://localhost:3000
       REDIS_URL: redis://localhost:6379
       INTERNAL_SECRET: testInternalSecret
+      TURBO_ENV_MODE: loose
 
     steps:
       - uses: actions/checkout@v4
