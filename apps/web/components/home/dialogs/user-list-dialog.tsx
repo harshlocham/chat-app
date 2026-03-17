@@ -57,20 +57,33 @@ const UserListDialog = () => {
 
     // 📤 Upload to ImageKit
     const uploadToImageKit = async (file: File) => {
-        const authRes = await fetch("/api/auth/imagekit-auth");
-        const auth = await authRes.json();
-        const publicKey = process.env.NEXT_PUBLIC_PUBLIC_KEY as string;
-        console.log(publicKey);
+        const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
+        const auth: {
+            signature?: string;
+            expire?: number;
+            token?: string;
+            publicKey?: string;
+            error?: string;
+        } = await authRes.json();
+
+        if (!authRes.ok) {
+            throw new Error(auth.error || "Unable to authenticate image upload.");
+        }
+
+        const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
+        if (!publicKey) {
+            throw new Error("Image upload key is missing.");
+        }
+
         const result = await upload({
             file,
             fileName: file.name,
-            publicKey: publicKey,
+            publicKey,
             signature: auth.signature,
             token: auth.token,
             expire: auth.expire,
             folder: "chat-group-images",
         });
-        console.log(result);
         return result; // usable image URL
     };
 
@@ -87,7 +100,6 @@ const UserListDialog = () => {
                 const res = await uploadToImageKit(selectedImage);
                 imageUrl = res.url;
             }
-            console.log(imageUrl);
 
             const conversationId = await createConversation({
                 participants: [...selectedUsers, String(me._id)],

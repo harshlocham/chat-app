@@ -42,13 +42,28 @@ export const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps)
         setError(null);
 
         try {
-            const authRes = await fetch("/api/auth/imagekit-auth");
-            const auth = await authRes.json();
+            const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
+            const auth: {
+                signature?: string;
+                expire?: number;
+                token?: string;
+                publicKey?: string;
+                error?: string;
+            } = await authRes.json();
+
+            if (!authRes.ok) {
+                throw new Error(auth.error || "Unable to authenticate image upload.");
+            }
+
+            const publicKey = auth.publicKey || process.env.NEXT_PUBLIC_PUBLIC_KEY;
+            if (!publicKey) {
+                throw new Error("Image upload key is missing.");
+            }
 
             const res = await upload({
                 file,
                 fileName: file.name,
-                publicKey: process.env.NEXT_PUBLIC_PUBLIC_KEY!,
+                publicKey,
                 signature: auth.signature,
                 expire: auth.expire,
                 token: auth.token,
@@ -69,6 +84,8 @@ export const FileUpload = ({ onSuccess, onProgress, fileType }: FileUploadProps)
                 error instanceof ImageKitUploadNetworkError ||
                 error instanceof ImageKitServerError
             ) {
+                setError(error.message);
+            } else if (error instanceof Error) {
                 setError(error.message);
             } else {
                 setError("Unexpected error during upload");
