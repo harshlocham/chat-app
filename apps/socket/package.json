@@ -5,7 +5,8 @@
     "scripts": {
         "dev": "tsx index.ts",
         "build": "tsc --noEmit false --outDir dist",
-        "start": "node dist/apps/socket/index.js"
+        "start": "node dist/apps/socket/index.js",
+        "typecheck": "tsc --noEmit -p tsconfig.json"
     },
     "dependencies": {
         "@chat/types": "*",

@@ -13,7 +13,10 @@
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "typecheck": "npx tsc --noEmit && npm run typecheck --workspace @chat/web && npm run typecheck --workspace @chat/socket",
+    "ci:verify-artifacts": "bash ./scripts/ci/verify-artifacts.sh",
+    "security:audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
     "turbo": "^2.8.17",
