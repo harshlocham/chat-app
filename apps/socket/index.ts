@@ -40,6 +40,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
+app.get("/health", (_req, res) => {
+    return res.status(200).json({
+        status: "ok",
+        service: "socket",
+        uptime: Math.floor(process.uptime()),
+    });
+});
+
 const internalSecret = getInternalSecret();
 
 app.use("/internal", (req, res, next) => {
