@@ -1,29 +1,8 @@
-# ---- Builder ----
-FROM node:20-alpine AS builder
-
+FROM node:20-slim
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --legacy-peer-deps
-COPY . .
-RUN npm run build
-
-# ---- Runner ----
-FROM node:20-alpine AS runner
-
-WORKDIR /app
-ENV NODE_ENV=production
-
-RUN apk add --no-cache libc6-compat
-
-RUN addgroup -S app && adduser -S app -G app
-
-# Copy only what’s needed at runtime
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package*.json ./
-
-RUN npm ci --omit=dev --legacy-peer-deps && npm cache clean --force
-
-USER app
+COPY package*.json ./ package-lock.json ./
+COPY turbo.json tsconfig.json ./
+RUN npm install --legacy-peer-deps
+RUN npm run build --workspace=@chat/web
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["npm", "run", "start", "--workspace=@chat/web"]
