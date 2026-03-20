@@ -7,7 +7,7 @@ COPY apps/socket ./apps/socket
 COPY packages ./packages
 
 RUN npm install --legacy-peer-deps
-
+RUN npm run build --workspace=@chat/types
 RUN npm run build --workspace=@chat/socket
 
 EXPOSE 3001
