@@ -1,26 +1,35 @@
-name: Node.js CI
+name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "develop"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "develop"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MONGODB_URI: mongodb://localhost:27017/test
+  NEXTAUTH_SECRET: testSecret
+  NEXTAUTH_URL: http://localhost:3000
+  REDIS_URL: redis://localhost:6379
+  INTERNAL_SECRET: testInternalSecret
+  TURBO_ENV_MODE: loose
 
 jobs:
-  build:
+  quality:
+    name: Quality (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
-
     strategy:
+      fail-fast: false
       matrix:
         node-version: [22.x, 24.x]
-
-    env:
-      MONGODB_URI: mongodb://localhost:27017/test
-      NEXTAUTH_SECRET: testSecret
-      NEXTAUTH_URL: http://localhost:3000
-      REDIS_URL: redis://localhost:6379
-      INTERNAL_SECRET: testInternalSecret
-      TURBO_ENV_MODE: loose
 
     steps:
       - uses: actions/checkout@v4
@@ -31,16 +40,85 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
 
-      - run: npm ci
+      - name: Restore Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ matrix.node-version }}-${{ github.ref_name }}-${{ hashFiles('package-lock.json', 'turbo.json') }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ matrix.node-version }}-${{ github.ref_name }}-
+            ${{ runner.os }}-turbo-${{ matrix.node-version }}-
 
-      - name: Build packages
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
         run: npm run build -- "--filter=./packages/*"
 
-      - name: TypeScript Check
-        run: npx tsc --noEmit
+      - name: Type check
+        run: npm run typecheck
 
       - name: Lint
         run: npm run lint
 
-      - name: Build Turborepo
+      - name: Build monorepo
         run: npm run build
+
+      - name: Verify build artifacts
+        run: npm run ci:verify-artifacts
+
+  socket-image-smoke:
+    name: Socket Image Smoke Test
+    runs-on: ubuntu-latest
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build socket image
+        run: docker build -f docker/socket.Dockerfile -t chat-socket:ci .
+
+      - name: Start socket container
+        run: |
+          docker run -d --name chat-socket-ci -p 3001:3001 \
+            -e NODE_ENV=development \
+            -e INTERNAL_SECRET=testInternalSecret \
+            -e ORIGIN=http://localhost \
+            chat-socket:ci
+
+      - name: Wait for socket health endpoint
+        run: |
+          node <<'NODE'
+          const http = require("http");
+          const deadline = Date.now() + 60000;
+          const url = "http://127.0.0.1:3001/health";
+
+          function check() {
+            http.get(url, (res) => {
+              res.resume();
+              if (res.statusCode === 200) {
+                console.log("Socket health check passed.");
+                process.exit(0);
+              }
+              retry(`unexpected status ${res.statusCode}`);
+            }).on("error", (err) => retry(err.message));
+          }
+
+          function retry(reason) {
+            if (Date.now() > deadline) {
+              console.error(`Socket health check failed: ${reason}`);
+              process.exit(1);
+            }
+            setTimeout(check, 2000);
+          }
+
+          check();
+          NODE
+
+      - name: Show socket logs on failure
+        if: failure()
+        run: docker logs chat-socket-ci || true
+
+      - name: Cleanup socket container
+        if: always()
+        run: docker rm -f chat-socket-ci || true
