@@ -98,15 +98,21 @@ const UserListDialog = () => {
                 .map((id) => users.find((u) => String(u._id) === String(id)))
                 .filter(Boolean) as ClientUser[];
 
+            const participants = [
+                ...matchedUsers,
+                me,
+            ];
+
             const otherUser = matchedUsers[0];
             const conversationName = isGroup ? groupName : (otherUser?.username || otherUser?.email || "");
 
             const newConversation: ClientConversation = {
                 _id: conversationId,
-                participants: matchedUsers,
+                participants,
                 isGroup,
                 image: isGroup ? imageUrl : otherUser?.profilePicture,
                 name: conversationName,
+                groupName: isGroup ? groupName : undefined,
                 admin: String(me._id),
                 type: isGroup ? "group" : "direct",
                 createdAt: String(new Date()),
