@@ -1,0 +1,352 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["develop", "main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MONGODB_URI: mongodb://localhost:27017/test
+  NEXTAUTH_SECRET: testSecret
+  NEXTAUTH_URL: http://localhost:3000
+  REDIS_URL: redis://localhost:6379
+  INTERNAL_SECRET: testInternalSecret
+  TURBO_ENV_MODE: loose
+
+jobs:
+  predeploy-gates:
+    name: Pre-Deploy Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build artifacts
+        run: npm run ci:verify-artifacts
+
+      - name: Security audit
+        run: npm run security:audit
+
+  build-and-push-socket:
+    name: Build and Push Socket Image
+    runs-on: ubuntu-latest
+    needs: predeploy-gates
+    outputs:
+      image_name: ${{ steps.meta.outputs.image_name }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+      pushed_tags: ${{ steps.meta.outputs.pushed_tags }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare image tags
+        id: meta
+        run: |
+          set -euo pipefail
+
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/chat-socket"
+          SHORT_SHA="${GITHUB_SHA::12}"
+
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            TAGS=(
+              "${IMAGE_NAME}:staging-${SHORT_SHA}"
+              "${IMAGE_NAME}:staging-latest"
+              "${IMAGE_NAME}:prod-${SHORT_SHA}"
+              "${IMAGE_NAME}:prod-latest"
+            )
+          else
+            TAGS=(
+              "${IMAGE_NAME}:dev-${SHORT_SHA}"
+              "${IMAGE_NAME}:dev-latest"
+            )
+          fi
+
+          printf '%s\n' "${TAGS[@]}" > /tmp/socket-image-tags.txt
+
+          {
+            echo "image_name=${IMAGE_NAME}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "pushed_tags<<EOF"
+            printf '%s\n' "${TAGS[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build socket image
+        run: |
+          set -euo pipefail
+          TAG_ARGS=()
+          while IFS= read -r tag; do
+            TAG_ARGS+=("-t" "$tag")
+          done < /tmp/socket-image-tags.txt
+
+          docker build -f docker/socket.Dockerfile "${TAG_ARGS[@]}" .
+
+      - name: Smoke test socket image
+        run: |
+          set -euo pipefail
+          IMAGE_REF="$(head -n1 /tmp/socket-image-tags.txt)"
+
+          docker run -d --name chat-socket-cd -p 3001:3001 \
+            -e NODE_ENV=development \
+            -e INTERNAL_SECRET=testInternalSecret \
+            -e ORIGIN=http://localhost \
+            "$IMAGE_REF"
+
+          node <<'NODE'
+          const http = require("http");
+          const deadline = Date.now() + 60000;
+          const url = "http://127.0.0.1:3001/health";
+
+          function check() {
+            http.get(url, (res) => {
+              res.resume();
+              if (res.statusCode === 200) {
+                console.log("Socket health check passed.");
+                process.exit(0);
+              }
+              retry(`unexpected status ${res.statusCode}`);
+            }).on("error", (err) => retry(err.message));
+          }
+
+          function retry(reason) {
+            if (Date.now() > deadline) {
+              console.error(`Socket health check failed: ${reason}`);
+              process.exit(1);
+            }
+            setTimeout(check, 2000);
+          }
+
+          check();
+          NODE
+
+      - name: Show socket logs on failure
+        if: failure()
+        run: docker logs chat-socket-cd || true
+
+      - name: Cleanup smoke container
+        if: always()
+        run: docker rm -f chat-socket-cd || true
+
+      - name: Push image tags
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            echo "Pushing $tag"
+            docker push "$tag"
+          done < /tmp/socket-image-tags.txt
+
+  deploy-dev:
+    name: Deploy Dev
+    runs-on: ubuntu-latest
+    needs: build-and-push-socket
+    if: github.ref_name == 'develop'
+
+    steps:
+      - name: Validate dev secrets
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_DEV'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_DEV'] }}
+          DEV_WEB_URL: ${{ vars['DEV_WEB_URL'] }}
+          DEV_SOCKET_HEALTH_URL: ${{ vars['DEV_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+          for var in VERCEL_DEPLOY_HOOK RENDER_DEPLOY_HOOK DEV_WEB_URL DEV_SOCKET_HEALTH_URL; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+
+      - name: Trigger dev deployments
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_DEV'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_DEV'] }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST "$VERCEL_DEPLOY_HOOK" >/dev/null
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK" >/dev/null
+
+      - name: Verify dev health checks
+        env:
+          DEV_WEB_URL: ${{ vars['DEV_WEB_URL'] }}
+          DEV_SOCKET_HEALTH_URL: ${{ vars['DEV_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local name="$1"
+            local url="$2"
+            for attempt in {1..30}; do
+              if curl -fsS "$url" >/dev/null; then
+                echo "$name is healthy: $url"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "::error::$name failed health check: $url"
+            return 1
+          }
+
+          check_url "Dev web" "$DEV_WEB_URL"
+          check_url "Dev socket" "$DEV_SOCKET_HEALTH_URL"
+
+  deploy-staging:
+    name: Deploy Staging
+    runs-on: ubuntu-latest
+    needs: build-and-push-socket
+    if: github.ref_name == 'main'
+
+    steps:
+      - name: Validate staging secrets
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_STAGING'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_STAGING'] }}
+          STAGING_WEB_URL: ${{ vars['STAGING_WEB_URL'] }}
+          STAGING_SOCKET_HEALTH_URL: ${{ vars['STAGING_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+          for var in VERCEL_DEPLOY_HOOK RENDER_DEPLOY_HOOK STAGING_WEB_URL STAGING_SOCKET_HEALTH_URL; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+
+      - name: Trigger staging deployments
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_STAGING'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_STAGING'] }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST "$VERCEL_DEPLOY_HOOK" >/dev/null
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK" >/dev/null
+
+      - name: Verify staging health checks
+        env:
+          STAGING_WEB_URL: ${{ vars['STAGING_WEB_URL'] }}
+          STAGING_SOCKET_HEALTH_URL: ${{ vars['STAGING_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local name="$1"
+            local url="$2"
+            for attempt in {1..30}; do
+              if curl -fsS "$url" >/dev/null; then
+                echo "$name is healthy: $url"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "::error::$name failed health check: $url"
+            return 1
+          }
+
+          check_url "Staging web" "$STAGING_WEB_URL"
+          check_url "Staging socket" "$STAGING_SOCKET_HEALTH_URL"
+
+  deploy-production:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    needs:
+      - deploy-staging
+      - build-and-push-socket
+    if: github.ref_name == 'main'
+
+    steps:
+      - name: Validate production secrets
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_PROD'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_PROD'] }}
+          PROD_WEB_URL: ${{ vars['PROD_WEB_URL'] }}
+          PROD_SOCKET_HEALTH_URL: ${{ vars['PROD_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+          for var in VERCEL_DEPLOY_HOOK RENDER_DEPLOY_HOOK PROD_WEB_URL PROD_SOCKET_HEALTH_URL; do
+            if [[ -z "${!var:-}" ]]; then
+              echo "::error::Missing required secret: $var"
+              exit 1
+            fi
+          done
+
+      - name: Trigger production deployments
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets['VERCEL_DEPLOY_HOOK_PROD'] }}
+          RENDER_DEPLOY_HOOK: ${{ secrets['RENDER_DEPLOY_HOOK_PROD'] }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -X POST "$VERCEL_DEPLOY_HOOK" >/dev/null
+          curl -fsSL -X POST "$RENDER_DEPLOY_HOOK" >/dev/null
+
+      - name: Verify production health checks
+        env:
+          PROD_WEB_URL: ${{ vars['PROD_WEB_URL'] }}
+          PROD_SOCKET_HEALTH_URL: ${{ vars['PROD_SOCKET_HEALTH_URL'] }}
+        run: |
+          set -euo pipefail
+
+          check_url() {
+            local name="$1"
+            local url="$2"
+            for attempt in {1..30}; do
+              if curl -fsS "$url" >/dev/null; then
+                echo "$name is healthy: $url"
+                return 0
+              fi
+              sleep 10
+            done
+            echo "::error::$name failed health check: $url"
+            return 1
+          }
+
+          check_url "Production web" "$PROD_WEB_URL"
+          check_url "Production socket" "$PROD_SOCKET_HEALTH_URL"
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "### Production deployment completed"
+            echo ""
+            echo "- Image: ${{ needs['build-and-push-socket'].outputs.image_name }}"
+            echo "- Commit: ${{ needs['build-and-push-socket'].outputs.short_sha }}"
+            echo "- Published tags:"
+            echo '```'
+            echo "${{ needs['build-and-push-socket'].outputs.pushed_tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
