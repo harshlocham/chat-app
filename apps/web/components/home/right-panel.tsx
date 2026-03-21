@@ -47,7 +47,7 @@ const RightPanel = () => {
     );
 
     const conversationName = selectedConversation.isGroup
-        ? selectedConversation.groupName
+        ? selectedConversation.groupName || "Unnamed Group"
         : otherUser?.username || "Unknown";
 
     const rawAvatarSrc = selectedConversation.isGroup
