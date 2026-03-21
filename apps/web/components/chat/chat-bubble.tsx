@@ -158,7 +158,7 @@ const ChatBubble = ({
 
         return (
             <div
-                className="text-xs text-gray-500 dark:text-gray-300 bg-black/5 dark:bg-white/5 rounded-md p-2 mb-2 border-l-2 border-gray-300 dark:border-gray-700 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition"
+                className="mb-2 cursor-pointer rounded-md border-l-2 border-[hsl(var(--border))] bg-[hsl(var(--gray-secondary))] p-2 text-xs text-[hsl(var(--muted-foreground))] transition hover:bg-[hsl(var(--chat-hover))]"
                 onClick={() => {
                     const origId = message.repliedTo?._id;
                     if (origId) {
@@ -175,8 +175,8 @@ const ChatBubble = ({
     const renderContent = () => {
         if (message.isDeleted) {
             return (
-                <div className="text-xs text-gray-400 border-l-2 pl-2 mb-1 border-gray-300 dark:border-gray-700">
-                    <p className="text-sm break-words">This message was deleted</p>
+                <div className="mb-1 border-l-2 border-[hsl(var(--border))] pl-2 text-xs text-[hsl(var(--muted-foreground))]">
+                    <p className="text-sm break-words leading-relaxed">This message was deleted</p>
                 </div>
             );
         }
@@ -198,7 +198,7 @@ const ChatBubble = ({
                         alt="Message image"
                         width={320}
                         height={240}
-                        className="rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity max-w-full h-auto"
+                        className="h-auto w-full max-w-[min(82vw,320px)] cursor-pointer rounded-lg object-cover transition-opacity hover:opacity-90 sm:max-w-[320px]"
                         onClick={() => window.open(message.content, "_blank")}
                     />
                 );
@@ -219,7 +219,7 @@ const ChatBubble = ({
                 return (
                     <audio
                         controls
-                        className="w-full max-w-xs"
+                        className="w-full max-w-55 sm:max-w-xs"
                     >
                         <source src={message.content} />
                         Your browser does not support the audio element.
@@ -232,7 +232,7 @@ const ChatBubble = ({
                         href={message.content}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                        className="flex items-center gap-2 rounded-lg bg-[hsl(var(--gray-secondary))] p-2 transition hover:bg-[hsl(var(--chat-hover))]"
                     >
                         <Paperclip className="w-4 h-4" />
                         <span className="text-xs break-all line-clamp-1">
@@ -243,14 +243,14 @@ const ChatBubble = ({
 
             case "text":
             default:
-                return <p className="text-sm break-words">{message.content}</p>;
+                return <p className="text-sm break-words leading-relaxed">{message.content}</p>;
         }
     };
 
     return (
         <div
             id={String(message._id)}
-            className={`flex w-full ${isMine ? "justify-end" : "justify-start"} px-1 sm:px-2`}
+            className={`flex w-full ${isMine ? "justify-end" : "justify-start"} px-1 sm:px-2 md:px-3`}
         >
             {/* Avatar only for others in group chats, and only if showAvatar */}
             {!isMine && selectedConversation?.isGroup && isUser(message.sender) && showAvatar && (
@@ -261,11 +261,11 @@ const ChatBubble = ({
                 />
             )}
             <div
-                className={`relative flex flex-col max-w-[90vw] sm:max-w-[70%] group ${isMine ? "items-end" : "items-start"}`}
+                className={`group relative flex max-w-[88%] flex-col sm:max-w-[78%] md:max-w-[70%] lg:max-w-[65%] ${isMine ? "items-end" : "items-start"}`}
             >
                 {/* Username for first message in group */}
                 {!isMine && showUsername && selectedConversation?.isGroup && isUser(message.sender) && (
-                    <div className="text-xs font-semibold text-gray-400 mb-1">
+                    <div className="mb-1 text-xs font-semibold text-[hsl(var(--muted-foreground))]">
                         {message.sender.username}
                     </div>
                 )}
@@ -282,7 +282,7 @@ const ChatBubble = ({
                                         animate={{ scale: 1, y: 0, opacity: 1 }}
                                         exit={{ scale: 0, opacity: 0 }}
                                         transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                                        className={`px-2 py-[2px] text-[11px] rounded-full shadow ${reactedByMe ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-200"}`}
+                                        className={`rounded-full px-2 py-0.5 text-[11px] shadow ${reactedByMe ? "bg-green-primary text-white" : "bg-[hsl(var(--gray-primary))] text-[hsl(var(--foreground))]"}`}
                                     >
                                         {emoji}
                                         {users.length > 1 && ` ${users.length}`}
@@ -295,12 +295,12 @@ const ChatBubble = ({
                 <div
                     className={`w-full rounded-2xl transition duration-300 ease-in-out relative
                         ${isMine
-                            ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white"
-                            : "bg-gray-800/80 text-gray-100 border border-gray-700"
+                            ? "bg-[hsl(var(--green-chat))] text-[hsl(var(--foreground))]"
+                            : "border border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))]"
                         }
                         ${(message).messageType !== "text"
                             ? "p-0 bg-transparent shadow-none"
-                            : "p-4 shadow-sm"
+                            : "p-3 shadow-sm sm:p-4"
                         }
                         `}
                 >
@@ -315,7 +315,7 @@ const ChatBubble = ({
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button className="z-10 absolute -top-2 right-2 opacity-0 group-hover:opacity-100 transition">
-                                    <span className="text-white">•••</span>
+                                    <span className="text-[hsl(var(--muted-foreground))]">•••</span>
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent side={isMine ? "left" : "right"}>
@@ -361,7 +361,7 @@ const ChatBubble = ({
                 {/* Timestamp */}
                 <div className="flex items-center gap-1 mt-1">
                     <span
-                        className={`text-[10px] text-gray-400 block ${isMine ? "text-right ml-auto" : "text-left"} w-full`}
+                        className={`block w-full text-[10px] ${isMine ? "ml-auto text-right text-[hsl(var(--muted-foreground))]" : "text-left text-[hsl(var(--muted-foreground))]"}`}
                     >
                         {new Date(message.createdAt).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -369,16 +369,16 @@ const ChatBubble = ({
                         })}
                     </span>
                     {receiptState === "sending" && (
-                        <span className="ml-1 text-gray-400 text-xs">...</span>
+                        <span className="ml-1 text-xs text-[hsl(var(--muted-foreground))]">...</span>
                     )}
                     {receiptState === "sent" && (
-                        <span className="ml-1 text-gray-400 text-xs">✓</span>
+                        <span className="ml-1 text-xs text-[hsl(var(--muted-foreground))]">✓</span>
                     )}
                     {receiptState === "delivered" && (
-                        <span className="ml-1 text-gray-400 text-xs">✓✓</span>
+                        <span className="ml-1 text-xs text-[hsl(var(--muted-foreground))]">✓✓</span>
                     )}
                     {receiptState === "seen" && (
-                        <span className="ml-1 text-blue-400 text-xs">✓✓</span>
+                        <span className="ml-1 text-xs text-green-primary">✓✓</span>
                     )}
                 </div>
             </div>

@@ -94,17 +94,17 @@ const Conversation = ({ conversation }: ConversationProps) => {
 
     return (
         <div
-            className={`relative flex items-center gap-3 px-4 py-3 min-h-[72px] cursor-pointer transition-colors
+            className={`relative flex min-h-16.5 cursor-pointer items-center gap-3 px-3 py-2 transition-colors sm:min-h-18 sm:px-4
       ${isActive ? "bg-[hsl(var(--card))]" : "hover:bg-[hsl(var(--chat-hover))]"}
       `}
             onClick={() => setSelectedConversation(conversation)}
         >
             {isActive ? (
-                <span className="absolute inset-y-0 left-0 w-1 bg-blue-500" />
+                <span className="absolute inset-y-0 left-0 w-1 bg-[hsl(var(--primary))]" />
             ) : null}
 
             {/* Avatar */}
-            <Avatar className="relative w-11 h-11 shrink-0 overflow-visible border border-[hsl(var(--border))]">
+            <Avatar className="relative h-10 w-10 shrink-0 overflow-visible border border-[hsl(var(--border))] sm:h-11 sm:w-11">
                 {isDirectOnline && (
                     <span
                         className={`absolute -bottom-0.5 -right-0.5 z-10 h-3 w-3 rounded-full bg-green-500 border-2 ${onlineDotBorderClass}`}
@@ -117,7 +117,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
                     className="object-cover rounded-full"
                 />
 
-                <AvatarFallback className="bg-slate-700 text-slate-100 text-sm font-semibold">
+                <AvatarFallback className="bg-[hsl(var(--gray-secondary))] text-sm font-semibold text-[hsl(var(--foreground))]">
                     {avatarFallbackInitial}
                 </AvatarFallback>
             </Avatar>
@@ -126,11 +126,11 @@ const Conversation = ({ conversation }: ConversationProps) => {
             <div className="flex-1 min-w-0">
                 {/* Name + time */}
                 <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm truncate text-[hsl(var(--foreground))]">
+                    <span className="truncate text-sm font-medium text-[hsl(var(--foreground))]">
                         {conversationName}
                     </span>
 
-                    <span className="text-xs text-[hsl(var(--muted-foreground))] ml-auto whitespace-nowrap">
+                    <span className="ml-auto whitespace-nowrap text-xs text-[hsl(var(--muted-foreground))]">
                         {formatDate(
                             conversation?.updatedAt ??
                             conversation.createdAt ??
@@ -140,13 +140,13 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 </div>
 
                 {/* Message preview */}
-                <div className="flex items-center gap-1 text-xs text-[hsl(var(--muted-foreground))] mt-1 truncate">
+                <div className="mt-1 flex items-center gap-1 truncate text-xs text-[hsl(var(--muted-foreground))]">
                     {lastMessage?.sender?._id === user?._id && <MessageSeenSvg />}
 
                     {conversation.isGroup && <Users size={14} />}
 
                     {typingPreview ? (
-                        <span className="text-green-400 italic">{typingPreview}</span>
+                        <span className="italic text-green-primary">{typingPreview}</span>
                     ) : (
                         <>
                             {!lastMessage && <span>Say Hi 👋</span>}
@@ -179,7 +179,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
 
             {/* Unread badge */}
             {conversation.unreadCount ? (
-                <span className="bg-blue-600 text-white text-xs rounded-full px-2 py-0.5 font-semibold">
+                <span className="rounded-full bg-[hsl(var(--primary))] px-2 py-0.5 text-xs font-semibold text-[hsl(var(--primary-foreground))]">
                     {conversation.unreadCount}
                 </span>
             ) : null}

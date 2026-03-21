@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ListFilter, LogOut, Search } from "lucide-react";
+import { ListFilter, LogOut, Search, X } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
@@ -13,12 +13,19 @@ import { ClientUser } from "@chat/types";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
 import { socket } from "@/lib/socket/socketClient";
 
-// type guard
 function isUser(p: unknown): p is ClientUser {
     return typeof p === "object" && p !== null && "username" in p;
 }
 
-const LeftPanel = () => {
+interface SidebarProps {
+    isMobileOpen?: boolean;
+    onMobileClose?: () => void;
+}
+
+const Sidebar = ({
+    isMobileOpen = false,
+    onMobileClose,
+}: SidebarProps) => {
     const conversations = useChatStore((s) => s.conversations);
     const setConversations = useChatStore((s) => s.setConversations);
     const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
@@ -28,17 +35,11 @@ const LeftPanel = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // debounce search
     useEffect(() => {
-        const handler = setTimeout(
-            () => setDebouncedSearch(search.trim()),
-            300
-        );
-
+        const handler = setTimeout(() => setDebouncedSearch(search.trim()), 300);
         return () => clearTimeout(handler);
     }, [search]);
 
-    // fetch conversations
     useEffect(() => {
         const fetchConversations = async () => {
             try {
@@ -56,36 +57,31 @@ const LeftPanel = () => {
         fetchConversations();
     }, [setConversations]);
 
-    // filter + sort conversations
     const filteredConversations = useMemo(() => {
         const term = debouncedSearch.toLowerCase();
 
-        const filtered = conversations.filter((c) => {
+        const filtered = conversations.filter((conversation) => {
             if (!term) return true;
 
-            // group name search
-            if (c.isGroup && c.groupName?.toLowerCase().includes(term)) {
+            if (conversation.isGroup && conversation.groupName?.toLowerCase().includes(term)) {
                 return true;
             }
 
-            // participant username search
             if (
-                c.participants?.some(
-                    (p) => isUser(p) && p.username.toLowerCase().includes(term)
+                conversation.participants?.some(
+                    (participant) => isUser(participant) && participant.username.toLowerCase().includes(term)
                 )
             ) {
                 return true;
             }
 
-            // last message search
-            if (c.lastMessage?.content?.toLowerCase().includes(term)) {
+            if (conversation.lastMessage?.content?.toLowerCase().includes(term)) {
                 return true;
             }
 
             return false;
         });
 
-        // sort by latest activity
         return filtered.sort(
             (a, b) =>
                 new Date(b.updatedAt ?? b.createdAt ?? 0).getTime() -
@@ -93,41 +89,37 @@ const LeftPanel = () => {
         );
     }, [conversations, debouncedSearch]);
 
-    // enter key search → open conversation
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key !== "Enter" || !debouncedSearch) return;
 
         const existingDM = conversations.find(
-            (c) =>
-                !c.isGroup &&
-                c.participants?.some(
-                    (p) =>
-                        isUser(p) &&
-                        p.username
-                            .toLowerCase()
-                            .includes(debouncedSearch.toLowerCase())
+            (conversation) =>
+                !conversation.isGroup &&
+                conversation.participants?.some(
+                    (participant) =>
+                        isUser(participant) &&
+                        participant.username.toLowerCase().includes(debouncedSearch.toLowerCase())
                 )
         );
 
         if (existingDM) {
             setSelectedConversation(existingDM);
+            onMobileClose?.();
         }
     };
 
-    return (
-        <aside className="bg-[hsl(var(--left-panel))] w-[320px] min-w-[280px] max-w-[360px] h-full flex flex-col border-r border-[hsl(var(--border))] shadow-lg text-[hsl(var(--foreground))]">
-
-            {/* Header */}
-            <div className="p-4 flex items-center gap-2 border-b border-[hsl(var(--border))]">
+    const panelContent = (isMobile = false) => (
+        <>
+            <div className="flex items-center gap-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--gray-primary))] p-3 sm:p-4">
                 <UserProfile />
 
-                <div className="ml-auto flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-2 sm:gap-3">
                     <UserListDialog />
                     <ThemeSwitch />
 
                     <LogOut
                         size={20}
-                        className="cursor-pointer text-gray-400 hover:text-white transition"
+                        className="cursor-pointer text-[hsl(var(--muted-foreground))] transition hover:text-[hsl(var(--foreground))]"
                         onClick={() => {
                             if (socket.connected) {
                                 socket.disconnect();
@@ -135,14 +127,24 @@ const LeftPanel = () => {
                             void signOut({ callbackUrl: "/login" });
                         }}
                     />
+
+                    {isMobile && onMobileClose && (
+                        <button
+                            type="button"
+                            onClick={onMobileClose}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]"
+                            aria-label="Close conversations"
+                        >
+                            <X size={18} />
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="p-3 flex items-center border-b border-[hsl(var(--border))] bg-[hsl(var(--left-panel))]">
-                <div className="relative h-10 mx-3 flex-1">
+            <div className="flex items-center border-b border-[hsl(var(--border))] bg-[hsl(var(--gray-primary))] p-2 sm:p-3">
+                <div className="relative mx-2 h-10 flex-1 sm:mx-3">
                     <Search
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+                        className="absolute top-1/2 left-3 -translate-y-1/2 text-[hsl(var(--muted-foreground))]"
                         size={18}
                     />
 
@@ -152,51 +154,70 @@ const LeftPanel = () => {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="pl-10 py-2 text-sm w-full rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--input))] text-[hsl(var(--foreground))] focus-visible:ring-2 focus-visible:ring-blue-500 transition"
+                        className="h-10 w-full rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--input))] py-2 pr-3 pl-10 text-sm text-[hsl(var(--foreground))] shadow-none transition focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))]"
                     />
                 </div>
 
-                <ListFilter className="cursor-pointer text-gray-500 hover:text-gray-300" />
+                <ListFilter className="cursor-pointer text-[hsl(var(--muted-foreground))]" />
             </div>
 
-            {/* Conversations */}
-            <div className="flex-1 overflow-y-auto px-1 pb-4 custom-scrollbar">
-
-                {/* Loading skeleton */}
+            <div className="custom-scrollbar flex-1 overflow-y-auto bg-[hsl(var(--left-panel))] px-1 pb-4">
                 {loading && (
                     <div className="space-y-3 p-3">
                         {[...Array(6)].map((_, i) => (
                             <div
                                 key={i}
-                                className="h-12 bg-[hsl(var(--gray-secondary))] animate-pulse rounded-lg"
+                                className="h-12 animate-pulse rounded-lg bg-[hsl(var(--gray-secondary))]"
                             />
                         ))}
                     </div>
                 )}
 
-                {/* Error */}
                 {!loading && error && (
-                    <p className="text-center text-red-400 text-sm mt-6">
+                    <p className="mt-6 text-center text-sm text-red-500">
                         {error}
                     </p>
                 )}
 
-                {/* Empty state */}
                 {!loading && !error && filteredConversations.length === 0 && (
-                    <div className="text-center text-gray-500 text-sm mt-6">
+                    <div className="mt-6 text-center text-sm text-[hsl(var(--muted-foreground))]">
                         No conversations found
                     </div>
                 )}
 
-                {/* Conversation list */}
                 <div className="flex-1 overflow-hidden">
-                    {!loading && !error && (
-                        <VirtualConversationList />
-                    )}
+                    {!loading && !error && <VirtualConversationList />}
                 </div>
             </div>
-        </aside>
+        </>
+    );
+
+    return (
+        <>
+            <div
+                className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 lg:hidden ${
+                    isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
+                }`}
+                onClick={onMobileClose}
+                aria-hidden="true"
+            />
+
+            <aside
+                className={`fixed inset-0 z-50 flex h-full w-full flex-col border-r border-[hsl(var(--border))] bg-[hsl(var(--left-panel))] text-[hsl(var(--foreground))] shadow-lg transition-transform duration-300 ease-out lg:hidden ${
+                    isMobileOpen ? "translate-x-0" : "-translate-x-full"
+                }`}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Conversations"
+            >
+                {panelContent(true)}
+            </aside>
+
+            <aside className="hidden h-full w-80 min-w-[320px] shrink-0 flex-col border-r border-[hsl(var(--border))] bg-[hsl(var(--left-panel))] text-[hsl(var(--foreground))] shadow-lg lg:flex">
+                {panelContent(false)}
+            </aside>
+        </>
     );
 };
 
-export default LeftPanel;
+export default Sidebar;

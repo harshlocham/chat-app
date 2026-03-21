@@ -237,24 +237,24 @@ const MessageInput = () => {
                 </div>
             </div>
         )}
-        <div className="relative w-full max-w-3xl mx-auto px-2 sm:px-6 py-2 bg-[hsl(var(--card))] rounded-b-2xl shadow-lg border-t border-[hsl(var(--border))] flex flex-col gap-2 text-[hsl(var(--foreground))]">
-            <form className="flex items-center gap-2 w-full" onSubmit={handleSendMessage}>
+        <div className="relative mx-auto flex w-full max-w-4xl flex-col gap-2 bg-[hsl(var(--card))] px-2 py-2 text-[hsl(var(--foreground))] lg:rounded-b-2xl sm:px-4 md:px-6">
+            <form className="flex w-full items-center gap-1.5 sm:gap-2" onSubmit={handleSendMessage}>
                 {/* Emoji, Attach, Image */}
-                <div className="flex items-center gap-1 sm:gap-2">
-                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Add emoji">
-                        <Laugh className="text-gray-400" size={22} />
+                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[hsl(var(--chat-hover))] sm:h-10 sm:w-10" aria-label="Add emoji">
+                        <Laugh className="text-[hsl(var(--muted-foreground))]" size={20} />
                     </button>
-                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Attach file">
-                        <Plus className="text-gray-400" size={22} />
+                    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[hsl(var(--chat-hover))] sm:h-10 sm:w-10" aria-label="Attach file">
+                        <Plus className="text-[hsl(var(--muted-foreground))]" size={20} />
                     </button>
-                    <button type="button" className="p-2 rounded-full hover:bg-gray-800 transition" aria-label="Upload image" onClick={() => setShowImageUpload(!showImageUpload)}>
-                        <ImageIcon className="text-gray-400" size={22} />
+                    <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-[hsl(var(--chat-hover))] sm:h-10 sm:w-10" aria-label="Upload image" onClick={() => setShowImageUpload(!showImageUpload)}>
+                        <ImageIcon className="text-[hsl(var(--muted-foreground))]" size={20} />
                     </button>
                 </div>
                 {/* Input */}
                 <div className="flex-1 relative">
                     {(activeReply || editingMessage) && (
-                        <div className="absolute -top-10 left-0 w-full bg-gray-800 text-xs text-gray-200 p-2 rounded-t-md flex justify-between items-center z-10">
+                        <div className="absolute -top-12 left-0 z-10 flex w-full items-center justify-between rounded-t-md border border-[hsl(var(--border))] bg-[hsl(var(--gray-primary))] p-2 text-[11px] text-[hsl(var(--foreground))] sm:-top-10 sm:text-xs">
                             {activeReply && (
                                 <span>
                                     Replying to{" "}
@@ -271,7 +271,7 @@ const MessageInput = () => {
                             {editingMessage && <span>Editing: <span className="font-semibold">{editingMessage.content}</span></span>}
                             <button
                                 type="button"
-                                className="ml-2 text-xs text-blue-400 hover:underline"
+                                className="ml-2 text-xs text-[hsl(var(--primary))] hover:underline"
                                 onClick={() => {
                                     if (activeReply && sel) {
                                         clearReplyTo(String(sel));
@@ -288,7 +288,7 @@ const MessageInput = () => {
                     <Input
                         type="text"
                         placeholder={isRateLimited ? `Please wait ${timeLeft}s...` : "Type a message"}
-                        className="py-2 px-4 text-sm w-full rounded-full border border-gray-700 bg-gray-800 text-white focus-visible:ring-2 focus-visible:ring-blue-500 transition shadow-sm"
+                        className="h-10 w-full rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--input))] px-4 py-2 text-sm text-[hsl(var(--foreground))] shadow-none transition focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] sm:h-11"
                         value={msgText}
                         onChange={(e) => {
                             setMsgText(e.target.value);
@@ -312,7 +312,7 @@ const MessageInput = () => {
                         <Button
                             type="submit"
                             size="icon"
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow"
+                            className="h-9 w-9 rounded-full bg-green-primary p-2 text-white shadow-none transition-opacity hover:opacity-90 sm:h-10 sm:w-10"
                             disabled={isRateLimited}
                             aria-label="Send message"
                         >
@@ -322,7 +322,7 @@ const MessageInput = () => {
                         <Button
                             type="button"
                             size="icon"
-                            className="bg-gray-700 hover:bg-gray-600 text-white rounded-full p-2"
+                            className="h-9 w-9 rounded-full bg-green-primary p-2 text-white transition-opacity hover:opacity-90 sm:h-10 sm:w-10"
                             disabled={isRateLimited}
                             aria-label="Record voice"
                         >
@@ -333,12 +333,12 @@ const MessageInput = () => {
             </form>
             {/* Image upload popover */}
             {showImageUpload && (
-                <div className="absolute bottom-full left-0 mb-2 w-64 p-4 border border-gray-700 rounded-xl bg-gray-900 shadow-xl z-20">
+                <div className="absolute bottom-full left-1/2 z-20 mb-2 w-[min(16rem,calc(100vw-1rem))] -translate-x-1/2 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-xl sm:left-0 sm:w-64 sm:translate-x-0">
                     <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-sm font-medium text-white">Send Image</h3>
+                        <h3 className="text-sm font-medium text-[hsl(var(--foreground))]">Send Image</h3>
                         <button
                             onClick={() => setShowImageUpload(false)}
-                            className="text-gray-400 hover:text-white"
+                            className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
                             aria-label="Close upload panel"
                         >
                             ✕

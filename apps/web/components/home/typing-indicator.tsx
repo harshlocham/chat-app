@@ -41,13 +41,13 @@ export default function TypingIndicator({ conversationId }: TypingIndicatorProps
     if (!typingText) return null;
 
     return (
-        <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 py-2">
-            <div className="flex items-center gap-2 text-sm text-blue-400 dark:text-blue-300">
+        <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] px-3 py-1.5 sm:px-4 sm:py-2">
+            <div className="flex items-center gap-2 text-sm text-green-primary">
                 <span>{typingText}</span>
                 <div className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-blue-400 animate-typing-dot" />
-                    <span className="h-2 w-2 rounded-full bg-blue-400 animate-typing-dot animation-delay-150" />
-                    <span className="h-2 w-2 rounded-full bg-blue-400 animate-typing-dot animation-delay-300" />
+                    <span className="h-2 w-2 animate-typing-dot rounded-full bg-green-primary" />
+                    <span className="h-2 w-2 animate-typing-dot rounded-full bg-green-primary animation-delay-150" />
+                    <span className="h-2 w-2 animate-typing-dot rounded-full bg-green-primary animation-delay-300" />
                 </div>
             </div>
         </div>
