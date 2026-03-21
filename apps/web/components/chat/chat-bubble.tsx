@@ -378,7 +378,7 @@ const ChatBubble = ({
                         <span className="ml-1 text-xs text-[hsl(var(--muted-foreground))]">✓✓</span>
                     )}
                     {receiptState === "seen" && (
-                        <span className="ml-1 text-xs text-green-primary">✓✓</span>
+                        <span className="ml-1 text-xs text-[hsl(var(--green-primary))]">✓✓</span>
                     )}
                 </div>
             </div>
