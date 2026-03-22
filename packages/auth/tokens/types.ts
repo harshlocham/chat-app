@@ -1,5 +1,6 @@
 export type AccessTokenPayload = {
   sub: string; // userId
+  role?: "user" | "moderator" | "admin";
   type: "access";
 };
 
