@@ -153,7 +153,7 @@ function Loginpage() {
                             onClick={async () => {
                                 try {
                                     setPendingAction("google");
-                                    await signIn("google", { callbackUrl: "/" });
+                                    window.location.href = "/api/auth/google/start?callbackUrl=/";
                                 } catch (error) {
                                     if (error instanceof Error) {
                                         toast.error(error.message);
