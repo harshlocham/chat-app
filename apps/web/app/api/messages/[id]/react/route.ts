@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/utils/auth/auth";
 import { connectToDatabase } from "@/lib/Db/db";
 import Message, { IMessagePopulated } from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
+import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 
 
 export async function POST(
@@ -18,8 +17,8 @@ export async function POST(
         const { emoji } = await req.json();
 
         // Auth check
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
+        const authUser = await getAuthUser();
+        if (!authUser?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -42,7 +41,7 @@ export async function POST(
             );
         }
 
-        const userId = new mongoose.Types.ObjectId(session.user.id);
+        const userId = new mongoose.Types.ObjectId(authUser.id);
 
 
         // Step 1: Remove user from all emoji arrays

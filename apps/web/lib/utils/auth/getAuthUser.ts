@@ -1,8 +1,8 @@
-import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
-import { authOptions } from "./auth";
+import { authConfig, verifyAccessToken } from "@chat/auth";
 
 export type AuthUser = {
     id: string;
@@ -11,32 +11,33 @@ export type AuthUser = {
 };
 
 export async function getAuthUser(): Promise<AuthUser | null> {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) return null;
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get(authConfig.cookie.accessToken)?.value;
+    if (!accessToken) return null;
 
-    const sessionId = session.user.id ? String(session.user.id) : "";
-    const sessionEmail = session.user.email ? String(session.user.email) : "";
+    let payload: { sub: string; role?: string; type: "access" };
 
-    if (sessionId && sessionEmail && mongoose.Types.ObjectId.isValid(sessionId)) {
-        return {
-            id: sessionId,
-            email: sessionEmail,
-            role: String(session.user.role || "user"),
-        };
+    try {
+        payload = verifyAccessToken(accessToken);
+    } catch {
+        return null;
     }
 
-    if (!sessionEmail) return null;
+    if (!payload?.sub || !mongoose.Types.ObjectId.isValid(payload.sub)) {
+        return null;
+    }
 
     await connectToDatabase();
-    const user = await User.findOne({ email: sessionEmail })
-        .select("_id email role")
-        .lean<{ _id: { toString(): string }; email: string; role?: string } | null>();
+    const user = await User.findById(payload.sub)
+        .select("_id email role status")
+        .lean<{ _id: { toString(): string }; email: string; role?: string; status?: string } | null>();
 
     if (!user) return null;
+    if (user.status === "banned") return null;
 
     return {
         id: user._id.toString(),
         email: user.email,
-        role: user.role || "user",
+        role: payload.role || user.role || "user",
     };
 }
