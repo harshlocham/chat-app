@@ -1,0 +1,173 @@
+import { randomBytes } from "node:crypto";
+import { User } from "@/models/User";
+import { createUserSession } from "../session/create-session";
+import { generateAccessToken } from "../tokens/generate";
+
+export type GoogleUserProfile = {
+    sub: string;
+    email: string;
+    email_verified: boolean;
+    name?: string;
+    picture?: string;
+};
+
+type LoginWithGoogleCodeInput = {
+    code: string;
+    redirectUri: string;
+    userAgent?: string;
+    ipAddress?: string;
+};
+
+type GoogleTokenResponse = {
+    access_token: string;
+    id_token?: string;
+    refresh_token?: string;
+};
+
+function requiredEnv(name: string): string {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`${name} is not configured`);
+    }
+
+    return value;
+}
+
+function getGoogleOAuthConfig() {
+    return {
+        clientId: requiredEnv("GOOGLE_CLIENT_ID"),
+        clientSecret: requiredEnv("GOOGLE_CLIENT_SECRET"),
+    };
+}
+
+function normalizeEmail(email: string): string {
+    return email.toLowerCase().trim();
+}
+
+export function createGoogleOAuthState(): string {
+    return randomBytes(24).toString("hex");
+}
+
+export function buildGoogleOAuthAuthorizeUrl({
+    redirectUri,
+    state,
+}: {
+    redirectUri: string;
+    state: string;
+}): string {
+    const { clientId } = getGoogleOAuthConfig();
+
+    const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: "openid email profile",
+        state,
+        prompt: "select_account",
+        access_type: "offline",
+    });
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+}
+
+export async function exchangeGoogleCodeForTokens({
+    code,
+    redirectUri,
+}: {
+    code: string;
+    redirectUri: string;
+}): Promise<GoogleTokenResponse> {
+    const { clientId, clientSecret } = getGoogleOAuthConfig();
+
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            code,
+            grant_type: "authorization_code",
+            redirect_uri: redirectUri,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Google token exchange failed: ${errorBody}`);
+    }
+
+    return response.json() as Promise<GoogleTokenResponse>;
+}
+
+export async function fetchGoogleUserProfile(accessToken: string): Promise<GoogleUserProfile> {
+    const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to fetch Google user profile: ${errorBody}`);
+    }
+
+    return response.json() as Promise<GoogleUserProfile>;
+}
+
+export async function loginWithGoogleCode({
+    code,
+    redirectUri,
+    userAgent,
+    ipAddress,
+}: LoginWithGoogleCodeInput) {
+    const tokens = await exchangeGoogleCodeForTokens({ code, redirectUri });
+    const profile = await fetchGoogleUserProfile(tokens.access_token);
+
+    if (!profile.email || !profile.email_verified) {
+        throw new Error("Google account email is missing or unverified");
+    }
+
+    const email = normalizeEmail(profile.email);
+    let user = await User.findOne({ email });
+
+    if (!user) {
+        user = await User.create({
+            username: profile.name || email.split("@")[0],
+            email,
+            password: "",
+            profilePicture: profile.picture,
+            role: "user",
+            status: "active",
+            isVerified: new Date(),
+            isOnline: false,
+            conversations: [],
+        });
+    } else if (!user.profilePicture && profile.picture) {
+        user.profilePicture = profile.picture;
+        await user.save();
+    }
+
+    if (user.status === "banned") {
+        throw new Error("Account is banned");
+    }
+
+    const accessToken = generateAccessToken({
+        sub: user._id.toString(),
+        role: user.role,
+        type: "access",
+    });
+
+    const { refreshToken } = await createUserSession({
+        userId: user._id.toString(),
+        userAgent,
+        ipAddress,
+    });
+
+    return {
+        user,
+        accessToken,
+        refreshToken,
+    };
+}
