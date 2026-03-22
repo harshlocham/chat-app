@@ -1,6 +1,5 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -33,19 +32,22 @@ function Loginpage() {
         setPendingAction("credentials");
 
         try {
-            const result = await signIn("credentials", {
-                email: email.trim(),
-                password,
-                redirect: false,
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                }),
             });
 
-            if (result?.error) {
-                console.error(result.error);
-                toast.error(result.error);
-            } else {
-                toast.success("Welcome back");
-                router.push("/");
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.error || "Login failed");
             }
+
+            toast.success("Welcome back");
+            router.push("/");
         } catch (error: unknown) {
             if (error instanceof Error) {
                 toast.error(error.message);
