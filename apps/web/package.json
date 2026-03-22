@@ -9,6 +9,7 @@
         "typecheck": "tsc --noEmit -p tsconfig.json"
     },
     "dependencies": {
+        "@chat/auth": "*",
         "@chat/types": "*",
         "@imagekit/javascript": "^5.2.2",
         "@imagekit/next": "^2.1.2",
