@@ -3,6 +3,10 @@ import { generateAccessToken } from "../tokens/generate";
 import { createUserSession } from "../session/create-session";
 import { User } from "@/models/User";
 
+function normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+}
+
 export const loginUser = async ({
     email,
     password,
@@ -14,7 +18,7 @@ export const loginUser = async ({
     userAgent?: string;
     ipAddress?: string;
 }) => {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizeEmail(email) });
     if (!user) throw new Error("User not found");
 
     if (!user.password) {
@@ -24,8 +28,8 @@ export const loginUser = async ({
     const isValid = await comparePassword(password, user.password);
     if (!isValid) throw new Error("Invalid password");
 
-    if (user.status === "banned") {
-        throw new Error("Account is banned");
+    if (user.status && user.status !== "active") {
+        throw new Error("Account is not active");
     }
 
     const accessToken = generateAccessToken({
