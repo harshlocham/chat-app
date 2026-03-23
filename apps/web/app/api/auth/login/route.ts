@@ -62,8 +62,8 @@ export async function POST(req: NextRequest) {
         if (error instanceof Error) {
             const status =
                 error.message === "User not found" ||
-                error.message === "Invalid password" ||
-                error.message === "Account is banned"
+                    error.message === "Invalid password" ||
+                    error.message === "Account is banned"
                     ? 401
                     : 400;
 

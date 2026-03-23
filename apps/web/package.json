@@ -11,6 +11,8 @@
     "dependencies": {
         "@chat/auth": "*",
         "@chat/types": "*",
+        "@upstash/ratelimit": "^2.0.8",
+        "@upstash/redis": "^1.35.6",
         "@imagekit/javascript": "^5.2.2",
         "@imagekit/next": "^2.1.2",
         "@radix-ui/react-avatar": "^1.1.10",
