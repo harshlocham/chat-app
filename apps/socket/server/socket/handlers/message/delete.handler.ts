@@ -1,8 +1,9 @@
 import { Server, Socket } from "socket.io";
 import { SocketEvents } from "@chat/types";
+import { authorizeMessageAction } from "../../services/message-action-authorization.js";
 
 export function DeleteHandler(io: Server, socket: Socket) {
-    socket.on(SocketEvents.MESSAGE_DELETE, (payload: { conversationId: string, messageId: string }) => {
+    socket.on(SocketEvents.MESSAGE_DELETE, async (payload: { conversationId: string, messageId: string }) => {
         const conversationId = payload?.conversationId;
         const messageId = payload?.messageId;
 
@@ -19,6 +20,22 @@ export function DeleteHandler(io: Server, socket: Socket) {
             socket.emit(SocketEvents.ERROR_AUTH, {
                 type: "forbidden",
                 message: "Not joined to target conversation",
+            });
+            return;
+        }
+
+        const authz = await authorizeMessageAction({
+            action: "delete",
+            actorUserId: socket.data.userId,
+            conversationId,
+            messageId,
+        });
+
+        if (!authz.allowed) {
+            socket.emit(SocketEvents.ERROR_AUTH, {
+                type: "forbidden",
+                message: "Delete not authorized",
+                data: { reason: authz.reason || "forbidden" },
             });
             return;
         }
