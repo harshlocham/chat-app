@@ -42,3 +42,4 @@ class InMemoryRateLimiter {
 
 export const authRateLimiter = new InMemoryRateLimiter(60_000, 5);
 export const messageRateLimiter = new InMemoryRateLimiter(10_000, 20);
+export const internalSocketAuthzRateLimiter = new InMemoryRateLimiter(10_000, 80);
