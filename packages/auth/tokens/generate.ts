@@ -1,15 +1,19 @@
 import jwt from "jsonwebtoken";
-import { authConfig } from "../config";
+import { getAuthConfig } from "../config";
 import { AccessTokenPayload, RefreshTokenPayload } from "./types";
 
 export function generateAccessToken(payload: AccessTokenPayload): string {
-    return jwt.sign(payload, authConfig.accessToken.secret, {
-        expiresIn: authConfig.accessToken.expiresIn,
+    const config = getAuthConfig();
+    return jwt.sign(payload, config.accessToken.secret, {
+        expiresIn: config.accessToken.expiresIn,
+        algorithm: "HS256",
     });
 }
 
 export function generateRefreshToken(payload: RefreshTokenPayload): string {
-    return jwt.sign(payload, authConfig.refreshToken.secret, {
-        expiresIn: authConfig.refreshToken.expiresIn,
+    const config = getAuthConfig();
+    return jwt.sign(payload, config.refreshToken.secret, {
+        expiresIn: config.refreshToken.expiresIn,
+        algorithm: "HS256",
     });
 }

@@ -96,7 +96,7 @@ export interface ServerToClientEvents {
     [SocketEvents.MESSAGE_SEEN_UPDATE]: (data: MessageSeenUpdatePayload) => void;
     [SocketEvents.MESSAGE_EDIT]: (data: MessageEditPayload) => void;
     [SocketEvents.MESSAGE_EDITED]: (data: MessageEditPayload) => void;
-    [SocketEvents.MESSAGE_DELETE]: (data: MessageDTO) => void;
+    [SocketEvents.MESSAGE_DELETE]: (data: MessageDeletePayload) => void;
     [SocketEvents.MESSAGE_UNSEND]: (data: MessageUnsendPayload) => void;
     [SocketEvents.MESSAGE_REACTION]: (data: MessageReactionPayload) => void;
 

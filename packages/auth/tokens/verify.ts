@@ -1,9 +1,12 @@
 import jwt from "jsonwebtoken";
-import { authConfig } from "../config";
+import { getAuthConfig } from "../config";
 import { AccessTokenPayload, RefreshTokenPayload } from "./types";
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-    const payload = jwt.verify(token, authConfig.accessToken.secret) as AccessTokenPayload;
+    const config = getAuthConfig();
+    const payload = jwt.verify(token, config.accessToken.secret, {
+        algorithms: ["HS256"],
+    }) as AccessTokenPayload;
     if (payload.type !== "access") {
         throw new Error("Invalid token type");
     }
@@ -12,7 +15,10 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
-    const payload = jwt.verify(token, authConfig.refreshToken.secret) as RefreshTokenPayload;
+    const config = getAuthConfig();
+    const payload = jwt.verify(token, config.refreshToken.secret, {
+        algorithms: ["HS256"],
+    }) as RefreshTokenPayload;
     if (payload.type !== "refresh") {
         throw new Error("Invalid token type");
     }

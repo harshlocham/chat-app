@@ -64,7 +64,8 @@ function verifyAccessToken(token: string): AccessTokenPayload {
         throw new Error("ACCESS_TOKEN_SECRET is not configured");
     }
 
-    const payload = jwt.verify(token, secret) as Partial<AccessTokenPayload>;
+    // SECURITY FIX: Restrict algorithm to HS256 to prevent algorithm substitution attacks
+    const payload = jwt.verify(token, secret, { algorithms: ["HS256"] }) as Partial<AccessTokenPayload>;
 
     if (!payload || payload.type !== "access" || typeof payload.sub !== "string") {
         throw new Error("Invalid access token payload");

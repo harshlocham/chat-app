@@ -7,7 +7,7 @@ export interface ISession extends mongoose.Document {
     userAgent: string;
     ipAddress: string;
     expiresAt: Date;
-    revokedAt?: Date;
+    revokedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
     lastActiveAt: Date;
