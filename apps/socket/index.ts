@@ -14,6 +14,14 @@ import {
     INTERNAL_SECRET_HEADER,
 } from "@chat/types/utils/internal-bridge-auth";
 
+function parseAllowedOrigins(raw: string | undefined): string[] {
+    if (!raw) return [];
+    return raw
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+}
+
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const visitedEnvPaths = new Set<string>();
 let scanDir = currentDir;
@@ -35,8 +43,20 @@ for (let depth = 0; depth < 8; depth++) {
 
 
 const app = express();
+const allowedOrigins = parseAllowedOrigins(process.env.ORIGIN);
 app.use(cors({
-    origin: process.env.ORIGIN,
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Origin not allowed"));
+    },
+    credentials: true,
 }));
 app.use(express.json());
 
