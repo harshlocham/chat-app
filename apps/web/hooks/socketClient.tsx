@@ -93,9 +93,17 @@ export function registerGlobalSocketListeners() {
 
         useChatStore.getState().receiveMessage(uiMessage);
     });
-    socket.on(SocketEvents.MESSAGE_DELETE, (payload: MessageDTO) => {
+    socket.on(SocketEvents.MESSAGE_DELETE, (payload) => {
         console.log("🔌 MESSAGE_DELETE", payload);
-        useChatStore.getState().updateDeletedMessage(convertDTOToUI(payload));
+        // Handle minimal payload: mark message as deleted locally
+        // Socket server is stateless; client manages message state
+        const { messageId, conversationId } = payload;
+        useChatStore.getState().updateDeletedMessage({
+            _id: messageId,
+            conversationId,
+            content: "This message was deleted",
+            isDeleted: true,
+        } as any);
     });
     socket.on(SocketEvents.MESSAGE_REACTION, (dto) => {
         if (!isMessageDTO(dto)) return;

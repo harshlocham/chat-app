@@ -35,9 +35,11 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     if (!user) return null;
     if (user.status === "banned") return null;
 
+    // SECURITY FIX: Always prefer database role over token role
+    // This ensures role downgrades take effect immediately
     return {
         id: user._id.toString(),
         email: user.email,
-        role: payload.role || user.role || "user",
+        role: user.role || payload.role || "user",
     };
 }

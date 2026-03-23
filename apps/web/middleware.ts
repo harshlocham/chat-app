@@ -16,7 +16,10 @@ async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null
     }
 
     try {
-        const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+        // SECURITY FIX: Explicitly restrict algorithm to HS256
+        const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+            algorithms: ["HS256"],
+        });
         const accessPayload = payload as AccessPayload;
 
         if (accessPayload.type !== "access" || !accessPayload.sub) {
