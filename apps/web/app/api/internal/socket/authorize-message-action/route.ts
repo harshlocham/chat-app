@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
+import { internalSocketAuthzRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     getInternalSecret,
     hasValidInternalSecret,
@@ -42,6 +43,12 @@ export async function POST(req: Request) {
         !messageId
     ) {
         return deny("invalid_payload", 400);
+    }
+
+    const key = `${actorUserId}:${action}`;
+    const { success } = await internalSocketAuthzRateLimiter.limit(key);
+    if (!success) {
+        return deny("too_many_requests", 429);
     }
 
     await connectToDatabase();
