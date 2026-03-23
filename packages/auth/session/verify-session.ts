@@ -9,6 +9,10 @@ export const verifySession = async (token: string) => {
 
     if (!session) throw new Error("Invalid session");
 
+    if (String(session.userId) !== payload.sub) {
+        throw new Error("Invalid session user binding");
+    }
+
     if (session.revokedAt) {
         throw new Error("Session revoked");
     }

@@ -1,27 +1,52 @@
 import jwt from "jsonwebtoken";
-import { getAuthConfig } from "../config";
+import { getAccessTokenConfig, getRefreshTokenConfig } from "../config";
 import { AccessTokenPayload, RefreshTokenPayload } from "./types";
 
+const VALID_ROLES = new Set(["user", "moderator", "admin"]);
+
 export function verifyAccessToken(token: string): AccessTokenPayload {
-    const config = getAuthConfig();
-    const payload = jwt.verify(token, config.accessToken.secret, {
+    const config = getAccessTokenConfig();
+    const payload = jwt.verify(token, config.secret, {
         algorithms: ["HS256"],
-    }) as AccessTokenPayload;
-    if (payload.type !== "access") {
-        throw new Error("Invalid token type");
+    }) as Partial<AccessTokenPayload>;
+
+    if (
+        !payload ||
+        payload.type !== "access" ||
+        typeof payload.sub !== "string"
+    ) {
+        throw new Error("Invalid access token payload");
     }
 
-    return payload;
+    if (payload.role && !VALID_ROLES.has(payload.role)) {
+        throw new Error("Invalid access token role");
+    }
+
+    return {
+        sub: payload.sub,
+        role: payload.role,
+        type: "access",
+    };
 }
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
-    const config = getAuthConfig();
-    const payload = jwt.verify(token, config.refreshToken.secret, {
+    const config = getRefreshTokenConfig();
+    const payload = jwt.verify(token, config.secret, {
         algorithms: ["HS256"],
-    }) as RefreshTokenPayload;
-    if (payload.type !== "refresh") {
-        throw new Error("Invalid token type");
+    }) as Partial<RefreshTokenPayload>;
+
+    if (
+        !payload ||
+        payload.type !== "refresh" ||
+        typeof payload.sub !== "string" ||
+        typeof payload.sessionId !== "string"
+    ) {
+        throw new Error("Invalid refresh token payload");
     }
 
-    return payload;
+    return {
+        sub: payload.sub,
+        sessionId: payload.sessionId,
+        type: "refresh",
+    };
 }

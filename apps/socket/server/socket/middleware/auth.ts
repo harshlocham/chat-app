@@ -1,5 +1,6 @@
 import type { TypedSocket } from "../types.js";
 import jwt from "jsonwebtoken";
+import { authorizeSocketIdentity } from "../services/socket-identity-authorization.js";
 
 type AccessRole = "user" | "moderator" | "admin";
 
@@ -78,10 +79,10 @@ function verifyAccessToken(token: string): AccessTokenPayload {
     };
 }
 
-export function socketAuth(
+export async function socketAuth(
     socket: TypedSocket,
     next: (err?: Error) => void
-): void {
+): Promise<void> {
     try {
         const token = getHandshakeToken(socket);
         if (!token) {
@@ -89,8 +90,14 @@ export function socketAuth(
         }
 
         const payload = verifyAccessToken(token);
+        const authz = await authorizeSocketIdentity({ userId: payload.sub });
+
+        if (!authz.allowed) {
+            return next(new Error("Unauthorized"));
+        }
+
         socket.data.userId = payload.sub;
-        socket.data.isAdmin = payload.role === "admin";
+        socket.data.isAdmin = authz.role === "admin";
         return next();
     } catch {
         return next(new Error("Unauthorized"));

@@ -1,6 +1,10 @@
 import { User } from "@/models/User";
 import { hashPassword } from "../password/hash";
 
+function normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+}
+
 export const registerService = async ({
     username,
     email,
@@ -10,7 +14,8 @@ export const registerService = async ({
     email: string;
     password: string;
 }) => {
-    const existing = await User.findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
         throw new Error("User already exists");
     }
@@ -19,7 +24,7 @@ export const registerService = async ({
 
     const user = await User.create({
         username,
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         isVerified: new Date(),
         status: "active",

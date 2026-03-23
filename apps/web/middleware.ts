@@ -7,6 +7,11 @@ type AccessPayload = JWTPayload & {
     type?: "access";
 };
 
+type IdentityAuthzResponse = {
+    allowed?: boolean;
+    role?: "user" | "moderator" | "admin";
+};
+
 async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null> {
     const token = req.cookies.get("accessToken")?.value;
     const secret = process.env.ACCESS_TOKEN_SECRET;
@@ -32,6 +37,40 @@ async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null
     }
 }
 
+async function hasActiveAdminRole(
+    req: NextRequest,
+    userId: string
+): Promise<boolean> {
+    const internalSecret = process.env.INTERNAL_SECRET;
+    if (!internalSecret) {
+        return false;
+    }
+
+    try {
+        const response = await fetch(
+            `${req.nextUrl.origin}/api/internal/socket/authorize-identity`,
+            {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "x-internal-secret": internalSecret,
+                },
+                body: JSON.stringify({ userId }),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            return false;
+        }
+
+        const data = (await response.json()) as IdentityAuthzResponse;
+        return data.allowed === true && data.role === "admin";
+    } catch {
+        return false;
+    }
+}
+
 export default async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
     const token = await verifyAccessToken(req);
@@ -50,8 +89,15 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    if (pathname.startsWith("/admin") && token.role !== "admin") {
-        return NextResponse.redirect(new URL("/", req.url));
+    if (pathname.startsWith("/admin")) {
+        if (!token.sub) {
+            return NextResponse.redirect(new URL("/", req.url));
+        }
+
+        const isAdmin = await hasActiveAdminRole(req, token.sub);
+        if (!isAdmin) {
+            return NextResponse.redirect(new URL("/", req.url));
+        }
     }
 
     return NextResponse.next();
