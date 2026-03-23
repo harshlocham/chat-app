@@ -1,11 +1,17 @@
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";
+import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
 
 export async function GET(
     _request: Request,
     { params }: { params: Promise<{ email: string }> }
 ) {
+    const authUser = await getAuthUser();
+    if (!authUser) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { email } = await params;
 
     try {
