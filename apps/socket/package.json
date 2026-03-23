@@ -17,6 +17,7 @@
         "dotenv": "^17.2.3",
         "express": "^5.1.0",
         "ioredis": "^5.10.0",
+        "jsonwebtoken": "^9.0.2",
         "mongodb": "^4.17.2",
         "mongoose": "^8.16.2",
         "nodemailer": "^7.0.13",
