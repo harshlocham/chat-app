@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
+import { authGoogleCallbackRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     buildAccessTokenCookie,
     buildRefreshTokenCookie,
@@ -44,6 +45,15 @@ function cleanupOAuthCookies(response: NextResponse) {
 }
 
 export async function GET(req: NextRequest) {
+    const xForwardedFor = req.headers.get("x-forwarded-for") || "";
+    const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
+    const { success } = await authGoogleCallbackRateLimiter.limit(ipAddress);
+    if (!success) {
+        const loginRedirect = new URL("/login", req.url);
+        loginRedirect.searchParams.set("error", "too_many_google_oauth_attempts");
+        return NextResponse.redirect(loginRedirect);
+    }
+
     const code = req.nextUrl.searchParams.get("code");
     const state = req.nextUrl.searchParams.get("state");
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authLogoutRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     authConfig,
     buildExpiredCookie,
@@ -6,6 +7,16 @@ import {
 } from "@chat/auth";
 
 export async function POST(req: NextRequest) {
+    const xForwardedFor = req.headers.get("x-forwarded-for") || "";
+    const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
+    const { success } = await authLogoutRateLimiter.limit(ipAddress);
+    if (!success) {
+        return NextResponse.json(
+            { success: false, error: "Too many logout attempts. Try again later." },
+            { status: 429 }
+        );
+    }
+
     let logoutFromAllDevices = false;
     let bodyRefreshToken = "";
 
