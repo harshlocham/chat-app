@@ -7,23 +7,39 @@ function requiredEnv(name: string): string {
     return value;
 }
 
+export function getAccessTokenConfig() {
+    return {
+        secret: requiredEnv("ACCESS_TOKEN_SECRET"),
+        expiresIn: "15m",
+    } as const;
+}
+
+export function getRefreshTokenConfig() {
+    return {
+        secret: requiredEnv("REFRESH_TOKEN_SECRET"),
+        expiresIn: "7d",
+    } as const;
+}
+
+export function getSessionConfig() {
+    return {
+        refreshTtlMs: 7 * 24 * 60 * 60 * 1000,
+    } as const;
+}
+
+export function getCookieConfig() {
+    return {
+        accessToken: "accessToken",
+        refreshToken: "refreshToken",
+    } as const;
+}
+
 export function getAuthConfig() {
     return {
-        accessToken: {
-            secret: requiredEnv("ACCESS_TOKEN_SECRET"),
-            expiresIn: "15m",
-        },
-        refreshToken: {
-            secret: requiredEnv("REFRESH_TOKEN_SECRET"),
-            expiresIn: "7d",
-        },
-        session: {
-            refreshTtlMs: 7 * 24 * 60 * 60 * 1000,
-        },
-        cookie: {
-            accessToken: "accessToken",
-            refreshToken: "refreshToken",
-        },
+        accessToken: getAccessTokenConfig(),
+        refreshToken: getRefreshTokenConfig(),
+        session: getSessionConfig(),
+        cookie: getCookieConfig(),
     } as const;
 }
 
@@ -33,15 +49,15 @@ export function getAuthConfig() {
  */
 export const authConfig = {
     get accessToken() {
-        return getAuthConfig().accessToken;
+        return getAccessTokenConfig();
     },
     get refreshToken() {
-        return getAuthConfig().refreshToken;
+        return getRefreshTokenConfig();
     },
     get session() {
-        return getAuthConfig().session;
+        return getSessionConfig();
     },
     get cookie() {
-        return getAuthConfig().cookie;
+        return getCookieConfig();
     },
 } as const;
