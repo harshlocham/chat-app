@@ -40,6 +40,12 @@ export function DeleteHandler(io: Server, socket: Socket) {
             return;
         }
 
-        io.to(`conversation:${conversationId}`).emit(SocketEvents.MESSAGE_DELETE, { messageId });
+        // ARCHITECTURE: Socket is transport layer only - no database access
+        // Emit minimal payload: { messageId, conversationId }
+        // Client handles deletion locally using message id
+        io.to(`conversation:${conversationId}`).emit(SocketEvents.MESSAGE_DELETE, {
+            messageId,
+            conversationId,
+        });
     });
 }
