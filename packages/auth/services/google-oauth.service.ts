@@ -130,27 +130,38 @@ export async function loginWithGoogleCode({
     }
 
     const email = normalizeEmail(profile.email);
-    let user = await User.findOne({ email });
+    const user = await User.findOneAndUpdate(
+        { email },
+        {
+            $setOnInsert: {
+                username: profile.name || email.split("@")[0],
+                email,
+                password: "",
+                profilePicture: profile.picture,
+                role: "user",
+                status: "active",
+                isVerified: new Date(),
+                isOnline: false,
+                conversations: [],
+            },
+        },
+        {
+            upsert: true,
+            new: true,
+        }
+    );
 
     if (!user) {
-        user = await User.create({
-            username: profile.name || email.split("@")[0],
-            email,
-            password: "",
-            profilePicture: profile.picture,
-            role: "user",
-            status: "active",
-            isVerified: new Date(),
-            isOnline: false,
-            conversations: [],
-        });
-    } else if (!user.profilePicture && profile.picture) {
+        throw new Error("Unable to resolve Google user account");
+    }
+
+    if (!user.profilePicture && profile.picture) {
         user.profilePicture = profile.picture;
         await user.save();
     }
 
-    if (user.status === "banned") {
-        throw new Error("Account is banned");
+    if (user.status && user.status !== "active") {
+        throw new Error("Account is not active");
     }
 
     const accessToken = generateAccessToken({

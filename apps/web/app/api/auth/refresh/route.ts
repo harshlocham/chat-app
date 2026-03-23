@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authRefreshRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     authConfig,
     buildAccessTokenCookie,
@@ -8,6 +9,16 @@ import {
 
 export async function POST(req: NextRequest) {
     try {
+        const xForwardedFor = req.headers.get("x-forwarded-for") || "";
+        const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
+        const { success } = await authRefreshRateLimiter.limit(ipAddress);
+        if (!success) {
+            return NextResponse.json(
+                { success: false, error: "Too many refresh attempts. Try again later." },
+                { status: 429 }
+            );
+        }
+
         let bodyRefreshToken = "";
 
         try {

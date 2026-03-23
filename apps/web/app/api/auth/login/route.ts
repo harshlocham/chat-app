@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
+import { authLoginRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     buildAccessTokenCookie,
     buildRefreshTokenCookie,
@@ -13,6 +14,14 @@ function safeIpAddress(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
     try {
+        const { success } = await authLoginRateLimiter.limit(safeIpAddress(req));
+        if (!success) {
+            return NextResponse.json(
+                { success: false, error: "Too many login attempts. Try again later." },
+                { status: 429 }
+            );
+        }
+
         const body = await req.json();
         const email = String(body?.email || "").trim();
         const password = String(body?.password || "");

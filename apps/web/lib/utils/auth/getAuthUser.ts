@@ -33,7 +33,7 @@ export async function getAuthUser(): Promise<AuthUser | null> {
         .lean<{ _id: { toString(): string }; email: string; role?: string; status?: string } | null>();
 
     if (!user) return null;
-    if (user.status === "banned") return null;
+    if (user.status && user.status !== "active") return null;
 
     // SECURITY FIX: Always prefer database role over token role
     // This ensures role downgrades take effect immediately

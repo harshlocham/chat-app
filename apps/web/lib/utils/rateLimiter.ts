@@ -41,5 +41,10 @@ class InMemoryRateLimiter {
 }
 
 export const authRateLimiter = new InMemoryRateLimiter(60_000, 5);
+export const authLoginRateLimiter = new InMemoryRateLimiter(60_000, 10);
+export const authRegisterRateLimiter = new InMemoryRateLimiter(10 * 60_000, 5);
+export const authRefreshRateLimiter = new InMemoryRateLimiter(60_000, 20);
+export const authLogoutRateLimiter = new InMemoryRateLimiter(60_000, 10);
+export const authGoogleCallbackRateLimiter = new InMemoryRateLimiter(60_000, 20);
 export const messageRateLimiter = new InMemoryRateLimiter(10_000, 20);
 export const internalSocketAuthzRateLimiter = new InMemoryRateLimiter(10_000, 80);
