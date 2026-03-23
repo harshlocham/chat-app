@@ -24,7 +24,7 @@ const sessionSchema = new Schema<ISession>(
         refreshTokenHash: { type: String, required: true, select: false },
         userAgent: { type: String, required: true, default: "Unknown" },
         ipAddress: { type: String, required: true, default: "Unknown" },
-        expiresAt: { type: Date, required: true, index: true },
+        expiresAt: { type: Date, required: true },
         revokedAt: { type: Date, default: null },
         lastActiveAt: { type: Date, default: Date.now },
     },
