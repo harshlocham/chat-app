@@ -1,4 +1,4 @@
-export { authConfig } from "./config";
+export { authConfig, getAuthConfig } from "./config";
 
 export { hashPassword } from "./password/hash";
 export { comparePassword } from "./password/compare";

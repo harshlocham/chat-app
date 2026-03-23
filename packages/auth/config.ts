@@ -7,20 +7,41 @@ function requiredEnv(name: string): string {
     return value;
 }
 
+export function getAuthConfig() {
+    return {
+        accessToken: {
+            secret: requiredEnv("ACCESS_TOKEN_SECRET"),
+            expiresIn: "15m",
+        },
+        refreshToken: {
+            secret: requiredEnv("REFRESH_TOKEN_SECRET"),
+            expiresIn: "7d",
+        },
+        session: {
+            refreshTtlMs: 7 * 24 * 60 * 60 * 1000,
+        },
+        cookie: {
+            accessToken: "accessToken",
+            refreshToken: "refreshToken",
+        },
+    } as const;
+}
+
+/**
+ * Lazy-loaded auth config. Modules that need auth config should call getAuthConfig().
+ * This allows services that don't need JWT (e.g., OTP) to be imported without env validation.
+ */
 export const authConfig = {
-    accessToken: {
-        secret: requiredEnv("ACCESS_TOKEN_SECRET"),
-        expiresIn: "15m",
+    get accessToken() {
+        return getAuthConfig().accessToken;
     },
-    refreshToken: {
-        secret: requiredEnv("REFRESH_TOKEN_SECRET"),
-        expiresIn: "7d",
+    get refreshToken() {
+        return getAuthConfig().refreshToken;
     },
-    session: {
-        refreshTtlMs: 7 * 24 * 60 * 60 * 1000,
+    get session() {
+        return getAuthConfig().session;
     },
-    cookie: {
-        accessToken: "accessToken",
-        refreshToken: "refreshToken",
+    get cookie() {
+        return getAuthConfig().cookie;
     },
 } as const;
