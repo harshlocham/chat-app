@@ -15,6 +15,7 @@ type UserContextType = {
     isLoading: boolean;
     usersById: Record<string, ClientUser>;
     error: Error | null;
+    refreshUser: () => Promise<ClientUser | null | undefined>;
 };
 
 const UserContext = createContext<UserContextType>({
@@ -22,10 +23,11 @@ const UserContext = createContext<UserContextType>({
     usersById: {},
     isLoading: true,
     error: null,
+    refreshUser: async () => null,
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { data, error, isLoading } = useSWR<ClientUser>("/api/me", fetcher, {
+    const { data, error, isLoading, mutate } = useSWR<ClientUser>("/api/me", fetcher, {
         dedupingInterval: 60 * 1000,   // avoid duplicate calls
         revalidateOnFocus: false,      // don’t refetch when switching tabs
     });
@@ -39,7 +41,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }, [data]);
 
     return (
-        <UserContext.Provider value={{ user: data ?? null, usersById, isLoading, error }}>
+        <UserContext.Provider
+            value={{
+                user: data ?? null,
+                usersById,
+                isLoading,
+                error,
+                refreshUser: () => mutate(),
+            }}
+        >
             {children}
         </UserContext.Provider>
     );
