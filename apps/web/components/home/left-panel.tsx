@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ListFilter, LogOut, Search, X } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { Input } from "../ui/input";
 import ThemeSwitch from "./theme-switch";
 import UserListDialog from "./dialogs/user-list-dialog";
@@ -12,6 +11,7 @@ import useChatStore from "@/store/chat-store";
 import { ClientUser } from "@chat/types";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
 import { socket } from "@/lib/socket/socketClient";
+import { useRouter } from "next/navigation";
 
 function isUser(p: unknown): p is ClientUser {
     return typeof p === "object" && p !== null && "username" in p;
@@ -29,7 +29,7 @@ const Sidebar = ({
     const conversations = useChatStore((s) => s.conversations);
     const setConversations = useChatStore((s) => s.setConversations);
     const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
-
+    const router = useRouter();
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [loading, setLoading] = useState(true);
@@ -124,7 +124,11 @@ const Sidebar = ({
                             if (socket.connected) {
                                 socket.disconnect();
                             }
-                            void signOut({ callbackUrl: "/login" });
+                            fetch("/api/auth/logout", {
+                                method: "POST",
+                            }).then(() => {
+                                router.push("/login");
+                            });
                         }}
                     />
 
