@@ -4,11 +4,11 @@ import MessageInput from "../chat/message-input";
 import MessageList from "../chat/message-list";
 import ChatPlaceHolder from "@/components/home/chat-placeholder";
 import useChatStore from "@/store/chat-store";
-import { useSession } from "next-auth/react";
 import { ClientUser } from "@chat/types";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
 import TypingIndicator from "./typing-indicator";
 import ChatHeader from "../chat/chat-header";
+import { useUser } from "@/context/UserContext";
 
 // type guard
 function isUser(p: ClientUser) {
@@ -16,8 +16,8 @@ function isUser(p: ClientUser) {
 }
 
 const RightPanel = () => {
-    const { data: session } = useSession();
-    const currentUserEmail = session?.user?.email;
+    const { user } = useUser();
+    const currentUserEmail = user?.email;
 
     const conversations = useChatStore((s) => s.conversations);
     const selectedConversationId = useChatStore(

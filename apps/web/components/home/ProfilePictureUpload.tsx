@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ImageUpload } from "./ImageUpload";
 import { Button } from "../ui/button";
 import { Camera } from "lucide-react";
-import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import UserAvatar from "./UserAvatar";
 import { useUser } from "@/context/UserContext";
@@ -15,10 +14,12 @@ interface ProfilePictureUploadProps {
 }
 
 export const ProfilePictureUpload = ({ onUpdate, className }: ProfilePictureUploadProps) => {
-    const { data: session, update } = useSession();
     const [isUpdating, setIsUpdating] = useState(false);
     const [showUpload, setShowUpload] = useState(false);
-    const { user } = useUser() as { user: ClientUser | null };
+    const { user, refreshUser } = useUser() as {
+        user: ClientUser | null;
+        refreshUser: () => Promise<ClientUser | null | undefined>;
+    };
 
     const handleImageUpload = async (result: { url?: string; fileId?: string }) => {
         if (!result.url) return;
@@ -37,16 +38,7 @@ export const ProfilePictureUpload = ({ onUpdate, className }: ProfilePictureUplo
                 throw new Error("Failed to update profile picture");
             }
 
-            //const data = await response.json();
-
-            // Update the session to reflect the new image
-            await update({
-                ...session,
-                user: {
-                    ...session?.user,
-                    image: result.url,
-                },
-            });
+            await refreshUser();
 
             toast.success("Profile picture updated successfully!");
             onUpdate?.(result.url);
