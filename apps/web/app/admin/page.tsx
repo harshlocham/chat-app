@@ -4,21 +4,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Charts } from "@/components/admin/Charts";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getClientSocketUrl } from "@/lib/socket/socketConfig";
+import { useUser } from "@/context/UserContext";
 
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ activeUsers: 0, totalMessagesToday: 0 });
-    const { data: session, status } = useSession();
+    const { user, isLoading } = useUser();
     const router = useRouter();
     useEffect(() => {
-        if (status === "loading") return;
-        if (!session || session.user.role !== "admin") {
+        if (isLoading) return;
+        if (!user || user.role !== "admin") {
             router.replace("/"); // redirect non-admins
         }
-    }, [session, status, router])
+    }, [user, isLoading, router])
     useEffect(() => {
         const socket = io(getClientSocketUrl(), {
             path: "/api/socket",
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
         return () => {
             socket.disconnect();
         };
-    }, [session]);
+    }, [user]);
     console.log(stats);
     return (
         <div className="space-y-6 bg-[hsl(var(--gray-primary)]">
