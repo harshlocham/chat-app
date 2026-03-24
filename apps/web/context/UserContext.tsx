@@ -2,13 +2,41 @@
 "use client";
 
 import { ClientUser } from "@chat/types";
-import Error from "next/error";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+type MeErrorPayload = {
+    error?: string;
+    code?: string;
+    requiresReauth?: boolean;
+};
 
+const fetcher = async (url: string): Promise<ClientUser | null> => {
+    const res = await fetch(url, { cache: "no-store" });
+    const payload = (await res.json().catch(() => null)) as MeErrorPayload | ClientUser | null;
 
+    if (!res.ok) {
+        const errorPayload = payload as MeErrorPayload | null;
+
+        if (
+            errorPayload?.code === "AUTH_STEP_UP_REQUIRED" ||
+            errorPayload?.requiresReauth === true
+        ) {
+            if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+                window.location.href = "/login?reason=step-up-required";
+            }
+            return null;
+        }
+
+        if (res.status === 401) {
+            return null;
+        }
+
+        throw new Error(errorPayload?.error || "Unable to load current user");
+    }
+
+    return (payload as ClientUser) || null;
+};
 
 type UserContextType = {
     user: ClientUser | null;
@@ -27,9 +55,9 @@ const UserContext = createContext<UserContextType>({
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { data, error, isLoading, mutate } = useSWR<ClientUser>("/api/me", fetcher, {
-        dedupingInterval: 60 * 1000,   // avoid duplicate calls
-        revalidateOnFocus: false,      // don’t refetch when switching tabs
+    const { data, error, isLoading, mutate } = useSWR<ClientUser | null>("/api/me", fetcher, {
+        dedupingInterval: 60 * 1000,
+        revalidateOnFocus: false,
     });
     const usersById = useMemo(() => {
         if (!data) return {};
