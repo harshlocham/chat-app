@@ -1,5 +1,23 @@
 import type { ClientConversation, ClientUser, UIMessage } from "@chat/types";
 
+type ApiErrorPayload = {
+    error?: string;
+    code?: string;
+    requiresReauth?: boolean;
+};
+
+function redirectToStepUpLogin() {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    if (window.location.pathname === "/login") {
+        return;
+    }
+
+    window.location.href = "/login?reason=step-up-required";
+}
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const response = await fetch(url, {
         ...init,
@@ -9,16 +27,22 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
         },
     });
 
+    const rawText = await response.text();
+    const payload = rawText ? (JSON.parse(rawText) as ApiErrorPayload) : null;
+
     if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Request failed with status ${response.status}`);
+        if (payload?.code === "AUTH_STEP_UP_REQUIRED" || payload?.requiresReauth === true) {
+            redirectToStepUpLogin();
+        }
+
+        throw new Error(payload?.error || rawText || `Request failed with status ${response.status}`);
     }
 
-    if (response.status === 204) {
+    if (response.status === 204 || !rawText) {
         return undefined as T;
     }
 
-    return (await response.json()) as T;
+    return JSON.parse(rawText) as T;
 }
 
 export async function getMe(): Promise<ClientUser> {
