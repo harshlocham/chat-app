@@ -40,7 +40,10 @@ export function buildAccessTokenCookie(token: string, maxAgeSeconds = 15 * 60): 
     });
 }
 
-export function buildRefreshTokenCookie(token: string, maxAgeSeconds = 7 * 24 * 60 * 60): string {
+export function buildRefreshTokenCookie(
+    token: string,
+    maxAgeSeconds = Math.floor(authConfig.session.refreshTtlMs / 1000)
+): string {
     return serializeCookie(authConfig.cookie.refreshToken, token, {
         maxAge: maxAgeSeconds,
         path: "/",
