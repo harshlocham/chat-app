@@ -5,12 +5,8 @@ import { requireAdminUser } from "@/lib/utils/auth/requireAdminUser";
 
 export async function GET() {
     const guard = await requireAdminUser();
-    if (guard.response?.status === 401) {
-        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (guard.response?.status === 403) {
-        return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (guard.response) {
+        return guard.response;
     }
 
     try {
