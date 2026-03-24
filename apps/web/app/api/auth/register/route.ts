@@ -6,6 +6,7 @@ import {
     buildRefreshTokenCookie,
     createUserSession,
     generateAccessToken,
+    logAuthEventBestEffort,
     registerService,
 } from "@chat/auth";
 
@@ -15,9 +16,19 @@ function safeIpAddress(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
+    const ipAddress = safeIpAddress(req);
+    const userAgent = req.headers.get("user-agent") || undefined;
+
     try {
-        const { success } = await authRegisterRateLimiter.limit(safeIpAddress(req));
+        const { success } = await authRegisterRateLimiter.limit(ipAddress);
         if (!success) {
+            await logAuthEventBestEffort({
+                eventType: "register_failed",
+                outcome: "failure",
+                ipAddress,
+                userAgent,
+                reason: "rate_limited",
+            });
             return NextResponse.json(
                 { success: false, error: "Too many registration attempts. Try again later." },
                 { status: 429 }
@@ -30,6 +41,14 @@ export async function POST(req: NextRequest) {
         const password = String(body?.password || "");
 
         if (!username || !email || !password) {
+            await logAuthEventBestEffort({
+                eventType: "register_failed",
+                outcome: "failure",
+                email,
+                ipAddress,
+                userAgent,
+                reason: "missing_fields",
+            });
             return NextResponse.json(
                 { success: false, error: "Username, email and password are required" },
                 { status: 400 }
@@ -52,8 +71,17 @@ export async function POST(req: NextRequest) {
 
         const { refreshToken } = await createUserSession({
             userId: user._id.toString(),
-            userAgent: req.headers.get("user-agent") || undefined,
-            ipAddress: safeIpAddress(req),
+            userAgent,
+            ipAddress,
+        });
+
+        await logAuthEventBestEffort({
+            eventType: "register_success",
+            outcome: "success",
+            userId: user._id.toString(),
+            email: user.email,
+            ipAddress,
+            userAgent,
         });
 
         const response = NextResponse.json({
@@ -74,10 +102,24 @@ export async function POST(req: NextRequest) {
         return response;
     } catch (error) {
         if (error instanceof Error) {
+            await logAuthEventBestEffort({
+                eventType: "register_failed",
+                outcome: "failure",
+                ipAddress,
+                userAgent,
+                reason: error.message,
+            });
             const status = error.message === "User already exists" ? 409 : 400;
             return NextResponse.json({ success: false, error: error.message }, { status });
         }
 
+        await logAuthEventBestEffort({
+            eventType: "register_failed",
+            outcome: "failure",
+            ipAddress,
+            userAgent,
+            reason: "unknown_error",
+        });
         return NextResponse.json({ success: false, error: "Registration failed" }, { status: 500 });
     }
 }

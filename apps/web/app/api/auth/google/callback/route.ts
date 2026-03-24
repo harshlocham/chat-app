@@ -4,6 +4,7 @@ import { authGoogleCallbackRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     buildAccessTokenCookie,
     buildRefreshTokenCookie,
+    logAuthEventBestEffort,
     loginWithGoogleCode,
 } from "@chat/auth";
 
@@ -47,8 +48,16 @@ function cleanupOAuthCookies(response: NextResponse) {
 export async function GET(req: NextRequest) {
     const xForwardedFor = req.headers.get("x-forwarded-for") || "";
     const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
+    const userAgent = req.headers.get("user-agent") || undefined;
     const { success } = await authGoogleCallbackRateLimiter.limit(ipAddress);
     if (!success) {
+        await logAuthEventBestEffort({
+            eventType: "google_oauth_failed",
+            outcome: "failure",
+            ipAddress,
+            userAgent,
+            reason: "rate_limited",
+        });
         const loginRedirect = new URL("/login", req.url);
         loginRedirect.searchParams.set("error", "too_many_google_oauth_attempts");
         return NextResponse.redirect(loginRedirect);
@@ -64,6 +73,13 @@ export async function GET(req: NextRequest) {
     const loginRedirect = new URL("/login", req.url);
 
     if (!code || !state || !storedState || state !== storedState) {
+        await logAuthEventBestEffort({
+            eventType: "google_oauth_failed",
+            outcome: "failure",
+            ipAddress,
+            userAgent,
+            reason: "invalid_oauth_state",
+        });
         loginRedirect.searchParams.set("error", "google_oauth_state");
         const response = NextResponse.redirect(loginRedirect);
         cleanupOAuthCookies(response);
@@ -73,15 +89,20 @@ export async function GET(req: NextRequest) {
     try {
         await connectToDatabase();
 
-        const xForwardedFor = req.headers.get("x-forwarded-for") || "";
-        const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
-        const userAgent = req.headers.get("user-agent") || undefined;
-
-        const { accessToken, refreshToken } = await loginWithGoogleCode({
+        const { user, accessToken, refreshToken } = await loginWithGoogleCode({
             code,
             redirectUri: getRedirectUri(req),
             userAgent,
             ipAddress,
+        });
+
+        await logAuthEventBestEffort({
+            eventType: "google_oauth_success",
+            outcome: "success",
+            userId: user._id.toString(),
+            email: user.email,
+            ipAddress,
+            userAgent,
         });
 
         const safeRedirect = callbackUrl.startsWith("/") ? callbackUrl : "/";
@@ -93,6 +114,13 @@ export async function GET(req: NextRequest) {
         return response;
     } catch (error) {
         const message = error instanceof Error ? error.message : "google_oauth_failed";
+        await logAuthEventBestEffort({
+            eventType: "google_oauth_failed",
+            outcome: "failure",
+            ipAddress,
+            userAgent,
+            reason: message,
+        });
         loginRedirect.searchParams.set("error", message);
         const response = NextResponse.redirect(loginRedirect);
         cleanupOAuthCookies(response);

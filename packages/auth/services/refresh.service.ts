@@ -2,10 +2,34 @@ import { verifySession } from "../session/verify-session";
 import { generateAccessToken, generateRefreshToken } from "../tokens/generate";
 import { hashToken } from "../session/token-hash";
 import { rotateSessionTokenHash } from "../repositories/session.repo";
+import { validateSessionFingerprint } from "../session/fingerprint";
 import { User } from "@/models/User";
 
-export const refreshService = async (refreshToken: string) => {
-    const { payload } = await verifySession(refreshToken);
+export const refreshService = async ({
+    refreshToken,
+    userAgent,
+    ipAddress,
+}: {
+    refreshToken: string;
+    userAgent?: string;
+    ipAddress?: string;
+}) => {
+    const { payload, session } = await verifySession(refreshToken);
+
+    const fingerprint = validateSessionFingerprint({
+        stored: {
+            userAgent: session.userAgent,
+            ipAddress: session.ipAddress,
+        },
+        incoming: {
+            userAgent,
+            ipAddress,
+        },
+    });
+
+    if (!fingerprint.valid) {
+        throw new Error("Session fingerprint mismatch");
+    }
 
     const user = await User.findById(payload.sub)
         .select("_id role status")
@@ -43,5 +67,7 @@ export const refreshService = async (refreshToken: string) => {
     return {
         accessToken,
         refreshToken: nextRefreshToken,
+        userId: user._id.toString(),
+        sessionId: payload.sessionId,
     };
 };

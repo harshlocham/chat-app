@@ -13,6 +13,7 @@ export { loginUser } from "./services/login.service";
 export { registerService } from "./services/register.service";
 export { refreshService } from "./services/refresh.service";
 export { logoutService } from "./services/logout.service";
+export { logAuthEventBestEffort } from "./services/auth-audit.service";
 export {
     createGoogleOAuthState,
     buildGoogleOAuthAuthorizeUrl,

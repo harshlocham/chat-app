@@ -2606,13 +2606,15 @@ test("role changes immediately visible in all layers", async () => {
 
 # PART 8: FINDINGS SUMMARY & ROADMAP
 
-## Implementation Update (March 23, 2026)
+## Implementation Update (March 24, 2026)
 
 - ✅ Implemented: active-user enforcement tightened in shared auth resolution used by protected API routes.
 - ✅ Implemented: OAuth check-then-create replaced with atomic upsert + strict active-status enforcement.
 - ✅ Implemented: rate limiting added to login, register, refresh, logout, and Google callback auth endpoints.
 - ✅ Implemented: auth rate limiting now uses Redis-backed global counters (with in-memory fallback if Redis is unavailable).
-- ⚠️ Residual: universal API auth guard not yet centralized for every protected route.
+- ✅ Implemented: universal protected-route auth guard centralized via reusable auth/admin helpers and applied across protected API endpoints.
+- ✅ Implemented: structured auth event logging for login/register/refresh/logout/Google callback success/failure paths with reason/IP/user-agent context.
+- ✅ Implemented: refresh flow now validates session device fingerprint (user-agent + IP bucket) and rejects mismatches.
 
 ## Critical Issues (Fix Immediately)
 
@@ -2621,6 +2623,9 @@ test("role changes immediately visible in all layers", async () => {
 | 1 | **Access Control** | Banned user can act in HTTP API for 15 min | ✅ Mitigated for shared-auth protected routes | LOW-MEDIUM |
 | 2 | **Account Takeover** | OAuth upsert race condition | ✅ Mitigated with atomic upsert | LOW |
 | 3 | **DoS** | No rate limiting on auth endpoints | ✅ Mitigated on core auth endpoints | LOW-MEDIUM |
+| 4 | **Access Control** | No universal protected-route auth guard | ✅ Mitigated via centralized route guards | LOW |
+| 5 | **Visibility** | No audit logging | ✅ Mitigated with structured auth-event logging | LOW-MEDIUM |
+| 6 | **Visibility** | No device fingerprinting | ✅ Mitigated on refresh path with mismatch rejection | LOW-MEDIUM |
 
 ---
 
@@ -2628,9 +2633,6 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 4 | **Access Control** | No universal protected-route auth guard | Add centralized API auth guard/middleware across all protected routes |
-| 5 | **Visibility** | No audit logging | Add auth event logging |
-| 6 | **Visibility** | No device fingerprinting | Detect compromise early |
 | 7 | **Token Management** | 7-day refresh TTL too long | Reduce to 24h or add MFA |
 
 ---
@@ -2648,25 +2650,20 @@ test("role changes immediately visible in all layers", async () => {
 
 | Fix | Complexity | Time | Testing |
 |-----|-----------|------|---------|
-| Universal API auth guard | Medium | 3h | 3h |
-| Auth audit logging | Medium | 4h | 3h |
-| Device fingerprinting on refresh | Medium | 6h | 4h |
 | Refresh TTL policy hardening | Low | 1h | 2h |
-| **Total remaining** | | **~14 hours** | **~12 hours** |
+| **Total remaining** | | **~1 hour** | **~2 hours** |
 
 ---
 
 ## Recommended Next Steps
 
 1. **Immediate:**
-  - Add a centralized API auth guard to remove per-route drift.
+  - Reduce refresh TTL and finalize step-up policy for risky refresh contexts.
 
 2. **This Week:**
-  - Add structured auth audit logging (success/failure + reason + device/IP).
-  - Add device fingerprinting checks on refresh.
+  - Tighten refresh TTL policy and/or require step-up verification for suspicious refresh events.
 
 3. **Next Sprint:**
-  - Reduce refresh TTL or require step-up verification on risky refresh.
   - Add token versioning for emergency global revocation.
 
 ---

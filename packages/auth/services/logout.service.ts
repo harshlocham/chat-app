@@ -12,9 +12,17 @@ export const logoutService = async ({
 
     if (logoutFromAllDevices) {
         await deleteUserSessions(payload.sub);
-        return { allDevices: true };
+        return {
+            allDevices: true,
+            userId: payload.sub,
+            sessionId: payload.sessionId,
+        };
     }
 
     await deleteSession(payload.sessionId);
-    return { allDevices: false };
+    return {
+        allDevices: false,
+        userId: payload.sub,
+        sessionId: payload.sessionId,
+    };
 };
