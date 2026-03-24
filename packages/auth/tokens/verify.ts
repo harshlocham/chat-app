@@ -13,7 +13,10 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
     if (
         !payload ||
         payload.type !== "access" ||
-        typeof payload.sub !== "string"
+        typeof payload.sub !== "string" ||
+        typeof payload.tokenVersion !== "number" ||
+        !Number.isInteger(payload.tokenVersion) ||
+        payload.tokenVersion < 0
     ) {
         throw new Error("Invalid access token payload");
     }
@@ -25,6 +28,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
     return {
         sub: payload.sub,
         role: payload.role,
+        tokenVersion: payload.tokenVersion,
         type: "access",
     };
 }
@@ -39,7 +43,10 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
         !payload ||
         payload.type !== "refresh" ||
         typeof payload.sub !== "string" ||
-        typeof payload.sessionId !== "string"
+        typeof payload.sessionId !== "string" ||
+        typeof payload.tokenVersion !== "number" ||
+        !Number.isInteger(payload.tokenVersion) ||
+        payload.tokenVersion < 0
     ) {
         throw new Error("Invalid refresh token payload");
     }
@@ -47,6 +54,7 @@ export function verifyRefreshToken(token: string): RefreshTokenPayload {
     return {
         sub: payload.sub,
         sessionId: payload.sessionId,
+        tokenVersion: payload.tokenVersion,
         type: "refresh",
     };
 }

@@ -35,6 +35,7 @@ export const loginUser = async ({
     const accessToken = generateAccessToken({
         sub: user._id.toString(),
         role: user.role,
+        tokenVersion: user.tokenVersion || 0,
         type: "access",
     });
 
@@ -42,6 +43,7 @@ export const loginUser = async ({
         userId: user._id.toString(),
         userAgent,
         ipAddress,
+        tokenVersion: user.tokenVersion || 0,
     });
 
     return {

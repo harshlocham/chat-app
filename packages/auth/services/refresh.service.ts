@@ -34,8 +34,8 @@ export const refreshService = async ({
     }
 
     const user = await User.findById(payload.sub)
-        .select("_id role status")
-        .lean<{ _id: { toString(): string }; role?: "user" | "moderator" | "admin"; status?: string } | null>();
+        .select("_id role status tokenVersion")
+        .lean<{ _id: { toString(): string }; role?: "user" | "moderator" | "admin"; status?: string; tokenVersion?: number } | null>();
 
     if (!user) {
         throw new Error("User not found");
@@ -45,9 +45,16 @@ export const refreshService = async ({
         throw new Error("Account is not active");
     }
 
+    const currentTokenVersion = user.tokenVersion || 0;
+    if (payload.tokenVersion !== currentTokenVersion) {
+        await revokeSession(payload.sessionId);
+        throw new Error("Token version revoked");
+    }
+
     const nextRefreshToken = generateRefreshToken({
         sub: payload.sub,
         sessionId: payload.sessionId,
+        tokenVersion: currentTokenVersion,
         type: "refresh",
     });
 
@@ -63,6 +70,7 @@ export const refreshService = async ({
     const accessToken = generateAccessToken({
         sub: user._id.toString(),
         role: user.role || "user",
+        tokenVersion: currentTokenVersion,
         type: "access",
     });
 

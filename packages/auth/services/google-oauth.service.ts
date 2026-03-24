@@ -167,6 +167,7 @@ export async function loginWithGoogleCode({
     const accessToken = generateAccessToken({
         sub: user._id.toString(),
         role: user.role,
+        tokenVersion: user.tokenVersion || 0,
         type: "access",
     });
 
@@ -174,6 +175,7 @@ export async function loginWithGoogleCode({
         userId: user._id.toString(),
         userAgent,
         ipAddress,
+        tokenVersion: user.tokenVersion || 0,
     });
 
     return {
