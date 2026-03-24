@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authRefreshRateLimiter } from "@/lib/utils/rateLimiter";
 import {
+    AuthStepUpRequiredError,
     authConfig,
     buildAccessTokenCookie,
+    buildExpiredCookie,
     buildRefreshTokenCookie,
     logAuthEventBestEffort,
     refreshService,
@@ -73,6 +75,33 @@ export async function POST(req: NextRequest) {
 
         return response;
     } catch (error) {
+        if (error instanceof AuthStepUpRequiredError) {
+            await logAuthEventBestEffort({
+                eventType: "refresh_failed",
+                outcome: "failure",
+                ipAddress,
+                userAgent,
+                reason: error.code,
+                metadata: {
+                    reasons: error.reasons,
+                },
+            });
+
+            const response = NextResponse.json(
+                {
+                    success: false,
+                    error: error.message,
+                    code: error.code,
+                    requiresReauth: true,
+                    reasons: error.reasons,
+                },
+                { status: error.status }
+            );
+            response.headers.append("Set-Cookie", buildExpiredCookie(authConfig.cookie.accessToken));
+            response.headers.append("Set-Cookie", buildExpiredCookie(authConfig.cookie.refreshToken));
+            return response;
+        }
+
         if (error instanceof Error) {
             await logAuthEventBestEffort({
                 eventType: "refresh_failed",

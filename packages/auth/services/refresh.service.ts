@@ -1,8 +1,9 @@
 import { verifySession } from "../session/verify-session";
 import { generateAccessToken, generateRefreshToken } from "../tokens/generate";
 import { hashToken } from "../session/token-hash";
-import { rotateSessionTokenHash } from "../repositories/session.repo";
+import { revokeSession, rotateSessionTokenHash } from "../repositories/session.repo";
 import { validateSessionFingerprint } from "../session/fingerprint";
+import { AuthStepUpRequiredError } from "../errors/auth-errors";
 import { User } from "@/models/User";
 
 export const refreshService = async ({
@@ -27,8 +28,9 @@ export const refreshService = async ({
         },
     });
 
-    if (!fingerprint.valid) {
-        throw new Error("Session fingerprint mismatch");
+    if (fingerprint.requiresStepUp) {
+        await revokeSession(payload.sessionId);
+        throw new AuthStepUpRequiredError(fingerprint.reasons);
     }
 
     const user = await User.findById(payload.sub)

@@ -2616,6 +2616,7 @@ test("role changes immediately visible in all layers", async () => {
 - ✅ Implemented: structured auth event logging for login/register/refresh/logout/Google callback success/failure paths with reason/IP/user-agent context.
 - ✅ Implemented: refresh flow now validates session device fingerprint (user-agent + IP bucket) and rejects mismatches.
 - ✅ Implemented: refresh token/session/cookie TTL hardened from 7 days to 24 hours.
+- ✅ Implemented: suspicious refresh attempts now trigger step-up-required response (`AUTH_STEP_UP_REQUIRED`) and session revocation.
 
 ## Critical Issues (Fix Immediately)
 
@@ -2634,7 +2635,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 7 | **Token Management** | No step-up verification on risky refresh | Add risk-based step-up (2FA/re-auth) |
+| 7 | **Token Management** | Risk-based step-up challenge UX not yet implemented client-side | Surface step-up recovery flow (reauth/2FA challenge) |
 
 ---
 
@@ -2651,7 +2652,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | Fix | Complexity | Time | Testing |
 |-----|-----------|------|---------|
-| Step-up verification policy on suspicious refresh | Medium | 4h | 4h |
+| Client step-up challenge/recovery UX wiring | Medium | 4h | 4h |
 | **Total remaining** | | **~4 hours** | **~4 hours** |
 
 ---
@@ -2659,10 +2660,10 @@ test("role changes immediately visible in all layers", async () => {
 ## Recommended Next Steps
 
 1. **Immediate:**
-  - Define risk signals and policy thresholds for refresh step-up verification.
+  - Wire client/session management to explicitly handle `AUTH_STEP_UP_REQUIRED` responses.
 
 2. **This Week:**
-  - Implement step-up verification for suspicious refresh requests.
+  - Add explicit reauthentication or 2FA challenge flow for step-up-required sessions.
 
 3. **Next Sprint:**
   - Add token versioning for emergency global revocation.

@@ -3,6 +3,14 @@ type FingerprintInput = {
     ipAddress?: string;
 };
 
+export type FingerprintEvaluation = {
+    valid: boolean;
+    userAgentMismatch: boolean;
+    ipBucketMismatch: boolean;
+    requiresStepUp: boolean;
+    reasons: Array<"user_agent_mismatch" | "ip_bucket_mismatch">;
+};
+
 function normalizeUserAgent(userAgent?: string): string {
     return String(userAgent || "").trim().toLowerCase();
 }
@@ -33,18 +41,32 @@ export function validateSessionFingerprint({
 }: {
     stored: FingerprintInput;
     incoming: FingerprintInput;
-}): { valid: boolean; reason?: "user_agent_mismatch" | "ip_bucket_mismatch" } {
+}): FingerprintEvaluation {
     const storedUa = normalizeUserAgent(stored.userAgent);
     const incomingUa = normalizeUserAgent(incoming.userAgent);
-    if (storedUa && incomingUa && storedUa !== incomingUa) {
-        return { valid: false, reason: "user_agent_mismatch" };
-    }
+    const userAgentMismatch = Boolean(storedUa && incomingUa && storedUa !== incomingUa);
 
     const storedIpBucket = normalizeIpBucket(stored.ipAddress);
     const incomingIpBucket = normalizeIpBucket(incoming.ipAddress);
-    if (storedIpBucket && incomingIpBucket && storedIpBucket !== incomingIpBucket) {
-        return { valid: false, reason: "ip_bucket_mismatch" };
+    const ipBucketMismatch = Boolean(
+        storedIpBucket && incomingIpBucket && storedIpBucket !== incomingIpBucket
+    );
+
+    const reasons: Array<"user_agent_mismatch" | "ip_bucket_mismatch"> = [];
+    if (userAgentMismatch) {
+        reasons.push("user_agent_mismatch");
+    }
+    if (ipBucketMismatch) {
+        reasons.push("ip_bucket_mismatch");
     }
 
-    return { valid: true };
+    const requiresStepUp = reasons.length > 0;
+
+    return {
+        valid: !requiresStepUp,
+        userAgentMismatch,
+        ipBucketMismatch,
+        requiresStepUp,
+        reasons,
+    };
 }

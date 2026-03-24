@@ -29,6 +29,7 @@ export {
 
 export { authenticateHttpBearer } from "./middleware/http-auth";
 export { authenticateSocketToken } from "./middleware/socket-auth";
+export { AuthStepUpRequiredError } from "./errors/auth-errors";
 
 export {
     buildAccessTokenCookie,
