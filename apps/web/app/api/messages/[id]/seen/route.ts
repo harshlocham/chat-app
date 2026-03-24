@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import Message from "@/models/Message";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { markMessagesSeen } from "@/lib/services/message-receipt.service";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
@@ -17,9 +17,9 @@ export async function PATCH(
             messageIds?: string[];
         };
 
-        const user = await getAuthUser();
-        if (!user) {
-            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         if (!mongoose.Types.ObjectId.isValid(messageId)) {
@@ -55,7 +55,7 @@ export async function PATCH(
         const updatedIds = await markMessagesSeen({
             conversationId,
             messageIds: validMessageIds,
-            userId: user.id,
+            userId: guard.user.id,
             at: seenAt,
         });
 
@@ -69,7 +69,7 @@ export async function PATCH(
             body: JSON.stringify({
                 conversationId,
                 messageIds: updatedIds,
-                userId: user.id,
+                userId: guard.user.id,
                 seenAt,
             }),
         });

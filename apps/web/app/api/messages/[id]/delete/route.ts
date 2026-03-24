@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { connectToDatabase } from "@/lib/Db/db";
 import Message, { IMessagePopulated } from "@/models/Message";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
@@ -8,13 +8,13 @@ import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const authUser = await getAuthUser();
-    if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const guard = await requireAuthUser();
+    if (guard.response) return guard.response;
 
     await connectToDatabase();
     const message = await Message.findById(id);
     if (!message) return NextResponse.json({ error: "Message not found" }, { status: 404 });
-    if (String(message.sender) !== authUser.id) {
+    if (String(message.sender) !== guard.user.id) {
         return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
 

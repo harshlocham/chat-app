@@ -1,13 +1,13 @@
 import { Conversation } from "@/models/Conversation";
 import { connectToDatabase } from "@/lib/Db/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import mongoose from "mongoose";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const authUser = await getAuthUser();
-    if (!authUser) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const guard = await requireAuthUser();
+    if (guard.response) {
+        return guard.response;
     }
 
     await connectToDatabase();
@@ -23,10 +23,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const isParticipant = convo.participants.some((participant: { _id: { toString(): string } }) => {
-        return participant._id.toString() === authUser.id;
+        return participant._id.toString() === guard.user.id;
     });
 
-    if (!isParticipant && authUser.role !== "admin") {
+    if (!isParticipant && guard.user.role !== "admin") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

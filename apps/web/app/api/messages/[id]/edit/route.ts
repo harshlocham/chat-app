@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { Conversation } from "@/models/Conversation";
@@ -9,9 +9,9 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const authUser = await getAuthUser();
-        if (!authUser) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         const { id } = await params;
@@ -31,7 +31,7 @@ export async function PATCH(
             return NextResponse.json({ error: "Message not found" }, { status: 404 });
         }
 
-        if (String(message.sender) !== authUser.id) {
+        if (String(message.sender) !== guard.user.id) {
             return NextResponse.json({ error: "Not allowed" }, { status: 403 });
         }
 

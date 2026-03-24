@@ -5,7 +5,7 @@ import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import mongoose from "mongoose";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 
 export async function POST(
@@ -17,9 +17,9 @@ export async function POST(
         const { emoji } = await req.json();
 
         // Auth check
-        const authUser = await getAuthUser();
-        if (!authUser?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         // Emoji validation
@@ -41,7 +41,7 @@ export async function POST(
             );
         }
 
-        const userId = new mongoose.Types.ObjectId(authUser.id);
+        const userId = new mongoose.Types.ObjectId(guard.user.id);
 
 
         // Step 1: Remove user from all emoji arrays

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import Message from "@/models/Message";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { markMessageDelivered } from "@/lib/services/message-receipt.service";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
@@ -11,9 +11,9 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const user = await getAuthUser();
-        if (!user?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         const { id } = await params;
@@ -28,7 +28,7 @@ export async function PATCH(
             return NextResponse.json({ error: "Message not found" }, { status: 404 });
         }
 
-        const userId = user.id;
+        const userId = guard.user.id;
 
         // ❌ sender should NOT mark delivered
         if (message.sender.toString() === userId) {

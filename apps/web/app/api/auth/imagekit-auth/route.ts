@@ -1,10 +1,10 @@
 import { getUploadAuthParams } from "@imagekit/next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 export async function GET() {
-    const authUser = await getAuthUser();
-    if (!authUser) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
+    const guard = await requireAuthUser();
+    if (guard.response) {
+        return guard.response;
     }
 
     const privateKey = process.env.IMAGEKIT_PRIVATE_KEY;
