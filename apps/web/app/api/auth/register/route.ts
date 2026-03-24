@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
         const accessToken = generateAccessToken({
             sub: user._id.toString(),
             role: user.role,
+            tokenVersion: user.tokenVersion || 0,
             type: "access",
         });
 
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
             userId: user._id.toString(),
             userAgent,
             ipAddress,
+            tokenVersion: user.tokenVersion || 0,
         });
 
         await logAuthEventBestEffort({

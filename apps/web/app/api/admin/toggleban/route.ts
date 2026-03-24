@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { User } from "@/models/User";
 import { connectToDatabase } from "@/lib/Db/db";
 import { requireAdminUser } from "@/lib/utils/auth/requireAdminUser";
+import { revokeUserAuthSessions } from "@chat/auth";
 
 export async function PATCH(req: Request) {
     const guard = await requireAdminUser();
@@ -24,6 +25,11 @@ export async function PATCH(req: Request) {
         }
         user.status = status;
         await user.save();
+
+        if (status === "banned") {
+            await revokeUserAuthSessions(String(user._id));
+        }
+
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Error updating user status:", error);

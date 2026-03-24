@@ -8,6 +8,7 @@ type SocketIdentityAuthorizationResponse = {
 
 type AuthorizeSocketIdentityInput = {
     userId: string;
+    tokenVersion?: number;
 };
 
 function getInternalWebServerUrl(): string {
