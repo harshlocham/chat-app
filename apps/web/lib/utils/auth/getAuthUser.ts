@@ -15,7 +15,7 @@ export async function getAuthUser(): Promise<AuthUser | null> {
     const accessToken = cookieStore.get(authConfig.cookie.accessToken)?.value;
     if (!accessToken) return null;
 
-    let payload: { sub: string; role?: string; type: "access" };
+    let payload: { sub: string; role?: string; tokenVersion: number; type: "access" };
 
     try {
         payload = verifyAccessToken(accessToken);
@@ -29,11 +29,12 @@ export async function getAuthUser(): Promise<AuthUser | null> {
 
     await connectToDatabase();
     const user = await User.findById(payload.sub)
-        .select("_id email role status")
-        .lean<{ _id: { toString(): string }; email: string; role?: string; status?: string } | null>();
+        .select("_id email role status tokenVersion")
+        .lean<{ _id: { toString(): string }; email: string; role?: string; status?: string; tokenVersion?: number } | null>();
 
     if (!user) return null;
     if (user.status && user.status !== "active") return null;
+    if ((user.tokenVersion || 0) !== payload.tokenVersion) return null;
 
     // SECURITY FIX: Always prefer database role over token role
     // This ensures role downgrades take effect immediately
