@@ -17,13 +17,13 @@ export function getAccessTokenConfig() {
 export function getRefreshTokenConfig() {
     return {
         secret: requiredEnv("REFRESH_TOKEN_SECRET"),
-        expiresIn: "7d",
+        expiresIn: "24h",
     } as const;
 }
 
 export function getSessionConfig() {
     return {
-        refreshTtlMs: 7 * 24 * 60 * 60 * 1000,
+        refreshTtlMs: 24 * 60 * 60 * 1000,
     } as const;
 }
 

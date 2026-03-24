@@ -2615,6 +2615,7 @@ test("role changes immediately visible in all layers", async () => {
 - ✅ Implemented: universal protected-route auth guard centralized via reusable auth/admin helpers and applied across protected API endpoints.
 - ✅ Implemented: structured auth event logging for login/register/refresh/logout/Google callback success/failure paths with reason/IP/user-agent context.
 - ✅ Implemented: refresh flow now validates session device fingerprint (user-agent + IP bucket) and rejects mismatches.
+- ✅ Implemented: refresh token/session/cookie TTL hardened from 7 days to 24 hours.
 
 ## Critical Issues (Fix Immediately)
 
@@ -2633,7 +2634,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 7 | **Token Management** | 7-day refresh TTL too long | Reduce to 24h or add MFA |
+| 7 | **Token Management** | No step-up verification on risky refresh | Add risk-based step-up (2FA/re-auth) |
 
 ---
 
@@ -2650,18 +2651,18 @@ test("role changes immediately visible in all layers", async () => {
 
 | Fix | Complexity | Time | Testing |
 |-----|-----------|------|---------|
-| Refresh TTL policy hardening | Low | 1h | 2h |
-| **Total remaining** | | **~1 hour** | **~2 hours** |
+| Step-up verification policy on suspicious refresh | Medium | 4h | 4h |
+| **Total remaining** | | **~4 hours** | **~4 hours** |
 
 ---
 
 ## Recommended Next Steps
 
 1. **Immediate:**
-  - Reduce refresh TTL and finalize step-up policy for risky refresh contexts.
+  - Define risk signals and policy thresholds for refresh step-up verification.
 
 2. **This Week:**
-  - Tighten refresh TTL policy and/or require step-up verification for suspicious refresh events.
+  - Implement step-up verification for suspicious refresh requests.
 
 3. **Next Sprint:**
   - Add token versioning for emergency global revocation.
