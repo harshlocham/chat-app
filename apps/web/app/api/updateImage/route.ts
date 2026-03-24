@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 export async function PUT(request: NextRequest) {
     try {
-        const authUser = await getAuthUser();
-        if (!authUser?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         const { imageUrl } = await request.json();
@@ -19,7 +19,7 @@ export async function PUT(request: NextRequest) {
         await connectToDatabase();
 
         const user = await User.findOneAndUpdate(
-            { _id: authUser.id },
+            { _id: guard.user.id },
             { $set: { profilePicture: imageUrl } },
             { new: true }
         );

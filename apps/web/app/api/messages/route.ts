@@ -3,17 +3,17 @@ import { createMessage } from "@/lib/services/message.service";
 import { CreateMessageSchema } from "@/lib/validators/message.schema";
 import { getPaginatedMessages } from "@/lib/repositories/message.repo";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 //import { messageRateLimiter } from "@/lib/utils/rateLimiter";
 
 export async function POST(req: NextRequest) {
     try {
-        const authUser = await getAuthUser();
-        if (!authUser) {
-            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
-        const senderId = authUser.id;
+        const senderId = guard.user.id;
         // const identifier = session.user.email;
         //const { success } = await messageRateLimiter.limit(identifier);
         //if (!success) return NextResponse.json({ error: "Too many messages" }, { status: 429 });

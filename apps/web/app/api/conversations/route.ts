@@ -2,23 +2,23 @@ import { connectToDatabase } from "@/lib/Db/db";
 import { Conversation } from "@/models/Conversation";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import mongoose from "mongoose";
 
 
 export async function POST(req: Request) {
     try {
-        const authUser = await getAuthUser();
-        if (!authUser) {
-            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         await connectToDatabase();
 
-        const currentUserById = mongoose.Types.ObjectId.isValid(authUser.id)
-            ? await User.findById(authUser.id)
+        const currentUserById = mongoose.Types.ObjectId.isValid(guard.user.id)
+            ? await User.findById(guard.user.id)
             : null;
-        const currentUser = currentUserById || (await User.findOne({ email: authUser.email }));
+        const currentUser = currentUserById || (await User.findOne({ email: guard.user.email }));
         if (!currentUser) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
@@ -65,18 +65,18 @@ export async function POST(req: Request) {
 
 
 export async function GET() {
-    const authUser = await getAuthUser();
-    if (!authUser) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const guard = await requireAuthUser();
+    if (guard.response) {
+        return guard.response;
     }
 
 
     try {
         await connectToDatabase();
-        const userById = mongoose.Types.ObjectId.isValid(authUser.id)
-            ? await User.findById(authUser.id)
+        const userById = mongoose.Types.ObjectId.isValid(guard.user.id)
+            ? await User.findById(guard.user.id)
             : null;
-        const user = userById || (await User.findOne({ email: authUser.email }));
+        const user = userById || (await User.findOne({ email: guard.user.email }));
         if (!user) {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
@@ -108,9 +108,9 @@ export async function GET() {
 }
 
 export async function DELETE(req: Request) {
-    const authUser = await getAuthUser();
-    if (!authUser) {
-        return new Response(JSON.stringify({ error: "Not authenticated" }), { status: 401 });
+    const guard = await requireAuthUser();
+    if (guard.response) {
+        return guard.response;
     }
 
     const { conversationId } = await req.json();
