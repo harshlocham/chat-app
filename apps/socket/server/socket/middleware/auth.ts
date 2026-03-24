@@ -7,6 +7,7 @@ type AccessRole = "user" | "moderator" | "admin";
 type AccessTokenPayload = {
     sub: string;
     role?: AccessRole;
+    tokenVersion: number;
     type: "access";
 };
 
@@ -68,13 +69,21 @@ function verifyAccessToken(token: string): AccessTokenPayload {
     // SECURITY FIX: Restrict algorithm to HS256 to prevent algorithm substitution attacks
     const payload = jwt.verify(token, secret, { algorithms: ["HS256"] }) as Partial<AccessTokenPayload>;
 
-    if (!payload || payload.type !== "access" || typeof payload.sub !== "string") {
+    if (
+        !payload ||
+        payload.type !== "access" ||
+        typeof payload.sub !== "string" ||
+        typeof payload.tokenVersion !== "number" ||
+        !Number.isInteger(payload.tokenVersion) ||
+        payload.tokenVersion < 0
+    ) {
         throw new Error("Invalid access token payload");
     }
 
     return {
         sub: payload.sub,
         role: payload.role,
+        tokenVersion: payload.tokenVersion,
         type: "access",
     };
 }
@@ -90,7 +99,10 @@ export async function socketAuth(
         }
 
         const payload = verifyAccessToken(token);
-        const authz = await authorizeSocketIdentity({ userId: payload.sub });
+        const authz = await authorizeSocketIdentity({
+            userId: payload.sub,
+            tokenVersion: payload.tokenVersion,
+        });
 
         if (!authz.allowed) {
             return next(new Error("Unauthorized"));

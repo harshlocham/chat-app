@@ -9,6 +9,7 @@ import {
 
 type AuthorizeIdentityBody = {
     userId?: string;
+    tokenVersion?: number;
 };
 
 function deny(reason: string, status = 403) {
@@ -28,16 +29,23 @@ export async function POST(req: Request) {
         return deny("invalid_json", 400);
     }
 
-    const { userId } = body;
+    const { userId, tokenVersion } = body;
     if (!userId) {
         return deny("invalid_payload", 400);
+    }
+
+    if (
+        tokenVersion !== undefined &&
+        (typeof tokenVersion !== "number" || !Number.isInteger(tokenVersion) || tokenVersion < 0)
+    ) {
+        return deny("invalid_token_version", 400);
     }
 
     await connectToDatabase();
 
     const user = await User.findById(userId)
-        .select("_id role status")
-        .lean<{ role?: "user" | "moderator" | "admin"; status?: string } | null>();
+        .select("_id role status tokenVersion")
+        .lean<{ role?: "user" | "moderator" | "admin"; status?: string; tokenVersion?: number } | null>();
 
     if (!user) {
         return deny("user_not_found", 403);
@@ -45,6 +53,10 @@ export async function POST(req: Request) {
 
     if (user.status && user.status !== "active") {
         return deny("user_not_active", 403);
+    }
+
+    if (tokenVersion !== undefined && (user.tokenVersion || 0) !== tokenVersion) {
+        return deny("token_version_revoked", 403);
     }
 
     return NextResponse.json({

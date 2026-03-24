@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 type AccessPayload = JWTPayload & {
     sub?: string;
     role?: "user" | "moderator" | "admin";
+    tokenVersion?: number;
     type?: "access";
 };
 
@@ -27,7 +28,13 @@ async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null
         });
         const accessPayload = payload as AccessPayload;
 
-        if (accessPayload.type !== "access" || !accessPayload.sub) {
+        if (
+            accessPayload.type !== "access" ||
+            !accessPayload.sub ||
+            typeof accessPayload.tokenVersion !== "number" ||
+            !Number.isInteger(accessPayload.tokenVersion) ||
+            accessPayload.tokenVersion < 0
+        ) {
             return null;
         }
 
@@ -39,7 +46,8 @@ async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null
 
 async function hasActiveAdminRole(
     req: NextRequest,
-    userId: string
+    userId: string,
+    tokenVersion?: number
 ): Promise<boolean> {
     const internalSecret = process.env.INTERNAL_SECRET;
     if (!internalSecret) {
@@ -55,7 +63,7 @@ async function hasActiveAdminRole(
                     "content-type": "application/json",
                     "x-internal-secret": internalSecret,
                 },
-                body: JSON.stringify({ userId }),
+                body: JSON.stringify({ userId, tokenVersion }),
                 cache: "no-store",
             }
         );
@@ -94,7 +102,7 @@ export default async function middleware(req: NextRequest) {
             return NextResponse.redirect(new URL("/", req.url));
         }
 
-        const isAdmin = await hasActiveAdminRole(req, token.sub);
+        const isAdmin = await hasActiveAdminRole(req, token.sub, token.tokenVersion);
         if (!isAdmin) {
             return NextResponse.redirect(new URL("/", req.url));
         }
@@ -106,7 +114,7 @@ export default async function middleware(req: NextRequest) {
 export const config = {
     matcher: [
         /**
-         * Pages ONLY — never APIs
+         * Pages ONLY - never APIs
          */
         "/login",
         "/register",
