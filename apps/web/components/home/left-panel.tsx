@@ -108,17 +108,9 @@ const Sidebar = ({
         }
     };
 
-<<<<<<< HEAD
     const panelContent = (isMobile = false) => (
         <>
             <div className="flex items-center gap-2 border-b border-[hsl(var(--border))] bg-[hsl(var(--gray-primary))] p-3 sm:p-4">
-=======
-    return (
-        <aside className="bg-[hsl(var(--left-panel))] w-[320px] min-w-[280px] max-w-[360px] h-full flex flex-col border-r border-[hsl(var(--border))] shadow-lg text-[hsl(var(--foreground))];">
-
-            {/* Header */}
-            <div className="p-4 flex items-center gap-2 border-b border-[hsl(var(--border))]">
->>>>>>> b3bc5e2 (fix(left-panel): adjust min and max width properties for left panel component)
                 <UserProfile />
 
                 <div className="ml-auto flex items-center gap-2 sm:gap-3">
