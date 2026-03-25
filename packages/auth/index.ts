@@ -14,7 +14,9 @@ export { registerService } from "./services/register.service";
 export { refreshService } from "./services/refresh.service";
 export { logoutService } from "./services/logout.service";
 export { revokeUserAuthSessions } from "./services/revoke-user-auth.service";
+export { completePasswordStepUpChallenge } from "./services/step-up-password.service";
 export { logAuthEventBestEffort } from "./services/auth-audit.service";
+export { logSecurityEvent } from "./services/security-event-logger";
 export {
     createGoogleOAuthState,
     buildGoogleOAuthAuthorizeUrl,

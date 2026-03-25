@@ -13,6 +13,11 @@ type IdentityAuthzResponse = {
     role?: "user" | "moderator" | "admin";
 };
 
+type StepUpStatusResponse = {
+    requiresStepUp?: boolean;
+    challengeId?: string;
+};
+
 async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null> {
     const token = req.cookies.get("accessToken")?.value;
     const secret = process.env.ACCESS_TOKEN_SECRET;
@@ -79,11 +84,53 @@ async function hasActiveAdminRole(
     }
 }
 
+async function getPendingStepUpChallengeId(
+    req: NextRequest,
+    userId: string
+): Promise<string | null> {
+    const internalSecret = process.env.INTERNAL_SECRET;
+    if (!internalSecret) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(
+            `${req.nextUrl.origin}/api/internal/auth/step-up-status`,
+            {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "x-internal-secret": internalSecret,
+                },
+                body: JSON.stringify({ userId }),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = (await response.json()) as StepUpStatusResponse;
+        if (data.requiresStepUp && typeof data.challengeId === "string" && data.challengeId) {
+            return data.challengeId;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 export default async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
     const token = await verifyAccessToken(req);
 
-    const isPublic = pathname === "/login" || pathname === "/register" || pathname === "/error";
+    const isPublic =
+        pathname === "/login" ||
+        pathname === "/register" ||
+        pathname === "/error" ||
+        pathname.startsWith("/auth/challenge");
 
     if (isPublic) {
         if (token && (pathname === "/login" || pathname === "/register")) {
@@ -95,6 +142,17 @@ export default async function middleware(req: NextRequest) {
 
     if (!token) {
         return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    if (token.sub) {
+        const challengeId = await getPendingStepUpChallengeId(req, token.sub);
+        if (challengeId) {
+            const redirectUrl = new URL("/auth/challenge", req.url);
+            redirectUrl.searchParams.set("cid", challengeId);
+            const nextPath = `${pathname}${req.nextUrl.search || ""}`;
+            redirectUrl.searchParams.set("next", nextPath);
+            return NextResponse.redirect(redirectUrl);
+        }
     }
 
     if (pathname.startsWith("/admin")) {
