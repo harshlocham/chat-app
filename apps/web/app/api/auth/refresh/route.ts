@@ -4,68 +4,104 @@ import {
     AuthStepUpRequiredError,
     authConfig,
     buildAccessTokenCookie,
-    buildExpiredCookie,
     buildRefreshTokenCookie,
     logAuthEventBestEffort,
     refreshService,
 } from "@chat/auth";
 
-export async function POST(req: NextRequest) {
-    const xForwardedFor = req.headers.get("x-forwarded-for") || "";
-    const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
+type RequestContext = {
+    ipAddress: string;
+    userAgent?: string;
+};
+
+function getRequestContext(req: NextRequest): RequestContext {
+    const forwardedFor = req.headers.get("x-forwarded-for") || "";
+    const ipAddress =
+        forwardedFor
+            .split(",")
+            .map((entry) => entry.trim())
+            .find(Boolean) || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
 
+    return { ipAddress, userAgent };
+}
+
+async function logRefreshFailure(
+    context: RequestContext,
+    reason: string,
+    metadata?: Record<string, unknown>
+) {
+    await logAuthEventBestEffort({
+        eventType: "refresh_failed",
+        outcome: "failure",
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        reason,
+        metadata,
+    });
+}
+
+function getCookieRefreshToken(req: NextRequest): string {
+    return req.cookies.get(authConfig.cookie.refreshToken)?.value || "";
+}
+
+async function getBodyRefreshToken(req: NextRequest): Promise<string> {
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+        return "";
+    }
+
     try {
-        const { success } = await authRefreshRateLimiter.limit(ipAddress);
+        const body = (await req.json()) as unknown;
+        if (!body || typeof body !== "object") {
+            return "";
+        }
+
+        const payload = body as { refreshToken?: unknown };
+        if (typeof payload.refreshToken !== "string") {
+            return "";
+        }
+
+        return payload.refreshToken.trim();
+    } catch {
+        return "";
+    }
+}
+
+export async function POST(req: NextRequest) {
+    const context = getRequestContext(req);
+
+    try {
+        const { success } = await authRefreshRateLimiter.limit(context.ipAddress);
         if (!success) {
-            await logAuthEventBestEffort({
-                eventType: "refresh_failed",
-                outcome: "failure",
-                ipAddress,
-                userAgent,
-                reason: "rate_limited",
-            });
+            await logRefreshFailure(context, "rate_limited");
             return NextResponse.json(
                 { success: false, error: "Too many refresh attempts. Try again later." },
                 { status: 429 }
             );
         }
 
-        let bodyRefreshToken = "";
-
-        try {
-            const body = await req.json();
-            bodyRefreshToken = String(body?.refreshToken || "");
-        } catch {
-            bodyRefreshToken = "";
-        }
-
-        const cookieRefreshToken = req.cookies.get(authConfig.cookie.refreshToken)?.value || "";
+        const bodyRefreshToken = await getBodyRefreshToken(req);
+        const cookieRefreshToken = getCookieRefreshToken(req);
         const refreshToken = bodyRefreshToken || cookieRefreshToken;
 
         if (!refreshToken) {
-            await logAuthEventBestEffort({
-                eventType: "refresh_failed",
-                outcome: "failure",
-                ipAddress,
-                userAgent,
-                reason: "missing_refresh_token",
-            });
+            await logRefreshFailure(context, "missing_refresh_token");
             return NextResponse.json({ success: false, error: "Refresh token is required" }, { status: 401 });
         }
 
         const tokens = await refreshService({
             refreshToken,
-            userAgent,
-            ipAddress,
+            userAgent: context.userAgent,
+            ipAddress: context.ipAddress,
         });
 
         await logAuthEventBestEffort({
             eventType: "refresh_success",
             outcome: "success",
             userId: tokens.userId,
-            ipAddress,
-            userAgent,
+            ipAddress: context.ipAddress,
+            userAgent: context.userAgent,
             metadata: { sessionId: tokens.sessionId },
         });
 
@@ -77,49 +113,35 @@ export async function POST(req: NextRequest) {
     } catch (error) {
         if (error instanceof AuthStepUpRequiredError) {
             await logAuthEventBestEffort({
-                eventType: "refresh_failed",
-                outcome: "failure",
-                ipAddress,
-                userAgent,
+                eventType: "step_up_triggered",
+                outcome: "success",
+                userId: error.userId,
+                ipAddress: context.ipAddress,
+                userAgent: context.userAgent,
                 reason: error.code,
                 metadata: {
                     reasons: error.reasons,
+                    challengeId: error.challengeId,
                 },
             });
 
             const response = NextResponse.json(
                 {
                     success: false,
-                    error: error.message,
-                    code: error.code,
-                    requiresReauth: true,
-                    reasons: error.reasons,
+                    error: "STEP_UP_REQUIRED",
+                    challengeId: error.challengeId,
                 },
                 { status: error.status }
             );
-            response.headers.append("Set-Cookie", buildExpiredCookie(authConfig.cookie.accessToken));
-            response.headers.append("Set-Cookie", buildExpiredCookie(authConfig.cookie.refreshToken));
             return response;
         }
 
         if (error instanceof Error) {
-            await logAuthEventBestEffort({
-                eventType: "refresh_failed",
-                outcome: "failure",
-                ipAddress,
-                userAgent,
-                reason: error.message,
-            });
-            return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+            await logRefreshFailure(context, error.message);
+            return NextResponse.json({ success: false, error: "Refresh failed" }, { status: 401 });
         }
 
-        await logAuthEventBestEffort({
-            eventType: "refresh_failed",
-            outcome: "failure",
-            ipAddress,
-            userAgent,
-            reason: "unknown_error",
-        });
+        await logRefreshFailure(context, "unknown_error");
         return NextResponse.json({ success: false, error: "Refresh failed" }, { status: 500 });
     }
 }

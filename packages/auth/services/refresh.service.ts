@@ -5,6 +5,7 @@ import { revokeSession, rotateSessionTokenHash } from "../repositories/session.r
 import { validateSessionFingerprint } from "../session/fingerprint";
 import { AuthStepUpRequiredError } from "../errors/auth-errors";
 import { User } from "@/models/User";
+import { createChallenge } from "@/models/StepUpChallenge";
 
 export const refreshService = async ({
     refreshToken,
@@ -29,8 +30,16 @@ export const refreshService = async ({
     });
 
     if (fingerprint.requiresStepUp) {
+        const challenge = await createChallenge(payload.sub, {
+            ip: ipAddress,
+            userAgent,
+        });
         await revokeSession(payload.sessionId);
-        throw new AuthStepUpRequiredError(fingerprint.reasons);
+        throw new AuthStepUpRequiredError(
+            fingerprint.reasons,
+            challenge._id.toString(),
+            payload.sub
+        );
     }
 
     const user = await User.findById(payload.sub)
