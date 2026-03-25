@@ -7,6 +7,9 @@ export type AuthEventType =
     | "register_failed"
     | "refresh_success"
     | "refresh_failed"
+    | "step_up_triggered"
+    | "step_up_success"
+    | "step_up_failed"
     | "logout_success"
     | "logout_failed"
     | "google_oauth_success"
@@ -38,6 +41,9 @@ const authEventSchema = new Schema<IAuthEvent>(
                 "register_failed",
                 "refresh_success",
                 "refresh_failed",
+                "step_up_triggered",
+                "step_up_success",
+                "step_up_failed",
                 "logout_success",
                 "logout_failed",
                 "google_oauth_success",
