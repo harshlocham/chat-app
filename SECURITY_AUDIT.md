@@ -2619,6 +2619,9 @@ test("role changes immediately visible in all layers", async () => {
 - ✅ Implemented: suspicious refresh attempts now trigger step-up-required response (`AUTH_STEP_UP_REQUIRED`) and session revocation.
 - ✅ Implemented: tokenVersion-based emergency revocation (token claims + verification gates + session purge on admin ban).
 - ✅ Implemented: client-side step-up recovery detection and graceful redirect with context (api.ts, UserContext.tsx, login/page.tsx).
+- ✅ Implemented: full step-up challenge flow (challenge model + challenge verification endpoint + middleware enforcement + `/auth/challenge` page).
+- ✅ Implemented: step-up integration tests for refresh/challenge success/failure/expiry/reuse scenarios.
+- ✅ Implemented: dedicated best-effort security event logger utility for step-up events.
 
 ## Critical Issues (Fix Immediately)
 
@@ -2630,7 +2633,7 @@ test("role changes immediately visible in all layers", async () => {
 | 4 | **Access Control** | No universal protected-route auth guard | ✅ Mitigated via centralized route guards | LOW |
 | 5 | **Visibility** | No audit logging | ✅ Mitigated with structured auth-event logging | LOW-MEDIUM |
 | 6 | **Visibility** | No device fingerprinting | ✅ Mitigated on refresh path with mismatch rejection | LOW-MEDIUM |
-| 7 | **Token Management** | Risk-based step-up challenge UX | ✅ Implemented client-side detection and graceful recovery | LOW |
+| 7 | **Token Management** | Risk-based step-up challenge UX | ✅ Implemented end-to-end challenge flow with middleware enforcement | LOW |
 
 ---
 
@@ -2638,7 +2641,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 8 | **UX/Hardening** | Step-up challenge/reauthentication flow incomplete | Implement explicit 2FA or password re-entry challenge for high-risk mismatch scenarios |
+| 8 | **Identity Policy** | OAuth linking remains email-centric | Add provider-aware identity linking policy |
 
 ---
 
@@ -2646,7 +2649,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 9 | **Identity Policy** | OAuth linking remains email-centric | Add provider-aware identity linking policy |
+| 9 | **Visibility** | Admin security event visibility incomplete | Add dashboard/audit UI for step-up and revocation events |
 
 ---
 
@@ -2654,9 +2657,9 @@ test("role changes immediately visible in all layers", async () => {
 
 | Fix | Complexity | Time | Testing |
 |-----|-----------|------|---------|
-| Explicit 2FA/password re-entry challenge for high-risk step-up scenarios | Medium | 4h | 4h |
 | OAuth provider-aware linking policy hardening | Medium | 4h | 3h |
-| **Total remaining** | | **~8 hours** | **~7 hours** |
+| Admin security event visibility (step-up + revocation) | Medium | 3h | 2h |
+| **Total remaining** | | **~7 hours** | **~5 hours** |
 
 ---
 
@@ -2666,14 +2669,14 @@ test("role changes immediately visible in all layers", async () => {
   - ✅ Wire client/session management to explicitly handle `AUTH_STEP_UP_REQUIRED` responses.
   - ✅ Detect step-up recovery flow and gracefully redirect with context parameter.
   - ✅ Display user-facing warning when session requires re-auth.
+  - ✅ Add `/auth/challenge` page and password verification endpoint for step-up completion.
+  - ✅ Enforce step-up in middleware until challenge is verified.
 
 2. **This Week:**
-  - Add explicit reauthentication or 2FA challenge flow for step-up-required sessions (not just warning).
   - Implement provider-aware account-linking rules for OAuth identities.
 
 3. **Next Sprint:**
   - Add admin visibility for revocation and step-up security events in dashboard/audit UI.
-  - Consider implementing challenge page (/auth/challenge) for high-risk mismatch scenarios.
 
 ---
 
