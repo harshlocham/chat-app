@@ -50,7 +50,7 @@ const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | nu
 
 type UserContextType = {
     user: ClientUser | null;
-    isLoading: boolean;
+    isLofading: boolean;
     usersById: Record<string, ClientUser>;
     error: Error | null;
     refreshUser: () => Promise<ClientUser | null | undefined>;

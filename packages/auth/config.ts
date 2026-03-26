@@ -17,7 +17,7 @@ export function getAccessTokenConfig() {
 export function getRefreshTokenConfig() {
     return {
         secret: requiredEnv("REFRESH_TOKEN_SECRET"),
-        expiresIn: "24h",
+        expiresIn: "7d",
     } as const;
 }
 
