@@ -125,6 +125,7 @@ async function getPendingStepUpChallengeId(
 export default async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
     const token = await verifyAccessToken(req);
+    const hasRefreshToken = Boolean(req.cookies.get("refreshToken")?.value);
 
     const isPublic =
         pathname === "/login" ||
@@ -140,8 +141,12 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    if (!token) {
+    if (!token && !hasRefreshToken) {
         return NextResponse.redirect(new URL("/login", req.url));
+    }
+
+    if (!token) {
+        return NextResponse.next();
     }
 
     if (token.sub) {

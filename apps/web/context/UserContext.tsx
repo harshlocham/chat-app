@@ -9,26 +9,105 @@ type MeErrorPayload = {
     error?: string;
     code?: string;
     requiresReauth?: boolean;
+    challengeId?: string;
 };
 
-const fetcher = async (url: string): Promise<ClientUser | null> => {
+let refreshInFlight: Promise<boolean> | null = null;
+
+function parsePayload(rawText: string): MeErrorPayload | ClientUser | null {
+    if (!rawText) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(rawText) as MeErrorPayload | ClientUser;
+    } catch {
+        return null;
+    }
+}
+
+function redirectToStepUpChallenge(challengeId?: string) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    if (window.location.pathname.startsWith("/auth/challenge")) {
+        return;
+    }
+
+    const params = new URLSearchParams();
+    if (challengeId) {
+        params.set("cid", challengeId);
+    }
+    params.set("next", `${window.location.pathname}${window.location.search}` || "/");
+
+    window.location.href = `/auth/challenge?${params.toString()}`;
+}
+
+async function refreshSession(): Promise<boolean> {
+    if (!refreshInFlight) {
+        refreshInFlight = (async () => {
+            try {
+                const response = await fetch("/api/auth/refresh", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    cache: "no-store",
+                });
+
+                const rawText = await response.text();
+                const payload = parsePayload(rawText) as MeErrorPayload | null;
+
+                if (response.ok) {
+                    return true;
+                }
+
+                if (
+                    payload?.code === "AUTH_STEP_UP_REQUIRED" ||
+                    payload?.requiresReauth === true ||
+                    payload?.error === "STEP_UP_REQUIRED"
+                ) {
+                    redirectToStepUpChallenge(payload.challengeId);
+                }
+
+                return false;
+            } catch {
+                return false;
+            } finally {
+                refreshInFlight = null;
+            }
+        })();
+    }
+
+    return refreshInFlight;
+}
+
+const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | null> => {
     const res = await fetch(url, { cache: "no-store" });
-    const payload = (await res.json().catch(() => null)) as MeErrorPayload | ClientUser | null;
+    const rawText = await res.text();
+    const payload = parsePayload(rawText);
 
     if (!res.ok) {
         const errorPayload = payload as MeErrorPayload | null;
 
         if (
             errorPayload?.code === "AUTH_STEP_UP_REQUIRED" ||
-            errorPayload?.requiresReauth === true
+            errorPayload?.requiresReauth === true ||
+            errorPayload?.error === "STEP_UP_REQUIRED"
         ) {
-            if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-                window.location.href = "/login?reason=step-up-required";
-            }
+            redirectToStepUpChallenge(errorPayload?.challengeId);
             return null;
         }
 
         if (res.status === 401) {
+            if (!hasRetried) {
+                const refreshed = await refreshSession();
+                if (refreshed) {
+                    return fetcher(url, true);
+                }
+            }
+
             return null;
         }
 
