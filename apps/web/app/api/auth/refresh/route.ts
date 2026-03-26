@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authRefreshRateLimiter } from "@/lib/utils/rateLimiter";
+import { connectToDatabase } from "@/lib/Db/db";
 import {
     AuthStepUpRequiredError,
     authConfig,
@@ -31,7 +32,7 @@ async function logRefreshFailure(
     reason: string,
     metadata?: Record<string, unknown>
 ) {
-    await logAuthEventBestEffort({
+    void logAuthEventBestEffort({
         eventType: "refresh_failed",
         outcome: "failure",
         ipAddress: context.ipAddress,
@@ -90,13 +91,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Refresh token is required" }, { status: 401 });
         }
 
+        // Ensure models are bound to an active DB connection before token/session queries.
+        await connectToDatabase();
+
         const tokens = await refreshService({
             refreshToken,
             userAgent: context.userAgent,
             ipAddress: context.ipAddress,
         });
 
-        await logAuthEventBestEffort({
+        void logAuthEventBestEffort({
             eventType: "refresh_success",
             outcome: "success",
             userId: tokens.userId,
@@ -112,7 +116,7 @@ export async function POST(req: NextRequest) {
         return response;
     } catch (error) {
         if (error instanceof AuthStepUpRequiredError) {
-            await logAuthEventBestEffort({
+            void logAuthEventBestEffort({
                 eventType: "step_up_triggered",
                 outcome: "success",
                 userId: error.userId,
@@ -138,7 +142,24 @@ export async function POST(req: NextRequest) {
 
         if (error instanceof Error) {
             await logRefreshFailure(context, error.message);
-            return NextResponse.json({ success: false, error: "Refresh failed" }, { status: 401 });
+
+            const knownAuthFailure = new Set([
+                "Invalid session",
+                "Session revoked",
+                "Session expired",
+                "Invalid session token",
+                "Invalid session user binding",
+                "User not found",
+                "Account is not active",
+                "Token version revoked",
+                "Invalid refresh token payload",
+                "jwt malformed",
+                "jwt expired",
+                "invalid signature",
+            ]);
+
+            const status = knownAuthFailure.has(error.message) ? 401 : 500;
+            return NextResponse.json({ success: false, error: "Refresh failed" }, { status });
         }
 
         await logRefreshFailure(context, "unknown_error");
