@@ -1,4 +1,11 @@
 import type { ClientConversation, ClientUser, UIMessage } from "@chat/types";
+import {
+    isStepUpResponse,
+    parseAuthPayload,
+    redirectToLogin,
+    redirectToStepUpChallenge,
+    refreshSession,
+} from "@/lib/utils/auth/client-session";
 
 type ApiErrorPayload = {
     error?: string;
@@ -6,95 +13,6 @@ type ApiErrorPayload = {
     requiresReauth?: boolean;
     challengeId?: string;
 };
-
-let refreshInFlight: Promise<boolean> | null = null;
-
-function redirectToStepUpChallenge(challengeId?: string) {
-    if (typeof window === "undefined") {
-        return;
-    }
-
-    if (window.location.pathname.startsWith("/auth/challenge")) {
-        return;
-    }
-
-    const next = `${window.location.pathname}${window.location.search}`;
-    const params = new URLSearchParams();
-    if (challengeId) {
-        params.set("cid", challengeId);
-    }
-    params.set("next", next || "/");
-
-    window.location.href = `/auth/challenge?${params.toString()}`;
-}
-
-function redirectToLogin() {
-    if (typeof window === "undefined") {
-        return;
-    }
-
-    if (window.location.pathname === "/login") {
-        return;
-    }
-
-    window.location.href = "/login";
-}
-
-function parsePayload(rawText: string): ApiErrorPayload | null {
-    if (!rawText) {
-        return null;
-    }
-
-    try {
-        return JSON.parse(rawText) as ApiErrorPayload;
-    } catch {
-        return null;
-    }
-}
-
-function isStepUpResponse(payload: ApiErrorPayload | null): boolean {
-    return (
-        payload?.code === "AUTH_STEP_UP_REQUIRED" ||
-        payload?.requiresReauth === true ||
-        payload?.error === "STEP_UP_REQUIRED"
-    );
-}
-
-async function refreshSession(): Promise<boolean> {
-    if (!refreshInFlight) {
-        refreshInFlight = (async () => {
-            try {
-                const response = await fetch("/api/auth/refresh", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    cache: "no-store",
-                });
-
-                const rawText = await response.text();
-                const payload = parsePayload(rawText);
-
-                if (response.ok) {
-                    return true;
-                }
-
-                if (isStepUpResponse(payload)) {
-                    redirectToStepUpChallenge(payload?.challengeId);
-                    return false;
-                }
-
-                return false;
-            } catch {
-                return false;
-            } finally {
-                refreshInFlight = null;
-            }
-        })();
-    }
-
-    return refreshInFlight;
-}
 
 async function request<T>(url: string, init?: RequestInit, hasRetried = false): Promise<T> {
     const response = await fetch(url, {
@@ -106,7 +24,7 @@ async function request<T>(url: string, init?: RequestInit, hasRetried = false): 
     });
 
     const rawText = await response.text();
-    const payload = parsePayload(rawText);
+    const payload = parseAuthPayload(rawText) as ApiErrorPayload | null;
 
     if (!response.ok) {
         if (isStepUpResponse(payload)) {
@@ -116,11 +34,13 @@ async function request<T>(url: string, init?: RequestInit, hasRetried = false): 
         if (response.status === 401 && !hasRetried && url !== "/api/auth/refresh") {
             const refreshed = await refreshSession();
 
-            if (refreshed) {
+            if (refreshed.ok) {
                 return request<T>(url, init, true);
             }
 
-            redirectToLogin();
+            if (refreshed.ok === false && refreshed.reason === "unauthorized") {
+                redirectToLogin();
+            }
         }
 
         throw new Error(payload?.error || rawText || `Request failed with status ${response.status}`);
