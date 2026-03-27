@@ -26,6 +26,7 @@ export const registerService = async ({
         username,
         email: normalizedEmail,
         password: hashedPassword,
+        authProviders: ["password"],
         isVerified: new Date(),
         status: "active",
         role: "user",
