@@ -14,6 +14,9 @@
     "start": "turbo run start",
     "lint": "turbo run lint",
     "clean": "turbo run clean",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "echo \"Skipping npm publish for private repository\"",
     "typecheck": "npx tsc --noEmit && npm run typecheck --workspace @chat/web && npm run typecheck --workspace @chat/socket",
     "ci:verify-artifacts": "bash ./scripts/ci/verify-artifacts.sh",
     "security:audit": "npm audit --omit=dev --audit-level=high"

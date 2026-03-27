@@ -2,7 +2,8 @@ name: Release
 
 on:
   workflow_run:
-    workflows: ["CI"]   # MUST match the "name" field in your CI workflow
+    # Listen only to the existing CI workflow.
+    workflows: ["CI"]
     types:
       - completed
 
@@ -19,9 +20,7 @@ jobs:
     name: Version And Release
     runs-on: ubuntu-latest
 
-    # Only run if:
-    # - CI succeeded
-    # - branch is main
+     # Release only from successful CI runs on main.
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
@@ -30,11 +29,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Full history is required for tags and changesets versioning.
           fetch-depth: 0
-          # IMPORTANT: checkout the exact commit that passed CI
+          # Release the exact commit SHA that passed CI.
           ref: ${{ github.event.workflow_run.head_sha }}
 
+      - name: Skip if this commit is already tagged
+        id: release_guard
+        run: |
+          set -euo pipefail
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
+          git fetch --tags
+          TAGS="$(git tag --points-at "$RELEASE_SHA" | xargs || true)". 
+          if [[ -n "$TAGS" ]]; then
+            echo "already_released=true" >> "$GITHUB_OUTPUT"
+            echo "found_tags=$TAGS" >> "$GITHUB_OUTPUT"
+            echo "Commit $RELEASE_SHA already has tag(s): $TAGS"
+            echo "Skipping release to keep workflow idempotent."
+          else
+            echo "already_released=false" >> "$GITHUB_OUTPUT"
+            echo "No tags found for commit $RELEASE_SHA."
+          fi
+
       - name: Setup Node.js 22 with npm cache
+        if: steps.release_guard.outputs.already_released != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -42,20 +60,24 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        if: steps.release_guard.outputs.already_released != 'true'
         run: npm ci
 
-      - name: Ensure Changesets CLI
-        run: npx changeset --version
-
       - name: Build monorepo
+        if: steps.release_guard.outputs.already_released != 'true'
         run: npm run build
 
       - name: Create release PR or version and tag
+        if: steps.release_guard.outputs.already_released != 'true'
         uses: changesets/action@v1
         with:
+          # Update versions/changelogs after release PR merge.
           version: npm run version-packages
+          # Private repo: intentionally no npm publish.
           publish: npm run release
+          # Create GitHub Releases from generated changesets.
           createGithubReleases: true
+          # Configure a git identity for commits and tags.
           setupGitUser: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

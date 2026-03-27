@@ -1,0 +1,56 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to roll back to (example: v1.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never cancel an in-flight rollback request.
+  group: rollback-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  rollback-production:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Resolve rollback metadata
+        id: meta
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/chat-socket"
+          IMAGE_TAG="${IMAGE_NAME}:${VERSION}"
+
+          {
+            echo "version=${VERSION}"
+            echo "image_name=${IMAGE_NAME}"
+            echo "image_tag=${IMAGE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Simulate rollback deployment
+        run: |
+          set -euo pipefail
+          echo "Rolling back production to ${{ steps.meta.outputs.image_tag }}"
+          # Replace this echo with your real deployment command.
+
+      - name: Rollback summary
+        run: |
+          set -euo pipefail
+          {
+            echo "### Rollback completed"
+            echo ""
+            echo "- Version: ${{ steps.meta.outputs.version }}"
+            echo "- Image: ${{ steps.meta.outputs.image_name }}"
+            echo "- Image tag: ${{ steps.meta.outputs.image_tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,4 @@
 {
-    "$schema": "https://turbo.build/schema.json",
     "globalEnv": [
         "MONGODB_URI",
         "ACCESS_TOKEN_SECRET",
