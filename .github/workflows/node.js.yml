@@ -113,6 +113,8 @@ jobs:
           cache: "npm"
 
       - run: npm ci
+      - name: Build shared types package
+        run: npm run build --workspace=@chat/types
       - run: npm run build
 
       - name: Start web app
@@ -148,6 +150,8 @@ jobs:
           cache: "npm"
 
       - run: npm ci
+      - name: Build shared types package
+        run: npm run build --workspace=@chat/types
 
       - name: Build web app
         run: npm run build --workspace=@chat/web
