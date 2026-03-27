@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: ["CI"]   # MUST match the "name" field in your CI workflow
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Version And Release
+    runs-on: ubuntu-latest
+
+    # Only run if:
+    # - CI succeeded
+    # - branch is main
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # IMPORTANT: checkout the exact commit that passed CI
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js 22 with npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure Changesets CLI
+        run: npx changeset --version
+
+      - name: Build monorepo
+        run: npm run build
+
+      - name: Create release PR or version and tag
+        uses: changesets/action@v1
+        with:
+          version: npm run version-packages
+          publish: npm run release
+          createGithubReleases: true
+          setupGitUser: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
