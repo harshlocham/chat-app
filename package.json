@@ -19,6 +19,7 @@
     "security:audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/express": "^5.0.3",
