@@ -15,6 +15,33 @@ type RequestContext = {
     userAgent?: string;
 };
 
+function isDevelopment() {
+    return process.env.NODE_ENV !== "production";
+}
+
+function withDebug(reason: string) {
+    return isDevelopment() ? { debug: reason } : {};
+}
+
+function classifyRefreshFailureReason(errorMessage: string): string {
+    const map: Record<string, string> = {
+        "Invalid session": "SESSION_NOT_FOUND",
+        "Invalid session user binding": "USER_MISMATCH",
+        "Session revoked": "SESSION_REVOKED",
+        "Session expired": "SESSION_EXPIRED",
+        "Invalid session token": "TOKEN_MISMATCH",
+        "Invalid refresh token payload": "INVALID_REFRESH_TOKEN",
+        "jwt malformed": "INVALID_REFRESH_TOKEN",
+        "jwt expired": "REFRESH_TOKEN_EXPIRED",
+        "invalid signature": "INVALID_REFRESH_TOKEN_SIGNATURE",
+        "User not found": "USER_NOT_FOUND",
+        "Account is not active": "ACCOUNT_NOT_ACTIVE",
+        "Token version revoked": "TOKEN_VERSION_REVOKED",
+    };
+
+    return map[errorMessage] || "INTERNAL_REFRESH_ERROR";
+}
+
 function getRequestContext(req: NextRequest): RequestContext {
     const forwardedFor = req.headers.get("x-forwarded-for") || "";
     const ipAddress =
@@ -27,7 +54,7 @@ function getRequestContext(req: NextRequest): RequestContext {
     return { ipAddress, userAgent };
 }
 
-async function logRefreshFailure(
+function logRefreshFailure(
     context: RequestContext,
     reason: string,
     metadata?: Record<string, unknown>
@@ -75,7 +102,7 @@ export async function POST(req: NextRequest) {
     try {
         const { success } = await authRefreshRateLimiter.limit(context.ipAddress);
         if (!success) {
-            await logRefreshFailure(context, "rate_limited");
+            logRefreshFailure(context, "rate_limited");
             return NextResponse.json(
                 { success: false, error: "Too many refresh attempts. Try again later." },
                 { status: 429 }
@@ -87,8 +114,11 @@ export async function POST(req: NextRequest) {
         const refreshToken = bodyRefreshToken || cookieRefreshToken;
 
         if (!refreshToken) {
-            await logRefreshFailure(context, "missing_refresh_token");
-            return NextResponse.json({ success: false, error: "Refresh token is required" }, { status: 401 });
+            logRefreshFailure(context, "missing_refresh_token");
+            return NextResponse.json(
+                { success: false, error: "Refresh token is required", ...withDebug("MISSING_REFRESH_TOKEN") },
+                { status: 401 }
+            );
         }
 
         // Ensure models are bound to an active DB connection before token/session queries.
@@ -141,7 +171,9 @@ export async function POST(req: NextRequest) {
         }
 
         if (error instanceof Error) {
-            await logRefreshFailure(context, error.message);
+            logRefreshFailure(context, error.message);
+
+            const debugReason = classifyRefreshFailureReason(error.message);
 
             const knownAuthFailure = new Set([
                 "Invalid session",
@@ -159,10 +191,16 @@ export async function POST(req: NextRequest) {
             ]);
 
             const status = knownAuthFailure.has(error.message) ? 401 : 500;
-            return NextResponse.json({ success: false, error: "Refresh failed" }, { status });
+            return NextResponse.json(
+                { success: false, error: "Refresh failed", ...withDebug(debugReason) },
+                { status }
+            );
         }
 
-        await logRefreshFailure(context, "unknown_error");
-        return NextResponse.json({ success: false, error: "Refresh failed" }, { status: 500 });
+        logRefreshFailure(context, "unknown_error");
+        return NextResponse.json(
+            { success: false, error: "Refresh failed", ...withDebug("UNKNOWN_REFRESH_ERROR") },
+            { status: 500 }
+        );
     }
 }

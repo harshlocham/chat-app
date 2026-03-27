@@ -18,8 +18,12 @@ type MeErrorPayload = {
     challengeId?: string;
 };
 
+function wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | null> => {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, { cache: "no-store", credentials: "include" });
     const rawText = await res.text();
     const payload = parseAuthPayload(rawText) as MeErrorPayload | ClientUser | null;
 
@@ -37,6 +41,14 @@ const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | nu
                 if (refreshed.ok) {
                     return fetcher(url, true);
                 }
+
+                if (refreshed.ok === false && refreshed.reason === "transient") {
+                    await wait(250);
+                    const retriedRefresh = await refreshSession();
+                    if (retriedRefresh.ok) {
+                        return fetcher(url, true);
+                    }
+                }
             }
 
             return null;
@@ -50,7 +62,7 @@ const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | nu
 
 type UserContextType = {
     user: ClientUser | null;
-    isLofading: boolean;
+    isLoading: boolean;
     usersById: Record<string, ClientUser>;
     error: Error | null;
     refreshUser: () => Promise<ClientUser | null | undefined>;

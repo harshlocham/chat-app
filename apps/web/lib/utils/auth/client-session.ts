@@ -97,6 +97,7 @@ export async function refreshSession(): Promise<RefreshSessionResult> {
                     "Content-Type": "application/json",
                 },
                 cache: "no-store",
+                credentials: "include",
             });
 
             const rawText = await response.text();

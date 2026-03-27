@@ -14,9 +14,14 @@ type ApiErrorPayload = {
     challengeId?: string;
 };
 
+function wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function request<T>(url: string, init?: RequestInit, hasRetried = false): Promise<T> {
     const response = await fetch(url, {
         ...init,
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
             ...(init?.headers || {}),
@@ -36,6 +41,18 @@ async function request<T>(url: string, init?: RequestInit, hasRetried = false): 
 
             if (refreshed.ok) {
                 return request<T>(url, init, true);
+            }
+
+            if (refreshed.ok === false && refreshed.reason === "transient") {
+                await wait(250);
+                const retriedRefresh = await refreshSession();
+                if (retriedRefresh.ok) {
+                    return request<T>(url, init, true);
+                }
+
+                if (retriedRefresh.ok === false && retriedRefresh.reason === "unauthorized") {
+                    redirectToLogin();
+                }
             }
 
             if (refreshed.ok === false && refreshed.reason === "unauthorized") {
