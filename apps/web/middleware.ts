@@ -18,6 +18,14 @@ type StepUpStatusResponse = {
     challengeId?: string;
 };
 
+function logMiddlewareNote(message: string, metadata?: Record<string, unknown>) {
+    if (process.env.NODE_ENV === "production") {
+        return;
+    }
+
+    console.info("[auth][middleware]", message, metadata || {});
+}
+
 async function verifyAccessToken(req: NextRequest): Promise<AccessPayload | null> {
     const token = req.cookies.get("accessToken")?.value;
     const secret = process.env.ACCESS_TOKEN_SECRET;
@@ -141,11 +149,21 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
+    // CRITICAL AUTH BEHAVIOR:
+    // If both access + refresh are missing, user is fully unauthenticated.
+    // Redirecting to login is correct and expected.
     if (!token && !hasRefreshToken) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
+    // CRITICAL AUTH BEHAVIOR (DO NOT REMOVE):
+    // If access token is missing/expired BUT refresh cookie exists,
+    // we MUST allow the request through so client/server refresh flow can recover.
+    // Redirecting to /login here causes false logout regressions every access-token expiry window.
     if (!token) {
+        logMiddlewareNote("allowing request with refresh cookie and missing access token", {
+            pathname,
+        });
         return NextResponse.next();
     }
 
