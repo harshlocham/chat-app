@@ -45,6 +45,22 @@ function cleanupOAuthCookies(response: NextResponse) {
     });
 }
 
+function toLoginErrorCode(message: string): string {
+    if (message === "GOOGLE_ACCOUNT_NOT_LINKED") {
+        return "google_account_not_linked";
+    }
+
+    if (message === "GOOGLE_IDENTITY_MISMATCH") {
+        return "google_identity_mismatch";
+    }
+
+    if (message === "Google account email is missing or unverified") {
+        return "google_unverified_email";
+    }
+
+    return "google_oauth_failed";
+}
+
 export async function GET(req: NextRequest) {
     const xForwardedFor = req.headers.get("x-forwarded-for") || "";
     const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
@@ -121,7 +137,7 @@ export async function GET(req: NextRequest) {
             userAgent,
             reason: message,
         });
-        loginRedirect.searchParams.set("error", message);
+        loginRedirect.searchParams.set("error", toLoginErrorCode(message));
         const response = NextResponse.redirect(loginRedirect);
         cleanupOAuthCookies(response);
         return response;

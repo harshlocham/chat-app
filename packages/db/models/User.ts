@@ -6,6 +6,8 @@ export interface IUser extends Document {
     username: string;
     email: string;
     password: string;
+    googleSub?: string;
+    authProviders: Array<'password' | 'google'>;
     isOnline: boolean;
     profilePicture?: string;
     role: 'user' | 'moderator' | 'admin';
@@ -22,6 +24,12 @@ const userSchema = new Schema<IUser>({
     username: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: false }, // Optional for OAuth users
+    googleSub: { type: String, required: false, index: true },
+    authProviders: {
+        type: [String],
+        enum: ['password', 'google'],
+        default: ['password'],
+    },
     profilePicture: { type: String },
     isOnline: { type: Boolean, default: false },
     status: { type: String, enum: ['active', 'banned'], default: 'active' },

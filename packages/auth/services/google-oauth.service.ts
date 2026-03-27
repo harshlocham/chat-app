@@ -130,33 +130,56 @@ export async function loginWithGoogleCode({
     }
 
     const email = normalizeEmail(profile.email);
-    const user = await User.findOneAndUpdate(
-        { email },
-        {
-            $setOnInsert: {
-                username: profile.name || email.split("@")[0],
-                email,
-                password: "",
-                profilePicture: profile.picture,
-                role: "user",
-                status: "active",
-                isVerified: new Date(),
-                isOnline: false,
-                conversations: [],
-            },
-        },
-        {
-            upsert: true,
-            new: true,
-        }
-    );
+    let user = await User.findOne({ email });
+
+    if (!user) {
+        user = await User.create({
+            username: profile.name || email.split("@")[0],
+            email,
+            password: "",
+            googleSub: profile.sub,
+            authProviders: ["google"],
+            profilePicture: profile.picture,
+            role: "user",
+            status: "active",
+            isVerified: new Date(),
+            isOnline: false,
+            conversations: [],
+        });
+    }
 
     if (!user) {
         throw new Error("Unable to resolve Google user account");
     }
 
+    const linkedGoogleSub = typeof user.googleSub === "string" ? user.googleSub : "";
+    const providers = Array.isArray(user.authProviders) ? user.authProviders : [];
+    const hasPasswordProvider = providers.includes("password") || Boolean(user.password && user.password.trim());
+    const hasGoogleProvider = providers.includes("google") || Boolean(linkedGoogleSub);
+
+    if (linkedGoogleSub && linkedGoogleSub !== profile.sub) {
+        throw new Error("GOOGLE_IDENTITY_MISMATCH");
+    }
+
+    // Security hardening: do not auto-link Google to an existing password account.
+    // Explicit account-link flow should be used after password authentication.
+    if (hasPasswordProvider && !hasGoogleProvider) {
+        throw new Error("GOOGLE_ACCOUNT_NOT_LINKED");
+    }
+
+    if (!hasGoogleProvider || !linkedGoogleSub) {
+        user.googleSub = profile.sub;
+    }
+
+    if (!providers.includes("google")) {
+        user.authProviders = [...providers, "google"];
+    }
+
     if (!user.profilePicture && profile.picture) {
         user.profilePicture = profile.picture;
+    }
+
+    if (user.isModified()) {
         await user.save();
     }
 
