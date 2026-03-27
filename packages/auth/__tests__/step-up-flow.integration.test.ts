@@ -61,8 +61,8 @@ vi.mock("@/models/User", () => ({
     },
 }));
 
-import { refreshService } from "./refresh.service";
-import { completePasswordStepUpChallenge } from "./step-up-password.service";
+import { refreshService } from "../services/refresh.service";
+import { completePasswordStepUpChallenge } from "../services/step-up-password.service";
 
 type MockUserLeanResult = {
     _id: { toString(): string };

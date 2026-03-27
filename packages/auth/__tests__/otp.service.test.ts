@@ -21,7 +21,7 @@ vi.mock("@/models/User", () => ({
     User: userModel,
 }));
 
-vi.mock("./register.service", () => ({
+vi.mock("../services/register.service", () => ({
     registerService: registerServiceMock,
 }));
 
@@ -29,7 +29,7 @@ import {
     sendEmailOtpService,
     verifyEmailOtpService,
     verifyOtpAndRegisterService,
-} from "./otp.service";
+} from "../services/otp.service";
 
 describe("otp.service", () => {
     beforeEach(() => {
