@@ -179,23 +179,23 @@ export async function refreshSession(): Promise<RefreshSessionResult> {
         return existing;
     }
 
-    initAuthChannel();
-
-    if (coordinationOwnerId && coordinationOwnerId !== tabId) {
-        return waitForCrossTabRefresh();
-    }
-
-    coordinationOwnerId = tabId;
-    broadcastRefresh({ type: "REFRESH_START", senderId: tabId });
-
-    // Small election window: if another tab with lower owner id announces start,
-    // this tab waits instead of triggering a concurrent refresh.
-    await sleep(30);
-    if (coordinationOwnerId !== tabId) {
-        return waitForCrossTabRefresh();
-    }
-
     const inFlight = (async () => {
+        initAuthChannel();
+
+        if (coordinationOwnerId && coordinationOwnerId !== tabId) {
+            return waitForCrossTabRefresh();
+        }
+
+        coordinationOwnerId = tabId;
+        broadcastRefresh({ type: "REFRESH_START", senderId: tabId });
+
+        // Small election window: if another tab with lower owner id announces start,
+        // this tab waits instead of triggering a concurrent refresh.
+        await sleep(30);
+        if (coordinationOwnerId !== tabId) {
+            return waitForCrossTabRefresh();
+        }
+
         try {
             const response = await fetch("/api/auth/refresh", {
                 method: "POST",
