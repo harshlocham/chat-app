@@ -7,6 +7,7 @@ import { io } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 import { useUser } from "@/context/UserContext";
+import Link from "next/link";
 
 
 export default function AdminDashboard() {
@@ -82,6 +83,18 @@ export default function AdminDashboard() {
                     <CardContent>
                         <p className="text-2xl font-bold">23</p>
                         <p className="text-sm text-muted-foreground">Need review</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Security</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">Review authentication activity and anomalies.</p>
+                        <Link href="/admin/auth-events" className="mt-3 inline-block text-sm font-semibold underline">
+                            Open Auth Events
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

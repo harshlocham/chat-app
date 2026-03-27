@@ -14,6 +14,28 @@ type ApiErrorPayload = {
     challengeId?: string;
 };
 
+export type AdminAuthEventType = "LOGIN" | "REFRESH" | "REVOKE" | "STEP_UP";
+
+export type AdminAuthEvent = {
+    id: string;
+    eventType: AdminAuthEventType;
+    eventName: string;
+    userId: string | null;
+    timestamp: string;
+    ipAddress: string;
+    userAgent: string;
+};
+
+export type AdminAuthEventsResponse = {
+    events: AdminAuthEvent[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+};
+
 function wait(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -142,4 +164,27 @@ export async function reactToMessage(message: UIMessage, emoji: string) {
         method: "POST",
         body: JSON.stringify({ emoji }),
     });
+}
+
+export async function getAdminAuthEvents(params?: {
+    page?: number;
+    limit?: number;
+    eventType?: AdminAuthEventType;
+    userId?: string;
+    date?: string;
+}): Promise<AdminAuthEventsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.eventType) searchParams.set("eventType", params.eventType);
+    if (params?.userId) searchParams.set("userId", params.userId);
+    if (params?.date) searchParams.set("date", params.date);
+
+    const query = searchParams.toString();
+    const data = await request<{ success: boolean; data: AdminAuthEventsResponse }>(
+        `/api/admin/auth-events${query ? `?${query}` : ""}`
+    );
+
+    return data.data;
 }

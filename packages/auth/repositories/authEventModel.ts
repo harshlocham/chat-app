@@ -74,6 +74,7 @@ const authEventSchema = new Schema<IAuthEvent>(
 
 authEventSchema.index({ createdAt: -1 });
 authEventSchema.index({ eventType: 1, createdAt: -1 });
+authEventSchema.index({ userId: 1, createdAt: -1 });
 
 export const AuthEventModel: Model<IAuthEvent> =
     (mongoose.models.AuthEvent as Model<IAuthEvent>) ||

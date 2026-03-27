@@ -17,6 +17,7 @@ export { revokeUserAuthSessions } from "./services/revoke-user-auth.service";
 export { completePasswordStepUpChallenge } from "./services/step-up-password.service";
 export { logAuthEventBestEffort } from "./services/auth-audit.service";
 export { logSecurityEvent } from "./services/security-event-logger";
+export { listAuthEvents } from "./services/list-auth-events.service";
 export {
     createGoogleOAuthState,
     buildGoogleOAuthAuthorizeUrl,
@@ -42,3 +43,4 @@ export {
 } from "./utils/cookie";
 
 export type { AccessTokenPayload, RefreshTokenPayload } from "./tokens/types";
+export type { AdminAuthEventGroup, AdminAuthEventItem } from "./services/list-auth-events.service";
