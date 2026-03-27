@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 import UserAvatar from "./UserAvatar";
 import { useUser } from "@/context/UserContext";
 import { ClientUser } from "@chat/types";
+import { authenticatedFetch } from "@/lib/utils/api";
 interface ProfilePictureUploadProps {
     onUpdate?: (imageUrl: string) => void;
     className?: string;
@@ -26,7 +27,7 @@ export const ProfilePictureUpload = ({ onUpdate, className }: ProfilePictureUplo
 
         setIsUpdating(true);
         try {
-            const response = await fetch("/api/updateImage", {
+            const response = await authenticatedFetch("/api/updateImage", {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",

@@ -18,7 +18,11 @@ function wait(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function request<T>(url: string, init?: RequestInit, hasRetried = false): Promise<T> {
+export async function authenticatedFetch(
+    url: string,
+    init?: RequestInit,
+    hasRetried = false
+): Promise<Response> {
     const response = await fetch(url, {
         ...init,
         credentials: "include",
@@ -28,38 +32,52 @@ async function request<T>(url: string, init?: RequestInit, hasRetried = false): 
         },
     });
 
-    const rawText = await response.text();
+    const responseClone = response.clone();
+    const rawText = await responseClone.text();
     const payload = parseAuthPayload(rawText) as ApiErrorPayload | null;
 
-    if (!response.ok) {
-        if (isStepUpResponse(payload)) {
-            redirectToStepUpChallenge(payload?.challengeId);
+    if (response.ok) {
+        return response;
+    }
+
+    if (isStepUpResponse(payload)) {
+        redirectToStepUpChallenge(payload?.challengeId);
+    }
+
+    if (response.status === 401 && !hasRetried && url !== "/api/auth/refresh") {
+        const refreshed = await refreshSession();
+
+        if (refreshed.ok) {
+            return authenticatedFetch(url, init, true);
         }
 
-        if (response.status === 401 && !hasRetried && url !== "/api/auth/refresh") {
-            const refreshed = await refreshSession();
-
-            if (refreshed.ok) {
-                return request<T>(url, init, true);
+        if (refreshed.ok === false && refreshed.reason === "transient") {
+            await wait(250);
+            const retriedRefresh = await refreshSession();
+            if (retriedRefresh.ok) {
+                return authenticatedFetch(url, init, true);
             }
 
-            if (refreshed.ok === false && refreshed.reason === "transient") {
-                await wait(250);
-                const retriedRefresh = await refreshSession();
-                if (retriedRefresh.ok) {
-                    return request<T>(url, init, true);
-                }
-
-                if (retriedRefresh.ok === false && retriedRefresh.reason === "unauthorized") {
-                    redirectToLogin();
-                }
-            }
-
-            if (refreshed.ok === false && refreshed.reason === "unauthorized") {
+            if (retriedRefresh.ok === false && retriedRefresh.reason === "unauthorized") {
                 redirectToLogin();
             }
         }
 
+        if (refreshed.ok === false && refreshed.reason === "unauthorized") {
+            redirectToLogin();
+        }
+    }
+
+    return response;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+    const response = await authenticatedFetch(url, init);
+
+    const rawText = await response.text();
+    const payload = parseAuthPayload(rawText) as ApiErrorPayload | null;
+
+    if (!response.ok) {
         throw new Error(payload?.error || rawText || `Request failed with status ${response.status}`);
     }
 

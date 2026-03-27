@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Laugh, Mic, Plus, Send, Image as ImageIcon } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { getMe } from "@/lib/utils/api";
+import { authenticatedFetch, getMe } from "@/lib/utils/api";
 import useChatStore from "@/store/chat-store";
 import { getSocket } from "@/lib/socket/socketClient";
 import { ClientUser } from "@chat/types";
@@ -97,7 +97,7 @@ const MessageInput = () => {
 
         if (editingMessage) {
             try {
-                const res = await fetch(`/api/messages/${editingMessage._id}/edit`, {
+                const res = await authenticatedFetch(`/api/messages/${editingMessage._id}/edit`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -170,7 +170,7 @@ const MessageInput = () => {
         }
 
         try {
-            const res = await fetch("/api/messages", {
+            const res = await authenticatedFetch("/api/messages", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -202,7 +202,7 @@ const MessageInput = () => {
         if (!result.url || !me || !sel) return;
 
         try {
-            const res = await fetch("/api/messages", {
+            const res = await authenticatedFetch("/api/messages", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

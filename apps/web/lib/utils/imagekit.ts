@@ -1,3 +1,5 @@
+import { authenticatedFetch } from "@/lib/utils/api";
+
 function isTrustedImageKitUrl(value: string): boolean {
     try {
         const parsed = new URL(value);
@@ -41,7 +43,7 @@ export type ImageKitUploadAuth = {
 };
 
 export async function getImageKitUploadAuth(): Promise<ImageKitUploadAuth> {
-    const authRes = await fetch("/api/auth/imagekit-auth", { cache: "no-store" });
+    const authRes = await authenticatedFetch("/api/auth/imagekit-auth", { cache: "no-store" });
     const auth = (await authRes.json()) as ImageKitUploadAuthResponse;
 
     if (!authRes.ok) {

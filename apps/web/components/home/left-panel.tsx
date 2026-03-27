@@ -12,6 +12,7 @@ import { ClientUser } from "@chat/types";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
 import { socket } from "@/lib/socket/socketClient";
 import { useRouter } from "next/navigation";
+import { authenticatedFetch } from "@/lib/utils/api";
 
 function isUser(p: unknown): p is ClientUser {
     return typeof p === "object" && p !== null && "username" in p;
@@ -124,7 +125,7 @@ const Sidebar = ({
                             if (socket.connected) {
                                 socket.disconnect();
                             }
-                            fetch("/api/auth/logout", {
+                            authenticatedFetch("/api/auth/logout", {
                                 method: "POST",
                             }).then(() => {
                                 router.push("/login");
