@@ -30,7 +30,8 @@ describe("web refresh behavior", () => {
       "/api/conversations": 0,
     };
 
-    jest.spyOn(global, "fetch" as any).mockImplementation(async (input: RequestInfo | URL) => {
+    jest.spyOn(global, "fetch" as any).mockImplementation(async (...args: unknown[]) => {
+      const input = args[0] as RequestInfo | URL;
       const url = String(input);
 
       if (url === "/api/auth/refresh") {
