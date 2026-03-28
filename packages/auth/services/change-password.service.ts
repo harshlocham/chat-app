@@ -62,8 +62,7 @@ export async function changePasswordService(
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
-            password: hashedNewPassword,
-            $inc: { tokenVersion: 1 },
+            password: hashedNewPassword
         },
         { new: true }
     )

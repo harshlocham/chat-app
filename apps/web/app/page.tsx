@@ -55,7 +55,7 @@ export default function Home() {
 
   return (
     <main className="min-h-dvh bg-[hsl(var(--gray-secondary))] p-0 sm:p-2 lg:p-5">
-      <div className="relative mx-auto flex h-dvh w-full max-w-425 overflow-hidden bg-[hsl(var(--gray-secondary))] sm:h-[calc(100dvh-1rem)] lg:rounded-2xl lg:shadow-2xl">
+      <div className="relative mx-auto flex h-dvh w-full max-w-[425px] overflow-hidden bg-[hsl(var(--gray-secondary))] sm:h-[calc(100dvh-1rem)] lg:rounded-2xl lg:shadow-2xl">
         {/* <ChatBox /> */}
         <Sidebar
           isMobileOpen={isSidebarOpen}

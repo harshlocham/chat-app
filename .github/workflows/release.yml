@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
           git fetch --tags
-          TAGS="$(git tag --points-at "$RELEASE_SHA" | xargs || true)". 
+          TAGS="$(git tag --points-at "$RELEASE_SHA" | xargs || true)"
           if [[ -n "$TAGS" ]]; then
             echo "already_released=true" >> "$GITHUB_OUTPUT"
             echo "found_tags=$TAGS" >> "$GITHUB_OUTPUT"

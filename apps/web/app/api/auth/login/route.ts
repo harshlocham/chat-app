@@ -103,11 +103,11 @@ export async function POST(req: NextRequest) {
                 reason: error.message,
             });
             const status =
-                error.message === "User not found" ||
-                    error.message === "Invalid password" ||
-                    error.message === "Account is banned"
+                error.message === "Invalid password"
                     ? 401
-                    : 400;
+                    : error.message === "Account is not active"
+                        ? 403
+                        : 400;
 
             return NextResponse.json({ success: false, error: error.message }, { status });
         }

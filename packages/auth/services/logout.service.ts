@@ -1,5 +1,5 @@
 import { verifySession } from "../session/verify-session";
-import { deleteSession, deleteUserSessions } from "../repositories/session.repo";
+import { deleteSession } from "../repositories/session.repo";
 import { invalidateAllUserTokens } from "../tokens/invalidate";
 
 export interface LogoutResult {

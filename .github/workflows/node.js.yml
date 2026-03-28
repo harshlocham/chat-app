@@ -19,8 +19,6 @@ env:
   REDIS_URL: redis://localhost:6379
   ACCESS_TOKEN_SECRET: testAccessSecret
   REFRESH_TOKEN_SECRET: testRefreshSecret
-  NEXTAUTH_SECRET: testSecret
-  NEXTAUTH_URL: http://localhost:3000
   INTERNAL_SECRET: testInternalSecret
   TURBO_ENV_MODE: loose
 

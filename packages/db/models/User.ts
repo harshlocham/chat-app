@@ -5,7 +5,7 @@ export interface IUser extends Document {
     _id: mongoose.Types.ObjectId
     username: string;
     email: string;
-    password: string;
+    password?: string;
     googleSub?: string;
     authProviders: Array<'password' | 'google'>;
     isOnline: boolean;
@@ -24,7 +24,7 @@ export interface IUser extends Document {
 
 const userSchema = new Schema<IUser>({
     username: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, lowercase: true, trim: true },
     password: { type: String, required: false }, // Optional for OAuth users
     googleSub: { type: String, required: false, index: true },
     authProviders: {

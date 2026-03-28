@@ -26,7 +26,7 @@ const UserProfile = () => {
                     size={48}
                 /></Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-106.25 bg-[hsl(var(--card))] shadow-xl rounded-xl">
+            <DialogContent className="sm:max-w-[425px] bg-[hsl(var(--card))] shadow-xl rounded-xl">
                 <DialogHeader>
                     <DialogTitle>Change your Profile picture</DialogTitle>
                     <DialogDescription>
