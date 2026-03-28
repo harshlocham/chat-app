@@ -1,6 +1,6 @@
 {
     "name": "@chat/redis",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "dependencies": {
         "@chat/types": "*",
         "redis": "^5.9.0",
