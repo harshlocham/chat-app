@@ -1,11 +1,13 @@
 name: Deploy
 
 on:
-  # Deploy ONLY from services package tags
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
   push:
     tags:
       - "@chat/services@*"
-
 permissions:
   contents: read
   packages: write
