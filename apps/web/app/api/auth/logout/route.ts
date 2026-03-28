@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authLogoutRateLimiter } from "@/lib/utils/rateLimiter";
+import { authRateLimitResponse, enforceAuthRateLimit } from "@/lib/utils/rateLimiter";
 import {
     authConfig,
     buildExpiredCookie,
@@ -11,8 +11,12 @@ export async function POST(req: NextRequest) {
     const xForwardedFor = req.headers.get("x-forwarded-for") || "";
     const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
-    const { success } = await authLogoutRateLimiter.limit(ipAddress);
-    if (!success) {
+    const rateLimit = await enforceAuthRateLimit({
+        endpoint: "logout",
+        ipAddress,
+        enableBackoff: true,
+    });
+    if (!rateLimit.allowed) {
         await logAuthEventBestEffort({
             eventType: "logout_failed",
             outcome: "failure",
@@ -20,10 +24,7 @@ export async function POST(req: NextRequest) {
             userAgent,
             reason: "rate_limited",
         });
-        return NextResponse.json(
-            { success: false, error: "Too many logout attempts. Try again later." },
-            { status: 429 }
-        );
+        return authRateLimitResponse(rateLimit);
     }
 
     let logoutFromAllDevices = false;
