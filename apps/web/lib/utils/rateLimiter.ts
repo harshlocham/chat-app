@@ -95,7 +95,7 @@ class HybridRateLimiter {
     }
 }
 
-export type AuthRateLimitEndpoint = "login" | "register" | "refresh" | "logout";
+export type AuthRateLimitEndpoint = "login" | "register" | "refresh" | "logout" | "change_password" | "revoke_tokens";
 
 export type AuthRateLimitDecision = {
     allowed: boolean;
@@ -131,6 +131,10 @@ function authLimiterFor(endpoint: AuthRateLimitEndpoint): HybridRateLimiter {
             return authRefreshRateLimiter;
         case "logout":
             return authLogoutRateLimiter;
+        case "change_password":
+            return authChangePasswordRateLimiter;
+        case "revoke_tokens":
+            return authRevokeTokensRateLimiter;
         default:
             return authRateLimiter;
     }
@@ -295,6 +299,10 @@ function tooManyRequestsMessage(endpoint: AuthRateLimitEndpoint): string {
             return "Too many login attempts. Try again later.";
         case "register":
             return "Too many registration attempts. Try again later.";
+        case "change_password":
+            return "Too many password change attempts. Try again later.";
+        case "revoke_tokens":
+            return "Too many token revocation attempts. Try again later.";
         case "refresh":
             return "Too many refresh attempts. Try again later.";
         case "logout":
@@ -330,6 +338,8 @@ export const authLoginRateLimiter = new HybridRateLimiter("rl:auth:login", 60_00
 export const authRegisterRateLimiter = new HybridRateLimiter("rl:auth:register", 60_000, 3);
 export const authRefreshRateLimiter = new HybridRateLimiter("rl:auth:refresh", 60_000, 3);
 export const authLogoutRateLimiter = new HybridRateLimiter("rl:auth:logout", 60_000, 10);
+export const authChangePasswordRateLimiter = new HybridRateLimiter("rl:auth:change-password", 60_000, 5);
+export const authRevokeTokensRateLimiter = new HybridRateLimiter("rl:auth:revoke-tokens", 60_000, 10);
 export const authGoogleCallbackRateLimiter = new HybridRateLimiter("rl:auth:google", 60_000, 20);
 export const messageRateLimiter = new HybridRateLimiter("rl:message", 10_000, 20);
 export const internalSocketAuthzRateLimiter = new HybridRateLimiter("rl:internal:socket-authz", 10_000, 80);
