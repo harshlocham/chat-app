@@ -4,6 +4,7 @@ export interface ISession extends mongoose.Document {
     _id: Types.ObjectId;
     userId: Types.ObjectId;
     refreshTokenHash: string;
+    deviceId: string;
     userAgent: string;
     ipAddress: string;
     expiresAt: Date;
@@ -22,6 +23,7 @@ const sessionSchema = new Schema<ISession>(
             index: true,
         },
         refreshTokenHash: { type: String, required: true, select: false },
+        deviceId: { type: String, required: true, index: true },
         userAgent: { type: String, required: true, default: "Unknown" },
         ipAddress: { type: String, required: true, default: "Unknown" },
         expiresAt: { type: Date, required: true },

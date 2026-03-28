@@ -10,11 +10,13 @@ function normalizeEmail(email: string): string {
 export const loginUser = async ({
     email,
     password,
+    deviceId,
     userAgent,
     ipAddress,
 }: {
     email: string;
     password: string;
+    deviceId?: string;
     userAgent?: string;
     ipAddress?: string;
 }) => {
@@ -41,6 +43,7 @@ export const loginUser = async ({
 
     const { refreshToken } = await createUserSession({
         userId: user._id.toString(),
+        deviceId,
         userAgent,
         ipAddress,
         tokenVersion: user.tokenVersion || 0,

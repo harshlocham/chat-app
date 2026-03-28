@@ -4,6 +4,7 @@ import { AuthStepUpRequiredError } from "../errors/auth-errors";
 const {
     verifySessionMock,
     validateSessionFingerprintMock,
+    generateDeviceFingerprintMock,
     rotateSessionTokenHashMock,
     revokeSessionMock,
     createChallengeMock,
@@ -16,6 +17,7 @@ const {
 } = vi.hoisted(() => ({
     verifySessionMock: vi.fn(),
     validateSessionFingerprintMock: vi.fn(),
+    generateDeviceFingerprintMock: vi.fn(),
     rotateSessionTokenHashMock: vi.fn(),
     revokeSessionMock: vi.fn(),
     createChallengeMock: vi.fn(),
@@ -26,13 +28,13 @@ const {
     generateRefreshTokenMock: vi.fn(),
     userFindByIdMock: vi.fn(),
 }));
-
 vi.mock("../session/verify-session", () => ({
     verifySession: verifySessionMock,
 }));
 
 vi.mock("../session/fingerprint", () => ({
     validateSessionFingerprint: validateSessionFingerprintMock,
+    generateDeviceFingerprint: generateDeviceFingerprintMock,
 }));
 
 vi.mock("../repositories/session.repo", () => ({
@@ -84,6 +86,7 @@ describe("step-up authentication integration flow", () => {
     beforeEach(() => {
         vi.clearAllMocks();
 
+        generateDeviceFingerprintMock.mockReturnValue("fingerprint-1");
         generateAccessTokenMock.mockReturnValue("next-access-token");
         generateRefreshTokenMock.mockReturnValue("next-refresh-token");
         rotateSessionTokenHashMock.mockResolvedValue({ _id: "session-1" });

@@ -2,28 +2,38 @@ import { verifySession } from "../session/verify-session";
 import { generateAccessToken, generateRefreshToken } from "../tokens/generate";
 import { hashToken } from "../session/token-hash";
 import { revokeSession, rotateSessionTokenHash } from "../repositories/session.repo";
-import { validateSessionFingerprint } from "../session/fingerprint";
+import { generateDeviceFingerprint, validateSessionFingerprint } from "../session/fingerprint";
 import { AuthStepUpRequiredError } from "../errors/auth-errors";
 import { User } from "@/models/User";
 import { createChallenge } from "@/models/StepUpChallenge";
 
 export const refreshService = async ({
     refreshToken,
+    deviceId,
     userAgent,
     ipAddress,
 }: {
     refreshToken: string;
+    deviceId?: string;
     userAgent?: string;
     ipAddress?: string;
 }) => {
     const { payload, session } = await verifySession(refreshToken);
 
+    const incomingDeviceFingerprint = generateDeviceFingerprint({
+        deviceId,
+        userAgent,
+        ipAddress,
+    });
+
     const fingerprint = validateSessionFingerprint({
         stored: {
+            deviceId: session.deviceId,
             userAgent: session.userAgent,
             ipAddress: session.ipAddress,
         },
         incoming: {
+            deviceId: incomingDeviceFingerprint,
             userAgent,
             ipAddress,
         },

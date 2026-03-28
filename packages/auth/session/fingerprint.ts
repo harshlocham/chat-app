@@ -1,15 +1,23 @@
+import { createHash } from "node:crypto";
+
 type FingerprintInput = {
+    deviceId?: string;
     userAgent?: string;
     ipAddress?: string;
 };
 
 export type FingerprintEvaluation = {
     valid: boolean;
+    deviceMismatch: boolean;
     userAgentMismatch: boolean;
     ipBucketMismatch: boolean;
     requiresStepUp: boolean;
-    reasons: Array<"user_agent_mismatch" | "ip_bucket_mismatch">;
+    reasons: Array<"device_mismatch" | "user_agent_mismatch" | "ip_bucket_mismatch">;
 };
+
+function normalizeDeviceId(deviceId?: string): string {
+    return String(deviceId || "").trim().toLowerCase();
+}
 
 function normalizeUserAgent(userAgent?: string): string {
     return String(userAgent || "").trim().toLowerCase();
@@ -42,6 +50,10 @@ export function validateSessionFingerprint({
     stored: FingerprintInput;
     incoming: FingerprintInput;
 }): FingerprintEvaluation {
+    const storedDevice = normalizeDeviceId(stored.deviceId);
+    const incomingDevice = normalizeDeviceId(incoming.deviceId);
+    const deviceMismatch = Boolean(storedDevice && incomingDevice && storedDevice !== incomingDevice);
+
     const storedUa = normalizeUserAgent(stored.userAgent);
     const incomingUa = normalizeUserAgent(incoming.userAgent);
     const userAgentMismatch = Boolean(storedUa && incomingUa && storedUa !== incomingUa);
@@ -52,7 +64,10 @@ export function validateSessionFingerprint({
         storedIpBucket && incomingIpBucket && storedIpBucket !== incomingIpBucket
     );
 
-    const reasons: Array<"user_agent_mismatch" | "ip_bucket_mismatch"> = [];
+    const reasons: Array<"device_mismatch" | "user_agent_mismatch" | "ip_bucket_mismatch"> = [];
+    if (deviceMismatch) {
+        reasons.push("device_mismatch");
+    }
     if (userAgentMismatch) {
         reasons.push("user_agent_mismatch");
     }
@@ -64,9 +79,34 @@ export function validateSessionFingerprint({
 
     return {
         valid: !requiresStepUp,
+        deviceMismatch,
         userAgentMismatch,
         ipBucketMismatch,
         requiresStepUp,
         reasons,
     };
+}
+
+export function generateDeviceFingerprint({
+    deviceId,
+    userAgent,
+    ipAddress,
+}: {
+    deviceId?: string;
+    userAgent?: string;
+    ipAddress?: string;
+}): string {
+    const normalizedDeviceId = normalizeDeviceId(deviceId);
+    if (normalizedDeviceId) {
+        return createHash("sha256")
+            .update(`device:${normalizedDeviceId}`)
+            .digest("hex");
+    }
+
+    const normalizedUa = normalizeUserAgent(userAgent) || "unknown_ua";
+    const normalizedIpBucket = normalizeIpBucket(ipAddress) || "unknown_ip";
+
+    return createHash("sha256")
+        .update(`ua:${normalizedUa}|ip:${normalizedIpBucket}`)
+        .digest("hex");
 }

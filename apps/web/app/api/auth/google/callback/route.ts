@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
     const xForwardedFor = req.headers.get("x-forwarded-for") || "";
     const ipAddress = xForwardedFor.split(",")[0]?.trim() || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
+    const deviceId = req.headers.get("x-device-id") || undefined;
     const { success } = await authGoogleCallbackRateLimiter.limit(ipAddress);
     if (!success) {
         await logAuthEventBestEffort({
@@ -112,6 +113,7 @@ export async function GET(req: NextRequest) {
         const { user, accessToken, refreshToken } = await loginWithGoogleCode({
             code,
             redirectUri: getRedirectUri(req),
+            deviceId,
             userAgent,
             ipAddress,
         });

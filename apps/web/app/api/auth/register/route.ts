@@ -18,12 +18,15 @@ function safeIpAddress(req: NextRequest): string {
 export async function POST(req: NextRequest) {
     const ipAddress = safeIpAddress(req);
     const userAgent = req.headers.get("user-agent") || undefined;
+    const headerDeviceId = req.headers.get("x-device-id") || undefined;
 
     try {
         const body = await req.json();
         const username = String(body?.username || body?.name || "").trim();
         const email = String(body?.email || "").trim();
         const password = String(body?.password || "");
+        const bodyDeviceId = String(body?.deviceId || "").trim() || undefined;
+        const deviceId = bodyDeviceId || headerDeviceId;
 
         const rateLimit = await enforceAuthRateLimit({
             endpoint: "register",
@@ -75,6 +78,7 @@ export async function POST(req: NextRequest) {
 
         const { refreshToken } = await createUserSession({
             userId: user._id.toString(),
+            deviceId,
             userAgent,
             ipAddress,
             tokenVersion: user.tokenVersion || 0,

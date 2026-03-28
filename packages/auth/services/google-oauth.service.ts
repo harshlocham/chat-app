@@ -15,6 +15,7 @@ export type GoogleUserProfile = {
 type LoginWithGoogleCodeInput = {
     code: string;
     redirectUri: string;
+    deviceId?: string;
     userAgent?: string;
     ipAddress?: string;
 };
@@ -215,6 +216,7 @@ async function ensureGoogleProviderLinked(user: IUser, profile: GoogleUserProfil
 export async function loginWithGoogleCode({
     code,
     redirectUri,
+    deviceId,
     userAgent,
     ipAddress,
 }: LoginWithGoogleCodeInput) {
@@ -249,6 +251,7 @@ export async function loginWithGoogleCode({
 
     const { refreshToken } = await createUserSession({
         userId: user._id.toString(),
+        deviceId,
         userAgent,
         ipAddress,
         tokenVersion: user.tokenVersion || 0,

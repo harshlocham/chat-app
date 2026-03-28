@@ -73,26 +73,32 @@ function getCookieRefreshToken(req: NextRequest): string {
     return req.cookies.get(authConfig.cookie.refreshToken)?.value || "";
 }
 
-async function getBodyRefreshToken(req: NextRequest): Promise<string> {
+async function getBodyPayload(req: NextRequest): Promise<{ refreshToken: string; deviceId: string }> {
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
-        return "";
+        return { refreshToken: "", deviceId: "" };
     }
 
     try {
         const body = (await req.json()) as unknown;
         if (!body || typeof body !== "object") {
-            return "";
+            return { refreshToken: "", deviceId: "" };
         }
 
-        const payload = body as { refreshToken?: unknown };
-        if (typeof payload.refreshToken !== "string") {
-            return "";
-        }
+        const payload = body as { refreshToken?: unknown; deviceId?: unknown };
 
-        return payload.refreshToken.trim();
+        return {
+            refreshToken:
+                typeof payload.refreshToken === "string"
+                    ? payload.refreshToken.trim()
+                    : "",
+            deviceId:
+                typeof payload.deviceId === "string"
+                    ? payload.deviceId.trim()
+                    : "",
+        };
     } catch {
-        return "";
+        return { refreshToken: "", deviceId: "" };
     }
 }
 
@@ -110,7 +116,11 @@ export async function POST(req: NextRequest) {
             return authRateLimitResponse(rateLimit);
         }
 
-        const bodyRefreshToken = await getBodyRefreshToken(req);
+        const bodyPayload = await getBodyPayload(req);
+        const bodyRefreshToken = bodyPayload.refreshToken;
+        const bodyDeviceId = bodyPayload.deviceId;
+        const headerDeviceId = req.headers.get("x-device-id") || "";
+        const deviceId = bodyDeviceId || headerDeviceId;
         const cookieRefreshToken = getCookieRefreshToken(req);
         const refreshToken = bodyRefreshToken || cookieRefreshToken;
 
@@ -127,6 +137,7 @@ export async function POST(req: NextRequest) {
 
         const tokens = await refreshService({
             refreshToken,
+            deviceId,
             userAgent: context.userAgent,
             ipAddress: context.ipAddress,
         });

@@ -6,6 +6,7 @@ type CreateSessionInput = {
     sessionId?: string;
     userId: string;
     refreshTokenHash: string;
+    deviceId: string;
     userAgent?: string;
     ipAddress?: string;
 };
@@ -14,6 +15,7 @@ export async function createSession({
     sessionId,
     userId,
     refreshTokenHash,
+    deviceId,
     userAgent,
     ipAddress,
 }: CreateSessionInput): Promise<ISession> {
@@ -23,6 +25,7 @@ export async function createSession({
         _id,
         userId: new Types.ObjectId(userId),
         refreshTokenHash,
+        deviceId,
         userAgent: userAgent || "Unknown",
         ipAddress: ipAddress || "Unknown",
         expiresAt: new Date(Date.now() + authConfig.session.refreshTtlMs),
