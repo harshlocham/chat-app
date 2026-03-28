@@ -12,8 +12,14 @@ export type AuthEventType =
     | "step_up_failed"
     | "logout_success"
     | "logout_failed"
+    | "logout_all_devices_success"
+    | "logout_all_devices_failed"
     | "google_oauth_success"
-    | "google_oauth_failed";
+    | "google_oauth_failed"
+    | "password_changed"
+    | "password_change_failed"
+    | "tokens_revoked"
+    | "tokens_revoked_failed";
 
 export interface IAuthEvent extends mongoose.Document {
     _id: Types.ObjectId;
@@ -46,8 +52,14 @@ const authEventSchema = new Schema<IAuthEvent>(
                 "step_up_failed",
                 "logout_success",
                 "logout_failed",
+                "logout_all_devices_success",
+                "logout_all_devices_failed",
                 "google_oauth_success",
                 "google_oauth_failed",
+                "password_changed",
+                "password_change_failed",
+                "tokens_revoked",
+                "tokens_revoked_failed",
             ],
             index: true,
         },
