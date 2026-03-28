@@ -58,6 +58,10 @@ function toLoginErrorCode(message: string): string {
         return "google_unverified_email";
     }
 
+    if (message === "ACCOUNT_DELETED") {
+        return "account_deleted";
+    }
+
     return "google_oauth_failed";
 }
 

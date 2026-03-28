@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { User } from "@/models/User";
 import { createUserSession } from "../session/create-session";
 import { generateAccessToken } from "../tokens/generate";
+import type { IUser } from "@/models/User";
 
 export type GoogleUserProfile = {
     sub: string;
@@ -22,6 +23,11 @@ type GoogleTokenResponse = {
     access_token: string;
     id_token?: string;
     refresh_token?: string;
+};
+
+type AtomicGoogleUpsertResult = {
+    user: IUser;
+    created: boolean;
 };
 
 function requiredEnv(name: string): string {
@@ -116,6 +122,96 @@ export async function fetchGoogleUserProfile(accessToken: string): Promise<Googl
     return response.json() as Promise<GoogleUserProfile>;
 }
 
+export async function upsertGoogleUserByEmailAtomic(profile: GoogleUserProfile): Promise<AtomicGoogleUpsertResult> {
+    const email = normalizeEmail(profile.email);
+
+    const insertDefaults = {
+        username: profile.name || email.split("@")[0],
+        email,
+        password: "",
+        googleSub: profile.sub,
+        authProviders: ["google"],
+        profilePicture: profile.picture,
+        role: "user",
+        status: "active",
+        isBanned: false,
+        isDeleted: false,
+        isVerified: new Date(),
+        isOnline: false,
+        conversations: [],
+    };
+
+    const writeResult = await User.updateOne(
+        { email },
+        {
+            $setOnInsert: insertDefaults,
+        },
+        { upsert: true }
+    );
+
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new Error("Unable to resolve Google user account");
+    }
+
+    return {
+        user,
+        created: (writeResult.upsertedCount || 0) > 0,
+    };
+}
+
+async function ensureGoogleProviderLinked(user: IUser, profile: GoogleUserProfile): Promise<IUser> {
+    const linkedGoogleSub = typeof user.googleSub === "string" ? user.googleSub : "";
+    const providers = Array.isArray(user.authProviders) ? user.authProviders : [];
+    const hasPasswordProvider = providers.includes("password") || Boolean(user.password && user.password.trim());
+    const hasGoogleProvider = providers.includes("google") || Boolean(linkedGoogleSub);
+
+    if (linkedGoogleSub && linkedGoogleSub !== profile.sub) {
+        throw new Error("GOOGLE_IDENTITY_MISMATCH");
+    }
+
+    // Do not auto-link OAuth identities to password accounts.
+    if (hasPasswordProvider && !hasGoogleProvider) {
+        throw new Error("GOOGLE_ACCOUNT_NOT_LINKED");
+    }
+
+    const needsGoogleSub = !linkedGoogleSub;
+    const needsGoogleProvider = !providers.includes("google");
+    const needsPicture = !user.profilePicture && Boolean(profile.picture);
+
+    if (!needsGoogleSub && !needsGoogleProvider && !needsPicture) {
+        return user;
+    }
+
+    const filter = {
+        _id: user._id,
+        $or: [{ googleSub: { $exists: false } }, { googleSub: "" }, { googleSub: profile.sub }],
+    };
+
+    const setPayload: Record<string, unknown> = {};
+    if (needsGoogleSub) {
+        setPayload.googleSub = profile.sub;
+    }
+    if (needsPicture && profile.picture) {
+        setPayload.profilePicture = profile.picture;
+    }
+
+    const updated = await User.findOneAndUpdate(
+        filter,
+        {
+            ...(Object.keys(setPayload).length > 0 ? { $set: setPayload } : {}),
+            ...(needsGoogleProvider ? { $addToSet: { authProviders: "google" } } : {}),
+        },
+        { new: true }
+    );
+
+    if (!updated) {
+        throw new Error("GOOGLE_IDENTITY_MISMATCH");
+    }
+
+    return updated;
+}
+
 export async function loginWithGoogleCode({
     code,
     redirectUri,
@@ -129,62 +225,19 @@ export async function loginWithGoogleCode({
         throw new Error("Google account email is missing or unverified");
     }
 
-    const email = normalizeEmail(profile.email);
-    let user = await User.findOne({ email });
-
-    if (!user) {
-        user = await User.create({
-            username: profile.name || email.split("@")[0],
-            email,
-            password: "",
-            googleSub: profile.sub,
-            authProviders: ["google"],
-            profilePicture: profile.picture,
-            role: "user",
-            status: "active",
-            isVerified: new Date(),
-            isOnline: false,
-            conversations: [],
-        });
-    }
+    const { user: existingOrCreatedUser } = await upsertGoogleUserByEmailAtomic(profile);
+    let user = await ensureGoogleProviderLinked(existingOrCreatedUser, profile);
 
     if (!user) {
         throw new Error("Unable to resolve Google user account");
     }
 
-    const linkedGoogleSub = typeof user.googleSub === "string" ? user.googleSub : "";
-    const providers = Array.isArray(user.authProviders) ? user.authProviders : [];
-    const hasPasswordProvider = providers.includes("password") || Boolean(user.password && user.password.trim());
-    const hasGoogleProvider = providers.includes("google") || Boolean(linkedGoogleSub);
-
-    if (linkedGoogleSub && linkedGoogleSub !== profile.sub) {
-        throw new Error("GOOGLE_IDENTITY_MISMATCH");
-    }
-
-    // Security hardening: do not auto-link Google to an existing password account.
-    // Explicit account-link flow should be used after password authentication.
-    if (hasPasswordProvider && !hasGoogleProvider) {
-        throw new Error("GOOGLE_ACCOUNT_NOT_LINKED");
-    }
-
-    if (!hasGoogleProvider || !linkedGoogleSub) {
-        user.googleSub = profile.sub;
-    }
-
-    if (!providers.includes("google")) {
-        user.authProviders = [...providers, "google"];
-    }
-
-    if (!user.profilePicture && profile.picture) {
-        user.profilePicture = profile.picture;
-    }
-
-    if (user.isModified()) {
-        await user.save();
-    }
-
     if (user.status && user.status !== "active") {
         throw new Error("Account is not active");
+    }
+
+    if (user.isDeleted) {
+        throw new Error("ACCOUNT_DELETED");
     }
 
     const accessToken = generateAccessToken({

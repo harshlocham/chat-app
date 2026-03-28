@@ -48,5 +48,20 @@ const userSchema = new Schema<IUser>({
     { timestamps: true },
 );
 
+// Primary account identity stays unique by normalized email.
+userSchema.index({ email: 1 }, { unique: true, name: "uniq_user_email" });
+
+// Ensure one Google subject can only map to one account.
+userSchema.index(
+    { googleSub: 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            googleSub: { $type: "string", $gt: "" },
+        },
+        name: "uniq_user_google_sub",
+    }
+);
+
 export const User: Model<IUser> =
     (mongoose.models.User as Model<IUser>) || model<IUser>("User", userSchema);

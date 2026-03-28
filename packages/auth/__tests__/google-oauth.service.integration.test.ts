@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
     userFindOneMock,
-    userCreateMock,
+    userUpdateOneMock,
+    userFindOneAndUpdateMock,
     createUserSessionMock,
     generateAccessTokenMock,
 } = vi.hoisted(() => ({
     userFindOneMock: vi.fn(),
-    userCreateMock: vi.fn(),
+    userUpdateOneMock: vi.fn(),
+    userFindOneAndUpdateMock: vi.fn(),
     createUserSessionMock: vi.fn(),
     generateAccessTokenMock: vi.fn(),
 }));
@@ -15,7 +17,8 @@ const {
 vi.mock("@/models/User", () => ({
     User: {
         findOne: userFindOneMock,
-        create: userCreateMock,
+        updateOne: userUpdateOneMock,
+        findOneAndUpdate: userFindOneAndUpdateMock,
     },
 }));
 
@@ -70,6 +73,8 @@ describe("google-oauth.service integration", () => {
         process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
         process.env.GOOGLE_CLIENT_SECRET = "test-google-client-secret";
 
+        userUpdateOneMock.mockResolvedValue({ upsertedCount: 0 });
+        userFindOneAndUpdateMock.mockResolvedValue(null);
         generateAccessTokenMock.mockReturnValue("access-token");
         createUserSessionMock.mockResolvedValue({ refreshToken: "refresh-token" });
     });
@@ -103,7 +108,7 @@ describe("google-oauth.service integration", () => {
             })
         ).rejects.toThrow("GOOGLE_ACCOUNT_NOT_LINKED");
 
-        expect(userCreateMock).not.toHaveBeenCalled();
+        expect(userUpdateOneMock).toHaveBeenCalled();
         expect(createUserSessionMock).not.toHaveBeenCalled();
     });
 
@@ -135,7 +140,7 @@ describe("google-oauth.service integration", () => {
             })
         ).rejects.toThrow("GOOGLE_IDENTITY_MISMATCH");
 
-        expect(userCreateMock).not.toHaveBeenCalled();
+        expect(userUpdateOneMock).toHaveBeenCalled();
         expect(createUserSessionMock).not.toHaveBeenCalled();
     });
 
@@ -164,8 +169,8 @@ describe("google-oauth.service integration", () => {
             password: "",
         });
 
-        userFindOneMock.mockResolvedValueOnce(null);
-        userCreateMock.mockResolvedValueOnce(createdUser);
+        userUpdateOneMock.mockResolvedValueOnce({ upsertedCount: 1 });
+        userFindOneMock.mockResolvedValueOnce(createdUser);
 
         const result = await loginWithGoogleCode({
             code: "oauth-code",
@@ -174,12 +179,16 @@ describe("google-oauth.service integration", () => {
             ipAddress: "127.0.0.1",
         });
 
-        expect(userCreateMock).toHaveBeenCalledWith(
+        expect(userUpdateOneMock).toHaveBeenCalledWith(
+            { email: "new@example.com" },
             expect.objectContaining({
-                email: "new@example.com",
-                googleSub: "google-sub-new",
-                authProviders: ["google"],
-            })
+                $setOnInsert: expect.objectContaining({
+                    email: "new@example.com",
+                    googleSub: "google-sub-new",
+                    authProviders: ["google"],
+                }),
+            }),
+            { upsert: true }
         );
         expect(generateAccessTokenMock).toHaveBeenCalledWith(
             expect.objectContaining({ sub: "new-user-id", type: "access" })
@@ -214,6 +223,7 @@ describe("google-oauth.service integration", () => {
             isModified: vi.fn(() => false),
         });
 
+        userUpdateOneMock.mockResolvedValueOnce({ upsertedCount: 0 });
         userFindOneMock.mockResolvedValueOnce(existingLinkedUser);
 
         const result = await loginWithGoogleCode({
@@ -223,7 +233,7 @@ describe("google-oauth.service integration", () => {
             ipAddress: "127.0.0.1",
         });
 
-        expect(userCreateMock).not.toHaveBeenCalled();
+        expect(userUpdateOneMock).toHaveBeenCalled();
         expect(generateAccessTokenMock).toHaveBeenCalledWith(
             expect.objectContaining({ sub: "linked-user-id", type: "access" })
         );
