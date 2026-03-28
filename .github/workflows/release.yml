@@ -74,11 +74,12 @@ jobs:
         with:
           # Update versions/changelogs after release PR merge.
           version: npm run version-packages
-          # Private repo: intentionally no npm publish.
-          publish: npm run release
+          # Private repo: create git tags for versioned packages without npm publish.
+          publish: npx changeset tag
           # Create GitHub Releases from generated changesets.
           createGithubReleases: true
           # Configure a git identity for commits and tags.
           setupGitUser: true
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN }}
+          # Prefer dedicated changesets token; fallback to default repo token.
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
