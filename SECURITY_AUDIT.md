@@ -2622,6 +2622,8 @@ test("role changes immediately visible in all layers", async () => {
 - ✅ Implemented: full step-up challenge flow (challenge model + challenge verification endpoint + middleware enforcement + `/auth/challenge` page).
 - ✅ Implemented: step-up integration tests for refresh/challenge success/failure/expiry/reuse scenarios.
 - ✅ Implemented: dedicated best-effort security event logger utility for step-up events.
+- ✅ Implemented: provider-aware OAuth identity resolution (Google subject-first, controlled email fallback, strict mismatch rejection).
+- ✅ Implemented: admin auth-events visibility expansion for revocation + step-up events with event name, outcome, and reason details.
 
 ## Critical Issues (Fix Immediately)
 
@@ -2641,7 +2643,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 8 | **Identity Policy** | OAuth linking remains email-centric | Add provider-aware identity linking policy |
+| 8 | **Identity Policy** | OAuth linking remains email-centric | ✅ Implemented provider-aware linking policy (subject-first + guarded fallback) |
 
 ---
 
@@ -2649,7 +2651,7 @@ test("role changes immediately visible in all layers", async () => {
 
 | # | Category | Issue | Mitigation |
 |---|----------|-------|-----------|
-| 9 | **Visibility** | Admin security event visibility incomplete | Add dashboard/audit UI for step-up and revocation events |
+| 9 | **Visibility** | Admin security event visibility incomplete | ✅ Implemented admin dashboard visibility for step-up + revocation event families |
 
 ---
 
@@ -2657,9 +2659,9 @@ test("role changes immediately visible in all layers", async () => {
 
 | Fix | Complexity | Time | Testing |
 |-----|-----------|------|---------|
-| OAuth provider-aware linking policy hardening | Medium | 4h | 3h |
-| Admin security event visibility (step-up + revocation) | Medium | 3h | 2h |
-| **Total remaining** | | **~7 hours** | **~5 hours** |
+| OAuth provider-aware linking policy hardening | Completed | 0h | 0h |
+| Admin security event visibility (step-up + revocation) | Completed | 0h | 0h |
+| **Total remaining** | | **0 hours** | **0 hours** |
 
 ---
 
@@ -2673,10 +2675,10 @@ test("role changes immediately visible in all layers", async () => {
   - ✅ Enforce step-up in middleware until challenge is verified.
 
 2. **This Week:**
-  - Implement provider-aware account-linking rules for OAuth identities.
+  - ✅ Implemented provider-aware account-linking rules for OAuth identities.
 
 3. **Next Sprint:**
-  - Add admin visibility for revocation and step-up security events in dashboard/audit UI.
+  - ✅ Implemented admin visibility for revocation and step-up security events in dashboard/audit UI.
 
 ---
 
