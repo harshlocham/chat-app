@@ -4,7 +4,6 @@ import { formatDate } from "@/lib/utils/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MessageSeenSvg } from "@/lib/utils/svgs";
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { getAvatarUrl } from "@/lib/utils/imagekit";
 import { useUser } from "@/context/UserContext";
 import useChatStore from "@/store/chat-store";
@@ -22,9 +21,8 @@ function isUser(p: unknown): p is ClientUser {
 }
 
 const Conversation = ({ conversation }: ConversationProps) => {
-    const { data: session } = useSession();
     const { user } = useUser();
-    const currentUserEmail = session?.user?.email;
+    const currentUserEmail = user?.email;
 
     const { setSelectedConversation, selectedConversationId, onlineUsers } = useChatStore();
 

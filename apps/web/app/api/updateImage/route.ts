@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/utils/auth/auth";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 export async function PUT(request: NextRequest) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAuthUser();
+        if (guard.response) {
+            return guard.response;
         }
 
         const { imageUrl } = await request.json();
@@ -20,7 +19,7 @@ export async function PUT(request: NextRequest) {
         await connectToDatabase();
 
         const user = await User.findOneAndUpdate(
-            { email: session.user.email },
+            { _id: guard.user.id },
             { $set: { profilePicture: imageUrl } },
             { new: true }
         );

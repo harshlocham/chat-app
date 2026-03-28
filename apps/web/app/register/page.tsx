@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,14 +109,18 @@ export default function RegisterPage() {
                 throw new Error(data?.error || "Invalid or expired OTP");
             }
 
-            const result = await signIn("credentials", {
-                email: email.trim(),
-                password,
-                redirect: false,
+            const loginRes = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                }),
             });
 
-            if (result?.error) {
-                throw new Error(result.error);
+            if (!loginRes.ok) {
+                const data = await loginRes.json().catch(() => null);
+                throw new Error(data?.error || "Login failed after verification");
             }
 
             toast.success("Account created successfully");

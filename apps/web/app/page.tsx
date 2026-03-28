@@ -1,24 +1,68 @@
 "use client";
 
 //import ChatBox from "@/components/home/ChatBox";
-import LeftPanel from "@/components/home/left-panel";
+import Sidebar from "@/components/home/left-panel";
 import RightPanel from "@/components/home/right-panel";
 import { useOfflineMessageSync } from "@/lib/hooks/useOfflineMessageSync";
+import { useEffect, useState } from "react";
+import useChatStore from "@/store/chat-store";
 
 //import { useTheme } from "next-themes";
 
 export default function Home() {
   //const { setTheme } = useTheme();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const selectedConversationId = useChatStore((s) => s.selectedConversationId);
 
   useOfflineMessageSync();
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const syncViewport = () => setIsMobileViewport(mediaQuery.matches);
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    setIsSidebarOpen(!selectedConversationId);
+  }, [isMobileViewport, selectedConversationId]);
+
+  useEffect(() => {
+    if (!isMobileViewport || !isSidebarOpen) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [isMobileViewport, isSidebarOpen]);
+
   return (
-    <main className='m-5'>
-      <div className='flex overflow-y-hidden h-[calc(100vh-50px)] max-w-[1700px] mx-auto bg-[hsl(var(--gray-secondary))]'>
-        {/* Green background decorator for Light Mode */}
-        <div className='fixed top-0 left-0 w-full h-36 bg-green-primary dark:bg-transparent -z-30' />
+    <main className="min-h-dvh bg-[hsl(var(--gray-secondary))] p-0 sm:p-2 lg:p-5">
+      <div className="relative mx-auto flex h-dvh w-full max-w-[425px] overflow-hidden bg-[hsl(var(--gray-secondary))] sm:h-[calc(100dvh-1rem)] lg:rounded-2xl lg:shadow-2xl">
         {/* <ChatBox /> */}
-        <LeftPanel />
+        <Sidebar
+          isMobileOpen={isSidebarOpen}
+          onMobileClose={
+            selectedConversationId ? () => setIsSidebarOpen(false) : undefined
+          }
+        />
         <RightPanel />
       </div>
     </main>

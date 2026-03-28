@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "redis";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/utils/auth/auth";
+import { requireAdminUser } from "@/lib/utils/auth/requireAdminUser";
 
 const redis = createClient({
     url: process.env.REDIS_URL,
@@ -15,15 +14,11 @@ async function connectRedis() {
 
 export async function GET() {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        const guard = await requireAdminUser();
+        if (guard.response) {
+            return guard.response;
         }
 
-        // Check for admin role
-        if (session.user.role !== "admin") {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
         await connectRedis();
 
         const [activeUsers, totalMessagesTodayRaw] = await Promise.all([

@@ -6,6 +6,7 @@ import { useNetworkStatus } from "./useNetworkStatus";
 import { socket } from "@/lib/socket/socketClient";
 import useChatStore from "@/store/chat-store"; // adjust import path
 import toast from "react-hot-toast";
+import { authenticatedFetch } from "@/lib/utils/api";
 
 export function useOfflineMessageSync() {
     const isOnline = useNetworkStatus();
@@ -52,7 +53,7 @@ export function useOfflineMessageSync() {
 
                     for (let attempt = 1; attempt <= maxRetries; attempt++) {
                         try {
-                            const res = await fetch("/api/messages", {
+                            const res = await authenticatedFetch("/api/messages", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({

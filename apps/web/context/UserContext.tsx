@@ -2,19 +2,70 @@
 "use client";
 
 import { ClientUser } from "@chat/types";
-import Error from "next/error";
 import { createContext, useContext, useMemo } from "react";
 import useSWR from "swr";
+import {
+    isStepUpResponse,
+    parseAuthPayload,
+    redirectToStepUpChallenge,
+    refreshSession,
+} from "@/lib/utils/auth/client-session";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+type MeErrorPayload = {
+    error?: string;
+    code?: string;
+    requiresReauth?: boolean;
+    challengeId?: string;
+};
 
+function wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
+const fetcher = async (url: string, hasRetried = false): Promise<ClientUser | null> => {
+    const res = await fetch(url, { cache: "no-store", credentials: "include" });
+    const rawText = await res.text();
+    const payload = parseAuthPayload(rawText) as MeErrorPayload | ClientUser | null;
+
+    if (!res.ok) {
+        const errorPayload = payload as MeErrorPayload | null;
+
+        if (isStepUpResponse(errorPayload)) {
+            redirectToStepUpChallenge(errorPayload?.challengeId);
+            return null;
+        }
+
+        if (res.status === 401) {
+            if (!hasRetried) {
+                const refreshed = await refreshSession();
+                if (refreshed.ok) {
+                    return fetcher(url, true);
+                }
+
+                if (refreshed.ok === false && refreshed.reason === "transient") {
+                    await wait(250);
+                    const retriedRefresh = await refreshSession();
+                    if (retriedRefresh.ok) {
+                        return fetcher(url, true);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        throw new Error(errorPayload?.error || "Unable to load current user");
+    }
+
+    return (payload as ClientUser) || null;
+};
 
 type UserContextType = {
     user: ClientUser | null;
     isLoading: boolean;
     usersById: Record<string, ClientUser>;
     error: Error | null;
+    refreshUser: () => Promise<ClientUser | null | undefined>;
 };
 
 const UserContext = createContext<UserContextType>({
@@ -22,12 +73,13 @@ const UserContext = createContext<UserContextType>({
     usersById: {},
     isLoading: true,
     error: null,
+    refreshUser: async () => null,
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { data, error, isLoading } = useSWR<ClientUser>("/api/me", fetcher, {
-        dedupingInterval: 60 * 1000,   // avoid duplicate calls
-        revalidateOnFocus: false,      // don’t refetch when switching tabs
+    const { data, error, isLoading, mutate } = useSWR<ClientUser | null>("/api/me", fetcher, {
+        dedupingInterval: 60 * 1000,
+        revalidateOnFocus: false,
     });
     const usersById = useMemo(() => {
         if (!data) return {};
@@ -39,7 +91,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }, [data]);
 
     return (
-        <UserContext.Provider value={{ user: data ?? null, usersById, isLoading, error }}>
+        <UserContext.Provider
+            value={{
+                user: data ?? null,
+                usersById,
+                isLoading,
+                error,
+                refreshUser: () => mutate(),
+            }}
+        >
             {children}
         </UserContext.Provider>
     );

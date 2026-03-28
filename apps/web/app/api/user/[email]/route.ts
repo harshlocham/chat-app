@@ -1,11 +1,17 @@
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";
+import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 
 export async function GET(
     _request: Request,
     { params }: { params: Promise<{ email: string }> }
 ) {
+    const guard = await requireAuthUser();
+    if (guard.response) {
+        return guard.response;
+    }
+
     const { email } = await params;
 
     try {

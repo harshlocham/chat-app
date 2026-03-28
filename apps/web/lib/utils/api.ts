@@ -1,24 +1,115 @@
 import type { ClientConversation, ClientUser, UIMessage } from "@chat/types";
+import {
+    isStepUpResponse,
+    parseAuthPayload,
+    redirectToLogin,
+    redirectToStepUpChallenge,
+    refreshSession,
+} from "@/lib/utils/auth/client-session";
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+type ApiErrorPayload = {
+    error?: string;
+    code?: string;
+    requiresReauth?: boolean;
+    challengeId?: string;
+};
+
+export type AdminAuthEventType = "LOGIN" | "REFRESH" | "REVOKE" | "STEP_UP";
+
+export type AdminAuthEvent = {
+    id: string;
+    eventType: AdminAuthEventType;
+    eventName: string;
+    outcome: "success" | "failure";
+    userId: string | null;
+    timestamp: string;
+    ipAddress: string;
+    userAgent: string;
+    reason?: string;
+};
+
+export type AdminAuthEventsResponse = {
+    events: AdminAuthEvent[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+};
+
+function wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function authenticatedFetch(
+    url: string,
+    init?: RequestInit,
+    hasRetried = false
+): Promise<Response> {
     const response = await fetch(url, {
         ...init,
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
             ...(init?.headers || {}),
         },
     });
 
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Request failed with status ${response.status}`);
+    const responseClone = response.clone();
+    const rawText = await responseClone.text();
+    const payload = parseAuthPayload(rawText) as ApiErrorPayload | null;
+
+    if (response.ok) {
+        return response;
     }
 
-    if (response.status === 204) {
+    if (isStepUpResponse(payload)) {
+        redirectToStepUpChallenge(payload?.challengeId);
+    }
+
+    if (response.status === 401 && !hasRetried && url !== "/api/auth/refresh") {
+        const refreshed = await refreshSession();
+
+        if (refreshed.ok) {
+            return authenticatedFetch(url, init, true);
+        }
+
+        if (refreshed.ok === false && refreshed.reason === "transient") {
+            await wait(250);
+            const retriedRefresh = await refreshSession();
+            if (retriedRefresh.ok) {
+                return authenticatedFetch(url, init, true);
+            }
+
+            if (retriedRefresh.ok === false && retriedRefresh.reason === "unauthorized") {
+                redirectToLogin();
+            }
+        }
+
+        if (refreshed.ok === false && refreshed.reason === "unauthorized") {
+            redirectToLogin();
+        }
+    }
+
+    return response;
+}
+
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+    const response = await authenticatedFetch(url, init);
+
+    const rawText = await response.text();
+    const payload = parseAuthPayload(rawText) as ApiErrorPayload | null;
+
+    if (!response.ok) {
+        throw new Error(payload?.error || rawText || `Request failed with status ${response.status}`);
+    }
+
+    if (response.status === 204 || !rawText) {
         return undefined as T;
     }
 
-    return (await response.json()) as T;
+    return JSON.parse(rawText) as T;
 }
 
 export async function getMe(): Promise<ClientUser> {
@@ -75,4 +166,27 @@ export async function reactToMessage(message: UIMessage, emoji: string) {
         method: "POST",
         body: JSON.stringify({ emoji }),
     });
+}
+
+export async function getAdminAuthEvents(params?: {
+    page?: number;
+    limit?: number;
+    eventType?: AdminAuthEventType;
+    userId?: string;
+    date?: string;
+}): Promise<AdminAuthEventsResponse> {
+    const searchParams = new URLSearchParams();
+
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.eventType) searchParams.set("eventType", params.eventType);
+    if (params?.userId) searchParams.set("userId", params.userId);
+    if (params?.date) searchParams.set("date", params.date);
+
+    const query = searchParams.toString();
+    const data = await request<{ success: boolean; data: AdminAuthEventsResponse }>(
+        `/api/admin/auth-events${query ? `?${query}` : ""}`
+    );
+
+    return data.data;
 }

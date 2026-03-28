@@ -1,8 +1,7 @@
 'use client';
 
-import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import React, { Suspense } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from "@/components/ui/button"
 import ThemeSwitch from "@/components/home/theme-switch";
@@ -17,6 +16,20 @@ import {
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+// Component that uses useSearchParams - wrapped in Suspense
+function StepUpWarning() {
+    const searchParams = useSearchParams();
+    useEffect(() => {
+        const reason = searchParams.get("reason");
+        if (reason === "step-up-required") {
+            toast.warning("Session verification changed. Please sign in again.");
+        }
+    }, [searchParams]);
+    return null;
+}
 
 function Loginpage() {
     const [email, setEmail] = useState("");
@@ -33,19 +46,22 @@ function Loginpage() {
         setPendingAction("credentials");
 
         try {
-            const result = await signIn("credentials", {
-                email: email.trim(),
-                password,
-                redirect: false,
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                }),
             });
 
-            if (result?.error) {
-                console.error(result.error);
-                toast.error(result.error);
-            } else {
-                toast.success("Welcome back");
-                router.push("/");
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.error || "Login failed");
             }
+
+            toast.success("Welcome back");
+            router.push("/");
         } catch (error: unknown) {
             if (error instanceof Error) {
                 toast.error(error.message);
@@ -58,7 +74,11 @@ function Loginpage() {
     }
 
     return (
-        <div className="relative min-h-screen overflow-hidden bg-[hsl(var(--background))] px-4 py-8 sm:px-6">
+        <>
+            <Suspense fallback={null}>
+                <StepUpWarning />
+            </Suspense>
+            <div className="relative min-h-screen overflow-hidden bg-[hsl(var(--background))] px-4 py-8 sm:px-6">
             <div className="pointer-events-none absolute inset-0">
                 <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl" />
                 <div className="absolute -bottom-16 -left-10 h-80 w-80 rounded-full bg-blue-500/10 blur-3xl" />
@@ -153,7 +173,7 @@ function Loginpage() {
                             onClick={async () => {
                                 try {
                                     setPendingAction("google");
-                                    await signIn("google", { callbackUrl: "/" });
+                                    window.location.href = "/api/auth/google/start?callbackUrl=/";
                                 } catch (error) {
                                     if (error instanceof Error) {
                                         toast.error(error.message);
@@ -173,7 +193,8 @@ function Loginpage() {
                     </CardFooter>
                 </Card>
             </div>
-        </div>
+            </div>
+        </>
     )
 }
 export default Loginpage;

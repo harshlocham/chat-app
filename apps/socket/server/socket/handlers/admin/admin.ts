@@ -7,6 +7,14 @@ const MESSAGE_COUNT_KEY = "total_messages_today";
 
 export function adminHandler(io: Server, socket: Socket, redis: RedisAdapterClients) {
     socket.on(SocketEvents.ADMIN_JOIN, async () => {
+        if (!socket.data.isAdmin) {
+            socket.emit(SocketEvents.ERROR_AUTH, {
+                type: "forbidden",
+                message: "Admin access required",
+            });
+            return;
+        }
+
         socket.join("admins");
 
         const [activeUsers, totalMessagesToday] = await Promise.all([

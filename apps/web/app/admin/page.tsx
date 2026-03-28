@@ -4,21 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Charts } from "@/components/admin/Charts";
 import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getClientSocketUrl } from "@/lib/socket/socketConfig";
+import { useUser } from "@/context/UserContext";
+import Link from "next/link";
 
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState({ activeUsers: 0, totalMessagesToday: 0 });
-    const { data: session, status } = useSession();
+    const { user, isLoading } = useUser();
     const router = useRouter();
     useEffect(() => {
-        if (status === "loading") return;
-        if (!session || session.user.role !== "admin") {
+        if (isLoading) return;
+        if (!user || user.role !== "admin") {
             router.replace("/"); // redirect non-admins
         }
-    }, [session, status, router])
+    }, [user, isLoading, router])
     useEffect(() => {
         const socket = io(getClientSocketUrl(), {
             path: "/api/socket",
@@ -49,7 +50,7 @@ export default function AdminDashboard() {
         return () => {
             socket.disconnect();
         };
-    }, [session]);
+    }, [user]);
     console.log(stats);
     return (
         <div className="space-y-6 bg-[hsl(var(--gray-primary)]">
@@ -82,6 +83,18 @@ export default function AdminDashboard() {
                     <CardContent>
                         <p className="text-2xl font-bold">23</p>
                         <p className="text-sm text-muted-foreground">Need review</p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Security</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">Review authentication activity and anomalies.</p>
+                        <Link href="/admin/auth-events" className="mt-3 inline-block text-sm font-semibold underline">
+                            Open Auth Events
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

@@ -123,17 +123,17 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const grouped = groupMessages(messagesByConversation[conversationId] ?? []);
 
     return (
-        <div className="relative flex-1 overflow-auto h-full bg-[hsl(var(--container))] text-[hsl(var(--foreground))]">
+        <div className="relative h-full min-h-0 flex-1 overflow-y-auto bg-[hsl(var(--container))] bg-chat-tile-light bg-repeat pb-24 text-[hsl(var(--foreground))] dark:bg-chat-tile-dark sm:pb-28 lg:pb-0">
             {/* Floating New Messages button */}
             {newMessages && (
                 <button
-                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg z-50 animate-fade-in"
+                    className="fixed bottom-28 left-1/2 z-50 -translate-x-1/2 animate-fade-in rounded-full bg-green-primary px-4 py-2 text-sm text-white shadow-lg sm:bottom-32 lg:bottom-24"
                     onClick={scrollToBottom}
                 >
                     New Messages
                 </button>
             )}
-            <div className="mx-auto flex flex-col gap-3 h-full w-full max-w-3xl px-2 sm:px-6 py-4">
+            <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-2 py-3 sm:px-4 sm:py-4 md:px-6">
                 <div ref={topRef} />
                 <AnimatePresence initial={false}>
                     {user && grouped.map((group) => (

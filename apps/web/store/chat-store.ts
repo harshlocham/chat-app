@@ -101,17 +101,28 @@ const useChatStore = create<ChatStore>((set) => ({
                 };
             }
 
+            const existing = state.conversations.find(
+                (conversation) => String(conversation._id) === selectedConversationId
+            );
+
+            const selectedConversation = {
+                ...(existing || {}),
+                ...conv,
+                unreadCount: 0,
+            } as ClientConversation;
+
+            const conversations = existing
+                ? state.conversations.map((conversation) =>
+                    String(conversation._id) === selectedConversationId
+                        ? selectedConversation
+                        : conversation
+                )
+                : [selectedConversation, ...state.conversations];
+
             return {
                 selectedConversationId,
-                selectedConversation: conv,
-                conversations: state.conversations.map((conversation) =>
-                    String(conversation._id) === selectedConversationId
-                        ? {
-                            ...conversation,
-                            unreadCount: 0,
-                        }
-                        : conversation
-                ),
+                selectedConversation,
+                conversations,
             };
         }),
 

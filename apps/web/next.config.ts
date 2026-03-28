@@ -18,6 +18,7 @@ if (existsSync(rootEnvPath)) {
 const nextConfig: NextConfig = {
   /* config options here */
   //output: 'standalone',
+  transpilePackages: ["@chat/auth"],
   images: {
     domains: [
       "lh3.googleusercontent.com",

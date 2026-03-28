@@ -2,13 +2,22 @@
 import { connectToDatabase } from "@/lib/Db/db";
 import { User } from "@/models/User";
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { authErrorResponse } from "@/lib/utils/auth/authResponses";
+import { isAuthError } from "@/lib/utils/auth/authErrors";
+import { validateAuthUser } from "@/lib/utils/auth/validateAuthUser";
 import mongoose from "mongoose";
 
 
 export async function GET() {
-    const authUser = await getAuthUser();
-    if (!authUser) {
+    let authUser;
+    try {
+        // Optional short TTL Redis cache keeps auth checks fast while still DB-backed.
+        authUser = await validateAuthUser({ useRedisCache: true, cacheTtlSeconds: 45 });
+    } catch (error) {
+        if (isAuthError(error)) {
+            return authErrorResponse(error);
+        }
+
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
