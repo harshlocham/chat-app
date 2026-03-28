@@ -20,7 +20,7 @@ jobs:
     name: Build And Push Socket Image
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.actor == 'github-actions[bot]'
+    if: github.actor == 'github-actions[bot]' || github.actor == github.repository_owner
     outputs:
       version: ${{ steps.meta.outputs.version }}
       image_name: ${{ steps.meta.outputs.image_name }}
