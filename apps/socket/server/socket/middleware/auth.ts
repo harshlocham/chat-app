@@ -99,6 +99,9 @@ export async function socketAuth(
         }
 
         const payload = verifyAccessToken(token);
+
+        // Never trust JWT claims alone; the web internal auth endpoint
+        // revalidates user existence/ban/deletion state against MongoDB.
         const authz = await authorizeSocketIdentity({
             userId: payload.sub,
             tokenVersion: payload.tokenVersion,

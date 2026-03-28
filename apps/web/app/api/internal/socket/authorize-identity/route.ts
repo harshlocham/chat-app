@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/Db/db";
-import { User } from "@/models/User";
+import { AuthError, isAuthError } from "@/lib/utils/auth/authErrors";
+import { validateAuthUserById } from "@/lib/utils/auth/validateAuthUser";
 import {
     getInternalSecret,
     hasValidInternalSecret,
@@ -41,26 +41,37 @@ export async function POST(req: Request) {
         return deny("invalid_token_version", 400);
     }
 
-    await connectToDatabase();
+    try {
+        const user = await validateAuthUserById({
+            userId,
+            tokenVersion,
+            options: { useRedisCache: true, cacheTtlSeconds: 45 },
+        });
 
-    const user = await User.findById(userId)
-        .select("_id role status tokenVersion")
-        .lean<{ role?: "user" | "moderator" | "admin"; status?: string; tokenVersion?: number } | null>();
+        return NextResponse.json({
+            allowed: true,
+            role: user.role,
+        });
+    } catch (error) {
+        if (isAuthError(error)) {
+            return deny(mapAuthErrorToReason(error), error.statusCode);
+        }
 
-    if (!user) {
-        return deny("user_not_found", 403);
+        return deny("authorization_service_error", 500);
     }
+}
 
-    if (user.status && user.status !== "active") {
-        return deny("user_not_active", 403);
+function mapAuthErrorToReason(error: AuthError): string {
+    switch (error.code) {
+        case "AUTH_USER_NOT_FOUND":
+            return "user_not_found";
+        case "AUTH_USER_BANNED":
+            return "user_banned";
+        case "AUTH_USER_DELETED":
+            return "user_deleted";
+        case "AUTH_TOKEN_REVOKED":
+            return "token_version_revoked";
+        default:
+            return "unauthorized";
     }
-
-    if (tokenVersion !== undefined && (user.tokenVersion || 0) !== tokenVersion) {
-        return deny("token_version_revoked", 403);
-    }
-
-    return NextResponse.json({
-        allowed: true,
-        role: user.role || "user",
-    });
 }

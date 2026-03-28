@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AuthUser, getAuthUser } from "@/lib/utils/auth/getAuthUser";
+import { forbiddenResponse, unauthorizedResponse } from "@/lib/utils/auth/authResponses";
 
 type AdminGuardResult =
     | { user: AuthUser; response: null }
@@ -11,14 +12,14 @@ export async function requireAdminUser(): Promise<AdminGuardResult> {
     if (!authUser) {
         return {
             user: null,
-            response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+            response: unauthorizedResponse(),
         };
     }
 
     if (authUser.role !== "admin") {
         return {
             user: null,
-            response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+            response: forbiddenResponse(),
         };
     }
 

@@ -12,6 +12,8 @@ export interface IUser extends Document {
     profilePicture?: string;
     role: 'user' | 'moderator' | 'admin';
     status: 'active' | 'banned';
+    isBanned: boolean;
+    isDeleted: boolean;
     lastSeen: Date;
     isVerified: Date;
     twoFactorEnabled: boolean;
@@ -33,6 +35,8 @@ const userSchema = new Schema<IUser>({
     profilePicture: { type: String },
     isOnline: { type: Boolean, default: false },
     status: { type: String, enum: ['active', 'banned'], default: 'active' },
+    isBanned: { type: Boolean, default: false },
+    isDeleted: { type: Boolean, default: false },
     role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' },
     lastSeen: { type: Date, default: Date.now },
     isVerified: { type: Date },
