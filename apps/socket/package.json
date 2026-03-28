@@ -20,7 +20,7 @@
         "jsonwebtoken": "^9.0.2",
         "mongodb": "^4.17.2",
         "mongoose": "^8.16.2",
-        "nodemailer": "^7.0.13",
+        "nodemailer": "^8.0.4",
         "redis": "^5.9.0",
         "socket.io": "^4.8.1",
         "uuid": "^13.0.0",
