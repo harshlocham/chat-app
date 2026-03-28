@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
-import { authRegisterRateLimiter } from "@/lib/utils/rateLimiter";
+import { authRateLimitResponse, enforceAuthRateLimit } from "@/lib/utils/rateLimiter";
 import {
     buildAccessTokenCookie,
     buildRefreshTokenCookie,
@@ -20,25 +20,28 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || undefined;
 
     try {
-        const { success } = await authRegisterRateLimiter.limit(ipAddress);
-        if (!success) {
-            await logAuthEventBestEffort({
-                eventType: "register_failed",
-                outcome: "failure",
-                ipAddress,
-                userAgent,
-                reason: "rate_limited",
-            });
-            return NextResponse.json(
-                { success: false, error: "Too many registration attempts. Try again later." },
-                { status: 429 }
-            );
-        }
-
         const body = await req.json();
         const username = String(body?.username || body?.name || "").trim();
         const email = String(body?.email || "").trim();
         const password = String(body?.password || "");
+
+        const rateLimit = await enforceAuthRateLimit({
+            endpoint: "register",
+            ipAddress,
+            identifier: email,
+            enableBackoff: true,
+        });
+        if (!rateLimit.allowed) {
+            await logAuthEventBestEffort({
+                eventType: "register_failed",
+                outcome: "failure",
+                email,
+                ipAddress,
+                userAgent,
+                reason: "rate_limited",
+            });
+            return authRateLimitResponse(rateLimit);
+        }
 
         if (!username || !email || !password) {
             await logAuthEventBestEffort({

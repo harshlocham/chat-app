@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/Db/db";
-import { authLoginRateLimiter } from "@/lib/utils/rateLimiter";
+import { authRateLimitResponse, enforceAuthRateLimit } from "@/lib/utils/rateLimiter";
 import {
     buildAccessTokenCookie,
     buildRefreshTokenCookie,
@@ -18,24 +18,27 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get("user-agent") || undefined;
 
     try {
-        const { success } = await authLoginRateLimiter.limit(ipAddress);
-        if (!success) {
+        const body = await req.json();
+        const email = String(body?.email || "").trim();
+        const password = String(body?.password || "");
+
+        const rateLimit = await enforceAuthRateLimit({
+            endpoint: "login",
+            ipAddress,
+            identifier: email,
+            enableBackoff: true,
+        });
+        if (!rateLimit.allowed) {
             await logAuthEventBestEffort({
                 eventType: "login_failed",
                 outcome: "failure",
+                email,
                 ipAddress,
                 userAgent,
                 reason: "rate_limited",
             });
-            return NextResponse.json(
-                { success: false, error: "Too many login attempts. Try again later." },
-                { status: 429 }
-            );
+            return authRateLimitResponse(rateLimit);
         }
-
-        const body = await req.json();
-        const email = String(body?.email || "").trim();
-        const password = String(body?.password || "");
 
         if (!email || !password) {
             await logAuthEventBestEffort({

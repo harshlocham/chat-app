@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authRefreshRateLimiter } from "@/lib/utils/rateLimiter";
+import { authRateLimitResponse, enforceAuthRateLimit } from "@/lib/utils/rateLimiter";
 import { connectToDatabase } from "@/lib/Db/db";
 import {
     AuthStepUpRequiredError,
@@ -100,13 +100,14 @@ export async function POST(req: NextRequest) {
     const context = getRequestContext(req);
 
     try {
-        const { success } = await authRefreshRateLimiter.limit(context.ipAddress);
-        if (!success) {
+        const rateLimit = await enforceAuthRateLimit({
+            endpoint: "refresh",
+            ipAddress: context.ipAddress,
+            enableBackoff: true,
+        });
+        if (!rateLimit.allowed) {
             logRefreshFailure(context, "rate_limited");
-            return NextResponse.json(
-                { success: false, error: "Too many refresh attempts. Try again later." },
-                { status: 429 }
-            );
+            return authRateLimitResponse(rateLimit);
         }
 
         const bodyRefreshToken = await getBodyRefreshToken(req);
