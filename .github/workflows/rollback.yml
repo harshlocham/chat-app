@@ -20,10 +20,20 @@ jobs:
   rollback-production:
     name: Rollback Production
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: production
 
     steps:
+      - name: Validate rollback version input
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected semver tag like v1.2.3"
+            exit 1
+          fi
+
       - name: Resolve rollback metadata
         id: meta
         run: |
