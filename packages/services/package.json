@@ -1,6 +1,6 @@
 {
     "name": "@chat/services",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "dependencies": {
         "@chat/types": "*",
         "zod": "^4.0.5"

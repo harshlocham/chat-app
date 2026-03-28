@@ -1,5 +1,21 @@
 # @chat/redis
 
+## 1.0.3
+
+### Patch Changes
+
+- 86f8cfe: Refactor CI/CD to use Changesets-native package tags for deployment
+
+  - Removed root `v*` tag creation logic from release workflow
+  - Updated deploy workflow to trigger on Changesets tags (`@chat/services@*`)
+  - Implemented strict tag parsing and validation
+  - Added package-specific deployment gating
+  - Improved Docker tagging and metadata extraction
+  - Enforced PAT usage for reliable workflow chaining
+
+- Updated dependencies [86f8cfe]
+  - @chat/types@1.0.3
+
 ## 1.0.2
 
 ### Patch Changes
