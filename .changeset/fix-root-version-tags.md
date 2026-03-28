@@ -6,8 +6,12 @@
 "@chat/types": patch
 ---
 
-Fix release workflow to create root version tags for deploy trigger
+Refactor CI/CD to use Changesets-native package tags for deployment
 
-- **release.yml**: Add step to create root repository version tag (v*) based on highest package version
-- **deploy.yml compatibility**: Root v* tags now enable proper deployment workflow triggering
-- This resolves the issue where release workflow created only package-scoped tags but deploy workflow needed root tags
+- Removed root `v*` tag creation logic from release workflow
+- Updated deploy workflow to trigger on Changesets tags (`@chat/*@*`)
+- Implemented strict tag parsing and validation for package-scoped releases
+- Added package-specific deployment gating (services only)
+- Improved Docker image tagging using extracted package + version metadata
+- Enforced use of PAT for reliable workflow chaining and GHCR authentication
+- Ensures deterministic, scalable monorepo release and deployment pipeline
