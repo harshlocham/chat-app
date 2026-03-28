@@ -19,6 +19,7 @@ jobs:
   release:
     name: Version And Release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
      # Release only from successful CI runs on main.
     if: >
@@ -27,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           # Full history is required for tags and changesets versioning.
           fetch-depth: 0
@@ -53,7 +54,7 @@ jobs:
 
       - name: Setup Node.js 22 with npm cache
         if: steps.release_guard.outputs.already_released != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -69,7 +70,7 @@ jobs:
 
       - name: Create release PR or version and tag
         if: steps.release_guard.outputs.already_released != 'true'
-        uses: changesets/action@v1
+        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           # Update versions/changelogs after release PR merge.
           version: npm run version-packages
