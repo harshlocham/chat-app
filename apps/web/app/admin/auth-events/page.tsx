@@ -154,9 +154,12 @@ export default function AdminAuthEventsPage() {
                     <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr className="border-b text-left">
-                                <th className="p-2">Event Type</th>
+                                <th className="p-2">Group</th>
+                                <th className="p-2">Event</th>
+                                <th className="p-2">Outcome</th>
                                 <th className="p-2">User ID</th>
                                 <th className="p-2">Timestamp</th>
+                                <th className="p-2">Reason</th>
                                 <th className="p-2">IP Address</th>
                                 <th className="p-2">User Agent</th>
                             </tr>
@@ -164,13 +167,13 @@ export default function AdminAuthEventsPage() {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td className="p-3" colSpan={5}>
+                                    <td className="p-3" colSpan={8}>
                                         Loading...
                                     </td>
                                 </tr>
                             ) : events.length === 0 ? (
                                 <tr>
-                                    <td className="p-3" colSpan={5}>
+                                    <td className="p-3" colSpan={8}>
                                         No events found for current filters.
                                     </td>
                                 </tr>
@@ -178,8 +181,13 @@ export default function AdminAuthEventsPage() {
                                 events.map((event) => (
                                     <tr key={event.id} className="border-b">
                                         <td className="p-2 font-medium">{event.eventType}</td>
+                                        <td className="p-2">{event.eventName}</td>
+                                        <td className="p-2">{event.outcome}</td>
                                         <td className="p-2">{event.userId || "-"}</td>
                                         <td className="p-2">{formatTimestamp(event.timestamp)}</td>
+                                        <td className="p-2" title={event.reason || ""}>
+                                            {event.reason ? truncate(event.reason, 72) : "-"}
+                                        </td>
                                         <td className="p-2">{event.ipAddress || "unknown"}</td>
                                         <td className="p-2" title={event.userAgent}>
                                             {truncate(event.userAgent, 96)}

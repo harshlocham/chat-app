@@ -93,13 +93,15 @@ describe("google-oauth.service integration", () => {
             );
         vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-        userFindOneMock.mockResolvedValueOnce(
+        userFindOneMock
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(
             makeUserDoc({
                 password: "hashed-password",
                 googleSub: "",
                 authProviders: ["password"],
             })
-        );
+            );
 
         await expect(
             loginWithGoogleCode({
@@ -108,7 +110,7 @@ describe("google-oauth.service integration", () => {
             })
         ).rejects.toThrow("GOOGLE_ACCOUNT_NOT_LINKED");
 
-        expect(userUpdateOneMock).toHaveBeenCalled();
+        expect(userUpdateOneMock).not.toHaveBeenCalled();
         expect(createUserSessionMock).not.toHaveBeenCalled();
     });
 
@@ -126,12 +128,14 @@ describe("google-oauth.service integration", () => {
             );
         vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
 
-        userFindOneMock.mockResolvedValueOnce(
+        userFindOneMock
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(
             makeUserDoc({
                 googleSub: "google-sub-A",
                 authProviders: ["google"],
             })
-        );
+            );
 
         await expect(
             loginWithGoogleCode({
@@ -140,7 +144,7 @@ describe("google-oauth.service integration", () => {
             })
         ).rejects.toThrow("GOOGLE_IDENTITY_MISMATCH");
 
-        expect(userUpdateOneMock).toHaveBeenCalled();
+        expect(userUpdateOneMock).not.toHaveBeenCalled();
         expect(createUserSessionMock).not.toHaveBeenCalled();
     });
 
@@ -170,7 +174,10 @@ describe("google-oauth.service integration", () => {
         });
 
         userUpdateOneMock.mockResolvedValueOnce({ upsertedCount: 1 });
-        userFindOneMock.mockResolvedValueOnce(createdUser);
+        userFindOneMock
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(createdUser);
 
         const result = await loginWithGoogleCode({
             code: "oauth-code",
@@ -233,10 +240,47 @@ describe("google-oauth.service integration", () => {
             ipAddress: "127.0.0.1",
         });
 
-        expect(userUpdateOneMock).toHaveBeenCalled();
+        expect(userUpdateOneMock).not.toHaveBeenCalled();
         expect(generateAccessTokenMock).toHaveBeenCalledWith(
             expect.objectContaining({ sub: "linked-user-id", type: "access" })
         );
+        expect(createUserSessionMock).toHaveBeenCalledWith(
+            expect.objectContaining({ userId: "linked-user-id" })
+        );
+        expect(result.user).toBe(existingLinkedUser);
+    });
+
+    it("5) resolves account by Google subject even when email changes", async () => {
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce(jsonResponse({ access_token: "google-access-token" }))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    sub: "google-sub-1",
+                    email: "new-email@example.com",
+                    email_verified: true,
+                    name: "User",
+                })
+            );
+        vi.stubGlobal("fetch", fetchMock as unknown as typeof fetch);
+
+        const existingLinkedUser = makeUserDoc({
+            _id: { toString: () => "linked-user-id" },
+            email: "old-email@example.com",
+            googleSub: "google-sub-1",
+            authProviders: ["google"],
+        });
+
+        userFindOneMock.mockResolvedValueOnce(existingLinkedUser);
+
+        const result = await loginWithGoogleCode({
+            code: "oauth-code",
+            redirectUri: "http://localhost:3000/api/auth/google/callback",
+            userAgent: "test-agent",
+            ipAddress: "127.0.0.1",
+        });
+
+        expect(userUpdateOneMock).not.toHaveBeenCalled();
         expect(createUserSessionMock).toHaveBeenCalledWith(
             expect.objectContaining({ userId: "linked-user-id" })
         );

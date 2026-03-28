@@ -20,10 +20,12 @@ export type AdminAuthEvent = {
     id: string;
     eventType: AdminAuthEventType;
     eventName: string;
+    outcome: "success" | "failure";
     userId: string | null;
     timestamp: string;
     ipAddress: string;
     userAgent: string;
+    reason?: string;
 };
 
 export type AdminAuthEventsResponse = {

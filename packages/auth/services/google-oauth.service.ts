@@ -31,6 +31,11 @@ type AtomicGoogleUpsertResult = {
     created: boolean;
 };
 
+type ResolveGoogleUserResult = {
+    user: IUser;
+    created: boolean;
+};
+
 function requiredEnv(name: string): string {
     const value = process.env[name];
     if (!value) {
@@ -161,6 +166,26 @@ export async function upsertGoogleUserByEmailAtomic(profile: GoogleUserProfile):
     };
 }
 
+async function resolveGoogleUserProviderAware(
+    profile: GoogleUserProfile
+): Promise<ResolveGoogleUserResult> {
+    const normalizedEmail = normalizeEmail(profile.email);
+
+    // Provider subject is the strongest stable identifier for Google identities.
+    const byGoogleSub = await User.findOne({ googleSub: profile.sub });
+    if (byGoogleSub) {
+        return { user: byGoogleSub, created: false };
+    }
+
+    // Fallback to email for existing local accounts and controlled linking flows.
+    const byEmail = await User.findOne({ email: normalizedEmail });
+    if (byEmail) {
+        return { user: byEmail, created: false };
+    }
+
+    return upsertGoogleUserByEmailAtomic(profile);
+}
+
 async function ensureGoogleProviderLinked(user: IUser, profile: GoogleUserProfile): Promise<IUser> {
     const linkedGoogleSub = typeof user.googleSub === "string" ? user.googleSub : "";
     const providers = Array.isArray(user.authProviders) ? user.authProviders : [];
@@ -227,7 +252,7 @@ export async function loginWithGoogleCode({
         throw new Error("Google account email is missing or unverified");
     }
 
-    const { user: existingOrCreatedUser } = await upsertGoogleUserByEmailAtomic(profile);
+    const { user: existingOrCreatedUser } = await resolveGoogleUserProviderAware(profile);
     let user = await ensureGoogleProviderLinked(existingOrCreatedUser, profile);
 
     if (!user) {

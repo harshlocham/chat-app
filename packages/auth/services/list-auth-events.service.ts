@@ -16,10 +16,12 @@ export type AdminAuthEventItem = {
     id: string;
     eventType: AdminAuthEventGroup;
     eventName: AuthEventType;
+    outcome: "success" | "failure";
     userId: string | null;
     timestamp: string;
     ipAddress: string;
     userAgent: string;
+    reason?: string;
 };
 
 type ListAuthEventsOutput = {
@@ -35,7 +37,16 @@ type ListAuthEventsOutput = {
 const GROUP_TO_EVENT_TYPES: Record<AdminAuthEventGroup, AuthEventType[]> = {
     LOGIN: ["login_success", "login_failed"],
     REFRESH: ["refresh_success", "refresh_failed"],
-    REVOKE: ["logout_success", "logout_failed"],
+    REVOKE: [
+        "logout_success",
+        "logout_failed",
+        "logout_all_devices_success",
+        "logout_all_devices_failed",
+        "tokens_revoked",
+        "tokens_revoked_failed",
+        "password_changed",
+        "password_change_failed",
+    ],
     STEP_UP: ["step_up_triggered", "step_up_success", "step_up_failed"],
 };
 
@@ -84,11 +95,13 @@ export async function listAuthEvents(input: ListAuthEventsInput = {}): Promise<L
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
-            .select("eventType userId createdAt ipAddress userAgent")
+            .select("eventType outcome reason userId createdAt ipAddress userAgent")
             .lean<
                 Array<{
                     _id: Types.ObjectId;
                     eventType: AuthEventType;
+                    outcome: "success" | "failure";
+                    reason?: string;
                     userId?: Types.ObjectId;
                     createdAt: Date;
                     ipAddress: string;
@@ -102,10 +115,12 @@ export async function listAuthEvents(input: ListAuthEventsInput = {}): Promise<L
         id: doc._id.toString(),
         eventType: toEventGroup(doc.eventType),
         eventName: doc.eventType,
+        outcome: doc.outcome,
         userId: doc.userId ? doc.userId.toString() : null,
         timestamp: doc.createdAt.toISOString(),
         ipAddress: doc.ipAddress,
         userAgent: doc.userAgent,
+        reason: doc.reason,
     }));
 
     return {

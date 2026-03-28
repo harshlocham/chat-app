@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
                 logoutFromAllDevices,
             });
             await logAuthEventBestEffort({
-                eventType: "logout_success",
+                eventType: result.allDevices ? "logout_all_devices_success" : "logout_success",
                 outcome: "success",
                 userId: result.userId,
                 ipAddress,
@@ -57,11 +57,13 @@ export async function POST(req: NextRequest) {
                 metadata: {
                     allDevices: result.allDevices,
                     sessionId: result.sessionId,
+                    tokenVersionBefore: result.tokenVersionBefore,
+                    tokenVersionAfter: result.tokenVersionAfter,
                 },
             });
         } catch (error) {
             await logAuthEventBestEffort({
-                eventType: "logout_failed",
+                eventType: logoutFromAllDevices ? "logout_all_devices_failed" : "logout_failed",
                 outcome: "failure",
                 ipAddress,
                 userAgent,
