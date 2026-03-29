@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         response.headers.append("Set-Cookie", buildAccessTokenCookie(accessToken));
         response.headers.append("Set-Cookie", buildRefreshTokenCookie(refreshToken));
 
-        return response;
+        return NextResponse.json({success:true, response, accessToken, refreshToken}, { status: 200 });
     } catch (error) {
         if (error instanceof Error) {
             await logAuthEventBestEffort({
