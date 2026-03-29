@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         response.headers.append("Set-Cookie", buildAccessTokenCookie(tokens.accessToken));
         response.headers.append("Set-Cookie", buildRefreshTokenCookie(tokens.refreshToken));
 
-        return response;
+        return NextResponse.json({ success: true, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }, { status: 200 });
     } catch (error) {
         if (error instanceof AuthStepUpRequiredError) {
             void logAuthEventBestEffort({
