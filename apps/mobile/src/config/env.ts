@@ -1,16 +1,14 @@
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-const SOCKET_BASE_URL = process.env.EXPO_PUBLIC_SOCKET_URL;
+function requireEnv(name: "EXPO_PUBLIC_API_URL" | "EXPO_PUBLIC_SOCKET_URL") {
+  const value = process.env[name];
 
-export function getApiBaseUrl(): string {
-  if (!API_BASE_URL) {
-    throw new Error("EXPO_PUBLIC_API_URL is not configured");
+  if (!value) {
+    throw new Error(`${name} is not set`);
   }
-  return API_BASE_URL;
+
+  return value.replace(/\/$/, "");
 }
 
-export function getSocketBaseUrl(): string {
-  if (!SOCKET_BASE_URL) {
-    throw new Error("EXPO_PUBLIC_SOCKET_URL is not configured");
-  }
-  return SOCKET_BASE_URL;
-}
+export const ENV = {
+  API_URL: requireEnv("EXPO_PUBLIC_API_URL"),
+  SOCKET_URL: requireEnv("EXPO_PUBLIC_SOCKET_URL"),
+};
