@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-     # Release only from successful CI runs on main.
+    # Release only from successful CI runs on main.
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
@@ -40,16 +40,16 @@ jobs:
         run: |
           set -euo pipefail
           RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
-          git fetch --tags
-          TAGS="$(git tag --points-at "$RELEASE_SHA" | xargs || true)"
-          if [[ -n "$TAGS" ]]; then
+          git fetch --force --tags
+          CLEAN_TAGS="$(git tag --points-at "$RELEASE_SHA" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' | xargs || true)"
+          if [[ -n "$CLEAN_TAGS" ]]; then
             echo "already_released=true" >> "$GITHUB_OUTPUT"
-            echo "found_tags=$TAGS" >> "$GITHUB_OUTPUT"
-            echo "Commit $RELEASE_SHA already has tag(s): $TAGS"
+            echo "found_tags=$CLEAN_TAGS" >> "$GITHUB_OUTPUT"
+            echo "Commit $RELEASE_SHA already has clean release tag(s): $CLEAN_TAGS"
             echo "Skipping release to keep workflow idempotent."
           else
             echo "already_released=false" >> "$GITHUB_OUTPUT"
-            echo "No tags found for commit $RELEASE_SHA."
+            echo "No clean release tags found for commit $RELEASE_SHA."
           fi
 
       - name: Setup Node.js 22 with npm cache
@@ -69,17 +69,119 @@ jobs:
         run: npm run build
 
       - name: Create release PR or version and tag
+        id: changesets
         if: steps.release_guard.outputs.already_released != 'true'
         uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
         with:
           # Update versions/changelogs after release PR merge.
           version: npm run version-packages
-          # Private repo: create git tags for versioned packages without npm publish.
-          publish: npx changeset tag
-          # Create GitHub Releases from generated changesets.
-          createGithubReleases: true
+          # Keep publish as no-op for private repo; clean tag/release is created below.
+          publish: npm run release
+          # We explicitly create a single clean GitHub release tag (vX.Y.Z).
+          createGithubReleases: false
           # Configure a git identity for commits and tags.
           setupGitUser: true
         env:
           # Prefer dedicated changesets token; fallback to default repo token.
           GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Create or resolve clean release tag
+        id: clean_tag
+        run: |
+          set -euxo pipefail
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
+          git fetch --force --tags
+
+          VERSION="$(node -p "require('./packages/services/package.json').version")"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid semantic version in packages/services/package.json: $VERSION"
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+          HAS_CHANGESETS="${{ steps.changesets.outputs.hasChangesets || '' }}"
+          DEPLOYABLE="false"
+
+          EXISTING_SHA="$(git rev-list -n 1 "$TAG" 2>/dev/null || true)"
+
+          if [[ -n "$EXISTING_SHA" ]]; then
+            if [[ "$EXISTING_SHA" == "$RELEASE_SHA" ]]; then
+              DEPLOYABLE="true"
+              echo "Release tag $TAG already points at $RELEASE_SHA"
+            else
+              echo "Tag $TAG already exists at $EXISTING_SHA; current commit is $RELEASE_SHA."
+              echo "Treating this run as non-deployable to avoid accidental retagging."
+            fi
+          elif [[ "$HAS_CHANGESETS" == "true" ]]; then
+            echo "Changesets PR path detected (hasChangesets=true); not creating clean release tag yet."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" "$RELEASE_SHA" -m "Release $TAG"
+            git push origin "$TAG"
+            DEPLOYABLE="true"
+          fi
+
+          echo "deployable=$DEPLOYABLE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update clean GitHub release
+        if: steps.clean_tag.outputs.deployable == 'true'
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        with:
+          tag_name: ${{ steps.clean_tag.outputs.release_tag }}
+          name: ${{ steps.clean_tag.outputs.release_tag }}
+          generate_release_notes: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Resolve deploy signal from git state
+        id: deploy_signal
+        run: |
+          set -euo pipefail
+          RELEASE_SHA="${{ github.event.workflow_run.head_sha }}"
+          git fetch --force --tags
+
+          TAG="${{ steps.clean_tag.outputs.release_tag }}"
+          VERSION="${{ steps.clean_tag.outputs.release_version }}"
+          DEPLOYABLE="${{ steps.clean_tag.outputs.deployable }}"
+
+          if [[ -z "$TAG" || -z "$VERSION" ]]; then
+            echo "::error::Missing clean tag outputs for deploy signal."
+            exit 1
+          fi
+
+          TAG_SHA="$(git rev-list -n 1 "$TAG" 2>/dev/null || true)"
+          if [[ "$DEPLOYABLE" == "true" && "$TAG_SHA" != "$RELEASE_SHA" ]]; then
+            echo "::error::Tag $TAG does not point at expected release SHA $RELEASE_SHA"
+            exit 1
+          fi
+
+          if [[ "$DEPLOYABLE" != "true" ]]; then
+            TAG=""
+            VERSION=""
+          fi
+
+          {
+            printf 'RELEASE_SHA=%s\n' "$RELEASE_SHA"
+            printf 'DEPLOYABLE=%s\n' "$DEPLOYABLE"
+            printf 'RELEASE_TAG=%s\n' "$TAG"
+            printf 'RELEASE_VERSION=%s\n' "$VERSION"
+          } > release-metadata.env
+
+          echo "deployable=$DEPLOYABLE" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "Release metadata generated:"
+          cat release-metadata.env
+
+      - name: Upload release metadata artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-metadata
+          path: release-metadata.env
+          if-no-files-found: error
+          retention-days: 7

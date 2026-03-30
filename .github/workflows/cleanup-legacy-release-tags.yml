@@ -1,0 +1,109 @@
+name: Cleanup Legacy Package Release Tags
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "If true, list what would be deleted without modifying GitHub"
+        required: true
+        default: true
+        type: boolean
+      confirm:
+        description: "Type DELETE_LEGACY_RELEASES to perform deletion when dry_run is false"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cleanup-legacy-release-tags
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup legacy package-scoped tags and releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Validate safety controls
+        run: |
+          set -euo pipefail
+          DRY_RUN="${{ github.event.inputs.dry_run }}"
+          CONFIRM="${{ github.event.inputs.confirm }}"
+
+          if [[ "$DRY_RUN" != "true" && "$CONFIRM" != "DELETE_LEGACY_RELEASES" ]]; then
+            echo "::error::Deletion requires confirm=DELETE_LEGACY_RELEASES when dry_run=false."
+            exit 1
+          fi
+
+      - name: Fetch tags
+        run: |
+          set -euxo pipefail
+          git fetch --force --tags
+
+      - name: Discover legacy package tags
+        id: discover
+        run: |
+          set -euo pipefail
+
+          mapfile -t LEGACY_TAGS < <(
+            git tag \
+              | grep -E '^@chat/[^@]+@[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' \
+              | sort \
+              || true
+          )
+
+          if [[ "${#LEGACY_TAGS[@]}" -eq 0 ]]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No legacy package-scoped tags found."
+            exit 0
+          fi
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          {
+            echo "Legacy tags discovered (${#LEGACY_TAGS[@]}):"
+            printf '%s\n' "${LEGACY_TAGS[@]}"
+          } | tee legacy-tags.txt
+
+      - name: Dry run summary
+        if: steps.discover.outputs.found == 'true' && github.event.inputs.dry_run == 'true'
+        run: |
+          set -euxo pipefail
+          echo "Dry run only. No tags or releases will be deleted."
+          cat legacy-tags.txt
+
+      - name: Delete legacy releases and tags
+        if: steps.discover.outputs.found == 'true' && github.event.inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          while IFS= read -r TAG; do
+            [[ -z "$TAG" ]] && continue
+            echo "Processing legacy tag: $TAG"
+
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "Deleting GitHub release for $TAG"
+              gh release delete "$TAG" --yes
+            else
+              echo "No GitHub release found for $TAG"
+            fi
+
+            echo "Deleting remote git tag $TAG"
+            git push origin ":refs/tags/$TAG"
+
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+              git tag -d "$TAG"
+            fi
+          done < legacy-tags.txt
+
+          echo "Legacy tag cleanup completed."

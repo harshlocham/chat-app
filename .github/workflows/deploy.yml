@@ -3,87 +3,239 @@ name: Deploy
 on:
   workflow_run:
     workflows: ["Release"]
-    types: [completed]
+    types:
+      - completed
 
 permissions:
+  actions: read
   contents: read
   packages: write
 
 concurrency:
-  group: deploy-${{ github.event.workflow_run.head_branch }}
+  # One deploy lane per released commit SHA prevents duplicate concurrent deploys.
+  group: deploy-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 jobs:
   deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
+    # Deploy only from successful Release workflow runs.
     if: >
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
 
     steps:
-      - name: Checkout correct commit
-        uses: actions/checkout@v4
+      - name: Print workflow_run context
+        run: |
+          set -euxo pipefail
+          echo "Triggered by workflow: ${{ github.event.workflow_run.name }}"
+          echo "Release run id: ${{ github.event.workflow_run.id }}"
+          echo "Release branch: ${{ github.event.workflow_run.head_branch }}"
+          echo "Release commit: ${{ github.event.workflow_run.head_sha }}"
+
+      - name: Download release metadata artifact
+        # Consume explicit deploy signal produced by Release workflow run.
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-metadata
+          path: .release-signal
+          run-id: ${{ github.event.workflow_run.id }}
+          repository: ${{ github.repository }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve deploy gate from release metadata
+        id: release_signal
+        run: |
+          set -euxo pipefail
+
+          if [[ ! -f .release-signal/release-metadata.env ]]; then
+            echo "::error::Missing release metadata artifact from Release run."
+            exit 1
+          fi
+
+          # shellcheck disable=SC1091
+          source .release-signal/release-metadata.env
+
+          echo "Release metadata: RELEASE_SHA=${RELEASE_SHA:-} DEPLOYABLE=${DEPLOYABLE:-} RELEASE_TAG=${RELEASE_TAG:-} RELEASE_VERSION=${RELEASE_VERSION:-}"
+
+          if [[ "${RELEASE_SHA:-}" != "${{ github.event.workflow_run.head_sha }}" ]]; then
+            echo "::error::Release metadata SHA does not match workflow_run.head_sha"
+            exit 1
+          fi
+
+          if [[ "${DEPLOYABLE:-false}" != "true" ]]; then
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "No deployable clean release tag was produced by Release. Exiting as deterministic no-op."
+            exit 0
+          fi
+
+          if [[ ! "${RELEASE_TAG:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid release tag format in metadata: ${RELEASE_TAG:-<empty>}"
+            exit 1
+          fi
+
+          if [[ ! "${RELEASE_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid release version format in metadata: ${RELEASE_VERSION:-<empty>}"
+            exit 1
+          fi
+
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG:-}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${RELEASE_VERSION:-}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop early when release is not deployable
+        if: steps.release_signal.outputs.should_deploy != 'true'
+        run: |
+          set -euxo pipefail
+          echo "Skipping deploy because Release marked this run as non-deployable."
+
+      - name: Checkout release commit
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        # Always build/deploy the exact commit that Release processed.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Fetch tags
-        run: git fetch --tags
-
-      - name: Detect latest services tag
-        id: tag
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        # Tags are required to derive package version from git state.
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          git fetch --force --tags
+          git tag --points-at HEAD | sort || true
 
-          TAG=$(git tag --points-at HEAD | grep '^@chat/services@' | head -n 1 || true)
+      - name: Resolve release metadata from git tags
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        id: meta
+        run: |
+          set -euxo pipefail
 
-          if [[ -z "$TAG" ]]; then
-            echo "::error::No services tag found on this commit"
+          EXPECTED_TAG="${{ steps.release_signal.outputs.release_tag }}"
+          EXPECTED_VERSION="${{ steps.release_signal.outputs.release_version }}"
+
+          if [[ -z "$EXPECTED_TAG" || -z "$EXPECTED_VERSION" ]]; then
+            echo "::error::Missing release tag/version from release metadata output."
             exit 1
           fi
 
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Detected tag: $TAG"
+          # Derive release tag only from git state and validate against Release metadata.
+          mapfile -t RELEASE_TAGS < <(
+            git tag --points-at HEAD \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' \
+              | sort \
+              || true
+          )
 
-      - name: Parse tag
-        id: meta
-        run: |
-          set -euo pipefail
+          if [[ "${#RELEASE_TAGS[@]}" -eq 0 ]]; then
+            echo "::error::No valid clean release tag (v*) found on HEAD ($(git rev-parse --short HEAD))."
+            exit 1
+          fi
 
-          TAG="${{ steps.tag.outputs.tag }}"
+          if [[ "${#RELEASE_TAGS[@]}" -gt 1 ]]; then
+            echo "::error::Multiple clean release tags found on HEAD: ${RELEASE_TAGS[*]}"
+            echo "::error::Refusing ambiguous deploy."
+            exit 1
+          fi
 
-          VERSION="${TAG##*@}"
+          TAG="${RELEASE_TAGS[0]}"
+          VERSION="${TAG#v}"
           IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/chat-services"
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
 
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          echo "version_tag=$IMAGE:$VERSION" >> $GITHUB_OUTPUT
-          echo "latest_tag=$IMAGE:latest" >> $GITHUB_OUTPUT
+          if [[ "$TAG" != "$EXPECTED_TAG" ]]; then
+            echo "::error::Git tag on HEAD ($TAG) does not match release metadata tag ($EXPECTED_TAG)."
+            exit 1
+          fi
+
+          if [[ "$VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "::error::Parsed tag version ($VERSION) does not match release metadata version ($EXPECTED_VERSION)."
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "version_tag=$IMAGE:$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=$IMAGE:sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "latest_tag=$IMAGE:latest" >> "$GITHUB_OUTPUT"
+
+          echo "Detected tag: $TAG"
+          echo "Version: $VERSION"
+          echo "Image: $IMAGE"
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.CHANGESETS_GITHUB_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Docker image
+      - name: Set up Docker Buildx
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Check if immutable version image already exists
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        id: image_guard
         run: |
-          docker build \
-            -f docker/socket.Dockerfile \
-            -t "${{ steps.meta.outputs.version_tag }}" \
-            .
+          set -euxo pipefail
+          VERSION_TAG="${{ steps.meta.outputs.version_tag }}"
 
-          docker tag "${{ steps.meta.outputs.version_tag }}" "${{ steps.meta.outputs.latest_tag }}"
+          if docker buildx imagetools inspect "$VERSION_TAG" > /dev/null 2>&1; then
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            echo "Version image already exists: $VERSION_TAG"
+          else
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            echo "Version image does not exist yet: $VERSION_TAG"
+          fi
 
-      - name: Push image
+      - name: Build and push deterministic image tags
+        if: steps.release_signal.outputs.should_deploy == 'true' && steps.image_guard.outputs.should_build == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/socket.Dockerfile
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.version_tag }}
+            ${{ steps.meta.outputs.sha_tag }}
+            ${{ steps.meta.outputs.latest_tag }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+          provenance: false
+
+      - name: Ensure latest points to released version
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        # Even on reruns where version image already exists, keep latest aligned.
         run: |
-          docker push "${{ steps.meta.outputs.version_tag }}"
-          docker push "${{ steps.meta.outputs.latest_tag }}"
+          set -euxo pipefail
+          docker buildx imagetools create \
+            -t "${{ steps.meta.outputs.latest_tag }}" \
+            "${{ steps.meta.outputs.version_tag }}"
+
+      - name: Print published image refs
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        run: |
+          set -euxo pipefail
+          echo "Published immutable tag: ${{ steps.meta.outputs.version_tag }}"
+          echo "Published commit tag:    ${{ steps.meta.outputs.sha_tag }}"
+          echo "Published moving tag:    ${{ steps.meta.outputs.latest_tag }}"
 
       - name: Deploy to staging
-        run: echo "Deploying ${{ steps.meta.outputs.version_tag }} to staging"
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        run: |
+          set -euxo pipefail
+          echo "Deploying ${{ steps.meta.outputs.version_tag }} to staging"
 
       - name: Deploy to production
-        run: echo "Deploying ${{ steps.meta.outputs.version_tag }} to production"
+        if: steps.release_signal.outputs.should_deploy == 'true'
+        run: |
+          set -euxo pipefail
+          echo "Deploying ${{ steps.meta.outputs.version_tag }} to production"
