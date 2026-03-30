@@ -10,6 +10,7 @@
   "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "turbo run dev",
+    "mobile": "npm run start --workspace=mobile",
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
@@ -41,5 +42,9 @@
     "turbo": "^2.8.17",
     "tw-animate-css": "^1.3.4",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   }
 }
