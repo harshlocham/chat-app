@@ -2,6 +2,8 @@ export const PRESENCE_HEARTBEAT_TTL_SECONDS = 12;
 export const MESSAGE_DELIVERY_TTL_SECONDS = 60 * 60 * 24 * 7;
 export const CALL_RINGING_TTL_SECONDS = 45;
 export const CALL_ACTIVE_TTL_SECONDS = 90;
+export const CALL_RECONNECTING_TTL_SECONDS = 30;
+export const CALL_RECONNECT_GRACE_SECONDS = 25;
 export const CALL_TERMINAL_TTL_SECONDS = 60 * 10;
 export const CALL_ACCEPT_LOCK_TTL_SECONDS = 20;
 
@@ -17,6 +19,7 @@ export const redisKeys = {
     callParticipants: (callId: string) => `call:${callId}:participants`,
     callAcceptLock: (callId: string) => `call:${callId}:lock:accept`,
     callSeq: (callId: string, userId: string) => `call:${callId}:seq:${userId}`,
+    callReconnecting: (callId: string) => `call:${callId}:reconnecting`,
     activeUsersSet: "active_users",
 };
 

@@ -55,7 +55,7 @@ export async function initSocket(server: HTTPServer) {
         registerMessageHandlers(io, socket, redis.appClient);
         deliveredHandler(io, socket, redis.appClient);
         SeenHandler(io, socket, redis.appClient);
-        callHandler(io, socket);
+        callHandler(io, socket, redis.appClient);
         typingHandler(io, socket);
         messageEditHandler(io, socket);
         DeleteHandler(io, socket);

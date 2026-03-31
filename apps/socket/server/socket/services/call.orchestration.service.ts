@@ -523,8 +523,8 @@ export async function refreshCallHeartbeat(
         existing.status === "ringing"
             ? CALL_RINGING_TTL_SECONDS
             : existing.status === "reconnecting"
-              ? CALL_RECONNECTING_TTL_SECONDS
-              : CALL_ACTIVE_TTL_SECONDS;
+                ? CALL_RECONNECTING_TTL_SECONDS
+                : CALL_ACTIVE_TTL_SECONDS;
 
     await redis.expire(redisKeys.callState(callId), ttl);
     await redis.expire(redisKeys.userActiveCall(existing.initiatorId), ttl);

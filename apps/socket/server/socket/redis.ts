@@ -20,6 +20,16 @@ class InMemoryRedisBatch {
         return this;
     }
 
+    setnx(key: string, value: string) {
+        this.commands.push(() => this.client.setnx(key, value));
+        return this;
+    }
+
+    expire(key: string, ttl: number) {
+        this.commands.push(() => this.client.expire(key, ttl));
+        return this;
+    }
+
     del(...keys: string[]) {
         this.commands.push(() => this.client.del(...keys));
         return this;
@@ -85,6 +95,28 @@ class InMemoryRedisClient {
 
         this.state.strings.set(key, { value: String(value), expiresAt });
         return "OK";
+    }
+
+    async setnx(key: string, value: string) {
+        this.cleanExpired(key);
+        if (this.state.strings.has(key)) {
+            return 0;
+        }
+
+        this.state.strings.set(key, { value: String(value) });
+        return 1;
+    }
+
+    async expire(key: string, ttl: number) {
+        this.cleanExpired(key);
+        const entry = this.state.strings.get(key);
+        if (!entry) return 0;
+
+        this.state.strings.set(key, {
+            ...entry,
+            expiresAt: Date.now() + ttl * 1000,
+        });
+        return 1;
     }
 
     async get(key: string) {
