@@ -13,9 +13,20 @@ export async function login(email: string, password: string) {
         }
     );
 
-    const { accessToken, refreshToken, user } = res.data;
+    const payload = res.data ?? {};
+    const accessToken = payload.accessToken;
+    const refreshToken = payload.refreshToken;
+
+    // Some server responses wrap user under `response.user` instead of top-level `user`.
+    let user = payload.user ?? payload?.response?.user ?? null;
 
     await tokenStore.setTokens(accessToken, refreshToken);
+
+    // Fallback to /me so app auth state still updates even when login payload shape changes.
+    if (!user) {
+        const me = await api.get("/me");
+        user = me.data;
+    }
 
     return user;
 }
