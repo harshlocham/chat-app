@@ -16,6 +16,7 @@
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.33",
     "expo-application": "~7.0.8",
+    "@react-native-async-storage/async-storage": "^2.1.0",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "prettier-plugin-tailwindcss": "^0.5.14",
