@@ -5,7 +5,6 @@ import {
     Text,
     TextInput,
     View,
-    StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { login } from "../../auth/authService";
@@ -29,64 +28,6 @@ const getUserId = (user: unknown) => {
 
     return null;
 };
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#f1f5f9",
-    },
-    centerContent: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 20,
-    },
-    card: {
-        width: "100%",
-        maxWidth: 400,
-        backgroundColor: "#ffffff",
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: "#e2e8f0",
-        padding: 16,
-        gap: 12,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#0f172a",
-    },
-    subtitle: {
-        fontSize: 14,
-        color: "#64748b",
-    },
-    input: {
-        minHeight: 44,
-        borderWidth: 1,
-        borderColor: "#cbd5e1",
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        fontSize: 16,
-        color: "#0f172a",
-        backgroundColor: "#ffffff",
-    },
-    errorText: {
-        fontSize: 14,
-        color: "#dc2626",
-    },
-    button: {
-        minHeight: 44,
-        justifyContent: "center",
-        alignItems: "center",
-        borderRadius: 12,
-        backgroundColor: "#0f172a",
-    },
-    buttonText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#ffffff",
-    },
-});
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -133,14 +74,14 @@ export default function LoginScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.centerContent}>
-                <View style={styles.card}>
-                    <Text style={styles.title}>Welcome Back</Text>
-                    <Text style={styles.subtitle}>Sign in to continue.</Text>
+        <SafeAreaView className="flex-1 bg-slate-100">
+            <View className="flex-1 justify-center items-center px-5">
+                <View className="w-full max-w-96 bg-white rounded-2xl border border-slate-200 p-4 gap-3">
+                    <Text className="text-2xl font-bold text-slate-900">Welcome Back</Text>
+                    <Text className="text-sm text-slate-500">Sign in to continue.</Text>
 
                     <TextInput
-                        style={styles.input}
+                        className="min-h-11 border border-slate-300 rounded-xl px-3 text-base text-slate-900 bg-white"
                         placeholder="Email"
                         placeholderTextColor="#94A3B8"
                         autoCapitalize="none"
@@ -150,7 +91,7 @@ export default function LoginScreen() {
                     />
 
                     <TextInput
-                        style={styles.input}
+                        className="min-h-11 border border-slate-300 rounded-xl px-3 text-base text-slate-900 bg-white"
                         placeholder="Password"
                         placeholderTextColor="#94A3B8"
                         secureTextEntry
@@ -159,18 +100,18 @@ export default function LoginScreen() {
                     />
 
                     {errorMessage ? (
-                        <Text style={styles.errorText}>{errorMessage}</Text>
+                        <Text className="text-sm text-red-600">{errorMessage}</Text>
                     ) : null}
 
                     <Pressable
-                        style={styles.button}
+                        className="min-h-11 justify-center items-center rounded-xl bg-slate-900"
                         onPress={handleLogin}
                         disabled={submitting}
                     >
                         {submitting ? (
                             <ActivityIndicator color="#FFFFFF" />
                         ) : (
-                            <Text style={styles.buttonText}>Sign in</Text>
+                            <Text className="text-base font-semibold text-white">Sign in</Text>
                         )}
                     </Pressable>
                 </View>
