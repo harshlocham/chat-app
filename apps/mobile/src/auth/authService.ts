@@ -1,5 +1,6 @@
 import api from "../api/client";
 import { tokenStore } from "./tokenStore";
+import { useChatStore } from "../store/chatStore";
 
 export async function login(email: string, password: string) {
     const deviceId = await tokenStore.getOrCreateDeviceId();
@@ -54,5 +55,6 @@ export async function logout() {
         console.log("Logout API failed (safe to ignore)", e);
     } finally {
         await tokenStore.clearTokens();
+        useChatStore.getState().resetChatSession();
     }
 }
