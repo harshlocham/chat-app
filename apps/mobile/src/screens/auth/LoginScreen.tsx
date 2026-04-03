@@ -10,6 +10,25 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { login } from "../../auth/authService";
 import { useAuthStore } from "../../store/authStore";
+import { useChatStore } from "../../store/chatStore";
+
+const getUserId = (user: unknown) => {
+    if (!user || typeof user !== "object") {
+        return null;
+    }
+
+    const value = user as { id?: unknown; _id?: unknown };
+
+    if (typeof value.id === "string") {
+        return value.id;
+    }
+
+    if (typeof value._id === "string") {
+        return value._id;
+    }
+
+    return null;
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -75,6 +94,8 @@ export default function LoginScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const setUser = useAuthStore.getState().setUser;
+    const setCurrentUserId = useChatStore((s) => s.setCurrentUserId);
+    const resetChatSession = useChatStore((s) => s.resetChatSession);
 
     const handleLogin = async () => {
         if (submitting) return;
@@ -90,7 +111,9 @@ export default function LoginScreen() {
 
         try {
             const user = await login(trimmedEmail, password);
+            resetChatSession();
             setUser(user);
+            setCurrentUserId(getUserId(user));
         } catch (e: any) {
             const status = e?.response?.status;
             const serverMessage = e?.response?.data?.error;
