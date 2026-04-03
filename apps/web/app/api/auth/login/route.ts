@@ -87,12 +87,14 @@ export async function POST(req: NextRequest) {
                 status: user.status,
                 profilePicture: user.profilePicture || null,
             },
+            accessToken,
+            refreshToken,
         });
 
         response.headers.append("Set-Cookie", buildAccessTokenCookie(accessToken));
         response.headers.append("Set-Cookie", buildRefreshTokenCookie(refreshToken));
 
-        return NextResponse.json({success:true, response, accessToken, refreshToken}, { status: 200 });
+        return response;
     } catch (error) {
         if (error instanceof Error) {
             await logAuthEventBestEffort({
