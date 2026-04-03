@@ -74,8 +74,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState("");
     const [submitting, setSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
-
-    const setUser = useAuthStore((s) => s.setUser);
+    const setUser = useAuthStore.getState().setUser;
 
     const handleLogin = async () => {
         if (submitting) return;
