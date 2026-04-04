@@ -3,6 +3,17 @@ export default function (api) {
 
     return {
         presets: ["babel-preset-expo", "nativewind/babel"],
-        plugins: ["react-native-reanimated/plugin"],
+        plugins: [
+            [
+                "module-resolver",
+                {
+                    root: ["./src"],
+                    alias: {
+                        "@": "./src",
+                    },
+                },
+            ],
+            "react-native-reanimated/plugin",
+        ],
     };
 };
