@@ -4,7 +4,7 @@ import ProfileScreen from "@/features/profile/screens/ProfileScreen";
 import SettingsScreen from "@/features/profile/screens/SettingsScreen";
 import type { ProfileStackParamList } from "@/app/navigation/types";
 
-const Stack = createNativeStackNavigator<ProfileStackParamList>();
+const Stack = createStackNavigator<ProfileStackParamList>();
 
 export default function ProfileStack() {
     return (

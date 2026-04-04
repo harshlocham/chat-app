@@ -12,7 +12,7 @@ import AuthStack from "./AuthStack";
 import AppStack from "./AppStack";
 import type { RootStackParamList } from "./types";
 
-const RootStack = createNativeStackNavigator<RootStackParamList>();
+const RootStack = createStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
     const { loading, isAuthenticated } = useAuthBootstrap();

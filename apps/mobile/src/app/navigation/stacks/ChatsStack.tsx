@@ -4,7 +4,7 @@ import ChatsList from "@/features/chat/screens/ChatsList";
 import ChatScreen from "@/features/chat/screens/ChatScreen";
 import type { ChatsStackParamList } from "@/app/navigation/types";
 
-const Stack = createNativeStackNavigator<ChatsStackParamList>();
+const Stack = createStackNavigator<ChatsStackParamList>();
 
 export default function ChatsStack() {
     return (

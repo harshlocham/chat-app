@@ -4,7 +4,7 @@ import CallsList from "@/features/calls/screens/CallsList";
 import CallHistoryDetail from "@/features/calls/screens/CallHistoryDetail";
 import type { CallsStackParamList } from "@/app/navigation/types";
 
-const Stack = createNativeStackNavigator<CallsStackParamList>();
+const Stack = createStackNavigator<CallsStackParamList>();
 
 export default function CallsStack() {
     return (

@@ -3,7 +3,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import TabsNavigator from "./TabsNavigator";
 import type { AppStackParamList } from "./types";
 
-const Stack = createNativeStackNavigator<AppStackParamList>();
+const Stack = createStackNavigator<AppStackParamList>();
 
 export default function AppStack() {
     return (
