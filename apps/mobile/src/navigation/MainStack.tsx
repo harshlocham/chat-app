@@ -1,26 +1,23 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 
-import ChatScreen from "../screens/chat/ChatScreen";
+import TabsNavigator from "./TabsNavigator";
 // future:
 // import ConversationListScreen from "../screens/home/ConversationListScreen";
 // import ProfileScreen from "../screens/profile/ProfileScreen";
 
 export type MainStackParamList = {
-    Chat: undefined;
+    MainTabs: undefined;
+    profile: undefined;
     // Conversations: undefined;
     // Profile: undefined;
 };
 
-const Stack = createNativeStackNavigator<MainStackParamList>();
+const Stack = createStackNavigator<MainStackParamList>();
 
 export default function MainStack() {
     return (
         <Stack.Navigator id="MainStack">
-            <Stack.Screen
-                name="Chat"
-                component={ChatScreen}
-                options={{ title: "Chat" }}
-            />
+            <Stack.Screen name="MainTabs" component={TabsNavigator} />
         </Stack.Navigator>
     );
 }
