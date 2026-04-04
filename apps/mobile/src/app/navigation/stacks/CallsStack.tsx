@@ -1,4 +1,4 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 
 import CallsList from "@/features/calls/screens/CallsList";
 import CallHistoryDetail from "@/features/calls/screens/CallHistoryDetail";

@@ -1,11 +1,11 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { ProfileStackParamList } from "@/app/navigation/types";
 import { useThemeContext } from "@/app/providers/ThemeProvider";
 
-type ProfileScreenProps = NativeStackScreenProps<ProfileStackParamList, "Profile">;
+type ProfileScreenProps = StackScreenProps<ProfileStackParamList, "Profile">;
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     const { theme, resolvedTheme, setTheme } = useThemeContext();

@@ -1,5 +1,5 @@
 import { CompositeNavigationProp } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { StackNavigationProp } from "@react-navigation/stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,10 +11,10 @@ import type {
 } from "@/app/navigation/types";
 
 type ChatsListNavigationProp = CompositeNavigationProp<
-    NativeStackNavigationProp<ChatsStackParamList, "ChatsList">,
+    StackNavigationProp<ChatsStackParamList, "ChatsList">,
     CompositeNavigationProp<
         BottomTabNavigationProp<TabsParamList, "ChatsTab">,
-        NativeStackNavigationProp<RootStackParamList>
+        StackNavigationProp<RootStackParamList>
     >
 >;
 

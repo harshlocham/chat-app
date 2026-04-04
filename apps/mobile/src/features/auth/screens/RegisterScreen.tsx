@@ -1,4 +1,4 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { useState } from "react";
 import {
     ActivityIndicator,
@@ -16,7 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import api from "@/features/auth/api/client";
 import type { AuthStackParamList } from "@/app/navigation/types";
 
-type RegisterScreenProps = NativeStackScreenProps<AuthStackParamList, "Register">;
+type RegisterScreenProps = StackScreenProps<AuthStackParamList, "Register">;
 
 export default function RegisterScreen({ navigation }: RegisterScreenProps) {
     const { height } = useWindowDimensions();

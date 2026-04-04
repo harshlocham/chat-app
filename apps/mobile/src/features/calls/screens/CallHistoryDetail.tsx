@@ -1,10 +1,10 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { CallsStackParamList } from "@/app/navigation/types";
 
-type CallHistoryDetailProps = NativeStackScreenProps<CallsStackParamList, "CallHistoryDetail">;
+type CallHistoryDetailProps = StackScreenProps<CallsStackParamList, "CallHistoryDetail">;
 
 export default function CallHistoryDetail({ route }: CallHistoryDetailProps) {
     return (

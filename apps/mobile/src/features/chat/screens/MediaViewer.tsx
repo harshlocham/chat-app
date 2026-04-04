@@ -1,10 +1,10 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { RootStackParamList } from "@/app/navigation/types";
 
-type MediaViewerProps = NativeStackScreenProps<RootStackParamList, "MediaViewer">;
+type MediaViewerProps = StackScreenProps<RootStackParamList, "MediaViewer">;
 
 export default function MediaViewer({ navigation, route }: MediaViewerProps) {
     return (

@@ -1,4 +1,4 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { useState } from "react";
 import {
     ActivityIndicator,
@@ -17,7 +17,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { useChatStore } from "@/features/chat/store/chatStore";
 import type { AuthStackParamList } from "@/app/navigation/types";
 
-type LoginScreenProps = NativeStackScreenProps<AuthStackParamList, "Login">;
+type LoginScreenProps = StackScreenProps<AuthStackParamList, "Login">;
 
 const getUserId = (user: unknown) => {
     if (!user || typeof user !== "object") {

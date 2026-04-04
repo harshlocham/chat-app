@@ -1,4 +1,4 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 
 import ProfileScreen from "@/features/profile/screens/ProfileScreen";
 import SettingsScreen from "@/features/profile/screens/SettingsScreen";

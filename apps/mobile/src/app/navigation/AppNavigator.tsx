@@ -1,5 +1,5 @@
 import { NavigationContainer } from "@react-navigation/native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import { ActivityIndicator, View } from "react-native";
 
 import { ThemeProvider } from "@/app/providers/ThemeProvider";

@@ -1,4 +1,4 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 
 import ChatsList from "@/features/chat/screens/ChatsList";
 import ChatScreen from "@/features/chat/screens/ChatScreen";

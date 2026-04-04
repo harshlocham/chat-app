@@ -1,10 +1,10 @@
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { StackScreenProps } from "@react-navigation/stack";
 import { Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { CallsStackParamList } from "@/app/navigation/types";
 
-type CallsListProps = NativeStackScreenProps<CallsStackParamList, "CallsList">;
+type CallsListProps = StackScreenProps<CallsStackParamList, "CallsList">;
 
 export default function CallsList({ navigation }: CallsListProps) {
     return (
