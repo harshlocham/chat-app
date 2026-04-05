@@ -38,17 +38,17 @@ export default function AppNavigator() {
                     <RootStack.Screen
                         name="CallScreen"
                         component={CallScreen}
-                        options={{ presentation: "fullScreenModal" }}
+                        options={{ presentation: "modal" }}
                     />
                     <RootStack.Screen
                         name="IncomingCall"
                         component={IncomingCall}
-                        options={{ presentation: "fullScreenModal" }}
+                        options={{ presentation: "modal" }}
                     />
                     <RootStack.Screen
                         name="MediaViewer"
                         component={MediaViewer}
-                        options={{ presentation: "fullScreenModal" }}
+                        options={{ presentation: "modal" }}
                     />
                 </RootStack.Navigator>
             </NavigationContainer>

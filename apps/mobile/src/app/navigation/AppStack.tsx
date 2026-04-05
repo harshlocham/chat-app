@@ -1,6 +1,6 @@
 import { createStackNavigator } from "@react-navigation/stack";
-
 import TabsNavigator from "./TabsNavigator";
+
 import type { AppStackParamList } from "./types";
 
 const Stack = createStackNavigator<AppStackParamList>();

@@ -28,6 +28,11 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "root": "src/routes"
+      }
+    }
   }
 }
