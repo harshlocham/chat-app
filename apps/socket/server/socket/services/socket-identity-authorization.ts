@@ -11,44 +11,65 @@ type AuthorizeSocketIdentityInput = {
     tokenVersion?: number;
 };
 
-function getInternalWebServerUrl(): string {
-    return (
-        process.env.WEB_SERVER_URL?.trim() ||
-        process.env.ORIGIN?.trim() ||
-        "http://localhost:3000"
-    );
+function normalizeUrl(value: string): string {
+    return value.trim().replace(/\/$/, "");
+}
+
+function getInternalWebServerUrls(): string[] {
+    const configuredWeb = process.env.WEB_SERVER_URL?.trim();
+    const configuredOrigin = process.env.ORIGIN
+        ?.split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+
+    const candidates = [
+        configuredWeb,
+        ...(configuredOrigin ?? []),
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+    ].filter(Boolean) as string[];
+
+    return Array.from(new Set(candidates.map(normalizeUrl)));
 }
 
 export async function authorizeSocketIdentity(
     payload: AuthorizeSocketIdentityInput
 ): Promise<SocketIdentityAuthorizationResponse> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5_000);
+    const urls = getInternalWebServerUrls();
 
-    try {
-        const response = await fetch(
-            `${getInternalWebServerUrl()}/api/internal/socket/authorize-identity`,
-            {
-                method: "POST",
-                headers: createInternalRequestHeaders(),
-                body: JSON.stringify(payload),
-                signal: controller.signal,
+    for (const baseUrl of urls) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5_000);
+
+        try {
+            const response = await fetch(
+                `${baseUrl}/api/internal/socket/authorize-identity`,
+                {
+                    method: "POST",
+                    headers: createInternalRequestHeaders(),
+                    body: JSON.stringify(payload),
+                    signal: controller.signal,
+                }
+            );
+
+            if (!response.ok) {
+                continue;
             }
-        );
 
-        if (!response.ok) {
-            return { allowed: false, reason: "authorization_service_unavailable" };
+            const data = (await response.json()) as SocketIdentityAuthorizationResponse;
+            return {
+                allowed: Boolean(data?.allowed),
+                role: data?.role,
+                reason: data?.reason,
+            };
+        } catch {
+            // Try next candidate URL.
+        } finally {
+            clearTimeout(timeout);
         }
-
-        const data = (await response.json()) as SocketIdentityAuthorizationResponse;
-        return {
-            allowed: Boolean(data?.allowed),
-            role: data?.role,
-            reason: data?.reason,
-        };
-    } catch {
-        return { allowed: false, reason: "authorization_service_error" };
-    } finally {
-        clearTimeout(timeout);
     }
+
+    return { allowed: false, reason: "authorization_service_unavailable" };
 }

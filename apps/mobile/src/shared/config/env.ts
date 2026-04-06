@@ -1,5 +1,5 @@
 function requireEnv(name: "EXPO_PUBLIC_API_URL" | "EXPO_PUBLIC_SOCKET_URL") {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
 
   if (!value) {
     throw new Error(`${name} is not set`);
