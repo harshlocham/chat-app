@@ -11,12 +11,15 @@ import { SeenHandler } from "./handlers/delivery/seen.handler.js";
 import { callHandler } from "./handlers/call/call.handler.js";
 import { cleanupStaleActiveUsers } from "./services/presence.redis.service.js";
 import { SocketEvents } from "@chat/types";
-import { User } from "../../../../packages/db/models/User.js";
+import * as UserModel from "../../../../packages/db/models/User.js";
 
 import { typingHandler } from "./handlers/typing/typing.handler.js";
 import type { Socket } from "socket.io";
 import { registerIO } from "./emit.js";
 import type { Server as HTTPServer } from "http";
+
+const User = (UserModel as { User?: any; default?: any }).User
+    ?? (UserModel as { default?: any }).default;
 
 export async function initSocket(server: HTTPServer) {
     const redis = await initRedis();
