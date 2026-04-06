@@ -1,11 +1,11 @@
 import { StackScreenProps } from "@react-navigation/stack";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { ChatsStackParamList } from "@/app/navigation/types";
 import PresenceDot from "@/components/common/PresenceDot";
-import ChatBubble from "@/features/chat/components/ChatBubble";
+import GroupedMessageList from "@/features/chat/components/GroupedMessageList";
 import MessageInput from "@/features/chat/components/MessageInput";
 import TypingIndicator from "@/features/chat/components/TypingIndicator";
 import { useAuthStore } from "@/features/auth/store/authStore";
@@ -227,35 +227,15 @@ export default function ChatScreen({ route }: ChatScreenProps) {
                     </View>
                 ) : (
                     <View className="flex-1">
-                        <FlatList
-                            inverted
-                            contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-                            data={storeMessages}
-                            keyExtractor={(item) => item._id}
-                            renderItem={({ item }) => (
-                                <ChatBubble
-                                    message={item}
-                                    isMine={Boolean(currentUserId && item.sender._id === currentUserId)}
-                                />
-                            )}
-                            onEndReachedThreshold={0.2}
-                            onEndReached={() => {
-                                if (hasNextPage && !isFetchingNextPage) {
-                                    void fetchNextPage();
-                                }
+                        <GroupedMessageList
+                            messages={storeMessages}
+                            currentUserId={currentUserId}
+                            hasNextPage={hasNextPage}
+                            isFetchingNextPage={isFetchingNextPage}
+                            onFetchNextPage={() => {
+                                void fetchNextPage();
                             }}
-                            ListFooterComponent={
-                                isFetchingNextPage ? (
-                                    <View className="items-center py-3">
-                                        <ActivityIndicator />
-                                    </View>
-                                ) : null
-                            }
-                            ListEmptyComponent={
-                                <View className="flex-1 items-center justify-center px-6 py-10">
-                                    <Text className="text-sm text-slate-500 dark:text-slate-400">No messages yet.</Text>
-                                </View>
-                            }
+                            emptyLabel="No messages yet."
                         />
 
                         <TypingIndicator typingUsers={typingUsers} currentUserId={currentUserId} />
