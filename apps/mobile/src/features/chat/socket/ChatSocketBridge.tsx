@@ -8,6 +8,9 @@ import { ChatSocketEvents } from "./chatSocket";
 export default function ChatSocketBridge() {
     const { connected, emit, on, off } = useSocket();
     const selectedConversationId = useChatStore((state) => state.selectedConversationId);
+    const setTypingUser = useChatStore((state) => state.setTypingUser);
+    const removeTypingUser = useChatStore((state) => state.removeTypingUser);
+    const clearTypingUsers = useChatStore((state) => state.clearTypingUsers);
     const previousConversationIdRef = useRef<string | null>(null);
 
     const handleConnect = useCallback(() => {
@@ -51,6 +54,40 @@ export default function ChatSocketBridge() {
         useChatStore.getState().markMessageSeen(messageId, userId);
     }, []);
 
+    const handleTypingStart = useCallback((payload: unknown) => {
+        const value = payload as {
+            conversationId?: unknown;
+            userId?: unknown;
+            username?: unknown;
+            profilePicture?: unknown;
+        };
+
+        const conversationId = chatStoreUtils.toStringId(value.conversationId);
+        const userId = chatStoreUtils.toStringId(value.userId);
+
+        if (!conversationId || !userId) {
+            return;
+        }
+
+        setTypingUser(conversationId, {
+            _id: userId,
+            username: typeof value.username === "string" && value.username.trim() ? value.username : "User",
+            profilePicture: typeof value.profilePicture === "string" ? value.profilePicture : null,
+        });
+    }, [setTypingUser]);
+
+    const handleTypingStop = useCallback((payload: unknown) => {
+        const value = payload as { conversationId?: unknown; userId?: unknown };
+        const conversationId = chatStoreUtils.toStringId(value.conversationId);
+        const userId = chatStoreUtils.toStringId(value.userId);
+
+        if (!conversationId || !userId) {
+            return;
+        }
+
+        removeTypingUser(conversationId, userId);
+    }, [removeTypingUser]);
+
     const handleSyncMessages = useCallback((payload: unknown) => {
         const value = payload as { conversationId?: unknown; messages?: unknown[]; appendToTop?: boolean };
         const conversationId = chatStoreUtils.toStringId(value.conversationId);
@@ -84,6 +121,8 @@ export default function ChatSocketBridge() {
         on("connect", handleConnect);
         on(ChatSocketEvents.MESSAGE_NEW, handleMessageNew);
         on(ChatSocketEvents.MESSAGE_SEEN, handleMessageSeen);
+        on(ChatSocketEvents.TYPING_START, handleTypingStart);
+        on(ChatSocketEvents.TYPING_STOP, handleTypingStop);
         on(ChatSocketEvents.SYNC_MESSAGES, handleSyncMessages);
         on(ChatSocketEvents.SYNC_CONVERSATIONS, handleSyncConversations);
         on(ChatSocketEvents.CONVERSATION_UPDATED, handleConversationUpdated);
@@ -92,11 +131,13 @@ export default function ChatSocketBridge() {
             off("connect", handleConnect);
             off(ChatSocketEvents.MESSAGE_NEW, handleMessageNew);
             off(ChatSocketEvents.MESSAGE_SEEN, handleMessageSeen);
+            off(ChatSocketEvents.TYPING_START, handleTypingStart);
+            off(ChatSocketEvents.TYPING_STOP, handleTypingStop);
             off(ChatSocketEvents.SYNC_MESSAGES, handleSyncMessages);
             off(ChatSocketEvents.SYNC_CONVERSATIONS, handleSyncConversations);
             off(ChatSocketEvents.CONVERSATION_UPDATED, handleConversationUpdated);
         };
-    }, [handleConnect, handleConversationUpdated, handleMessageNew, handleMessageSeen, handleSyncConversations, handleSyncMessages, off, on]);
+    }, [handleConnect, handleConversationUpdated, handleMessageNew, handleMessageSeen, handleSyncConversations, handleSyncMessages, handleTypingStart, handleTypingStop, off, on]);
 
     useEffect(() => {
         if (!connected) {
@@ -107,6 +148,7 @@ export default function ChatSocketBridge() {
 
         if (previousConversationId && previousConversationId !== selectedConversationId) {
             emit(ChatSocketEvents.CONVERSATION_LEAVE, { conversationId: previousConversationId });
+            clearTypingUsers(previousConversationId);
         }
 
         if (selectedConversationId) {
@@ -123,8 +165,12 @@ export default function ChatSocketBridge() {
             if (connected && previousConversationId) {
                 emit(ChatSocketEvents.CONVERSATION_LEAVE, { conversationId: previousConversationId });
             }
+
+            if (previousConversationId) {
+                clearTypingUsers(previousConversationId);
+            }
         };
-    }, [connected, emit]);
+    }, [clearTypingUsers, connected, emit]);
 
     return null;
 }

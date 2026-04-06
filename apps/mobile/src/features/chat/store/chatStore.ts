@@ -70,6 +70,7 @@ type ChatStoreState = {
     conversations: ChatConversation[];
     messagesByConversation: Record<string, ChatMessage[]>;
     hasMoreByConversation: Record<string, boolean>;
+    typingUsersByConversation: Record<string, Record<string, ChatParticipant>>;
 
     setSelectedConversationId: (conversationId: string | null) => void;
     setCurrentUserId: (userId: string | null) => void;
@@ -99,6 +100,9 @@ type ChatStoreState = {
         status: ChatMessageStatus
     ) => void;
     markMessageSeen: (messageId: string, userId: string) => void;
+    setTypingUser: (conversationId: string, user: ChatParticipant) => void;
+    removeTypingUser: (conversationId: string, userId: string) => void;
+    clearTypingUsers: (conversationId: string) => void;
     setHasMore: (conversationId: string, hasMore: boolean) => void;
     resetChatSession: () => void;
 };
@@ -109,6 +113,7 @@ const initialState = {
     conversations: [] as ChatConversation[],
     messagesByConversation: {} as Record<string, ChatMessage[]>,
     hasMoreByConversation: {} as Record<string, boolean>,
+    typingUsersByConversation: {} as Record<string, Record<string, ChatParticipant>>,
 };
 
 const tempIdPrefix = "temp_";
@@ -550,6 +555,54 @@ export const useChatStore = create<ChatStoreState>()(
                     };
                 }),
 
+            setTypingUser: (conversationId, user) =>
+                set((state) => {
+                    const currentUsers = state.typingUsersByConversation[conversationId] ?? {};
+
+                    return {
+                        typingUsersByConversation: {
+                            ...state.typingUsersByConversation,
+                            [conversationId]: {
+                                ...currentUsers,
+                                [user._id]: normalizeParticipant(user),
+                            },
+                        },
+                    };
+                }),
+
+            removeTypingUser: (conversationId, userId) =>
+                set((state) => {
+                    const currentUsers = state.typingUsersByConversation[conversationId];
+
+                    if (!currentUsers || !currentUsers[userId]) {
+                        return {};
+                    }
+
+                    const nextUsers = { ...currentUsers };
+                    delete nextUsers[userId];
+
+                    return {
+                        typingUsersByConversation: {
+                            ...state.typingUsersByConversation,
+                            [conversationId]: nextUsers,
+                        },
+                    };
+                }),
+
+            clearTypingUsers: (conversationId) =>
+                set((state) => {
+                    if (!state.typingUsersByConversation[conversationId]) {
+                        return {};
+                    }
+
+                    const nextTypingUsersByConversation = { ...state.typingUsersByConversation };
+                    delete nextTypingUsersByConversation[conversationId];
+
+                    return {
+                        typingUsersByConversation: nextTypingUsersByConversation,
+                    };
+                }),
+
             setHasMore: (conversationId, hasMore) =>
                 set((state) => ({
                     hasMoreByConversation: {
@@ -583,6 +636,10 @@ export const chatSelectors = {
         (conversationId: string) =>
             (state: ChatStoreState) =>
                 state.messagesByConversation[conversationId] ?? [],
+    typingUsersByConversationId:
+        (conversationId: string) =>
+            (state: ChatStoreState) =>
+                Object.values(state.typingUsersByConversation[conversationId] ?? {}),
 };
 
 export const chatStoreUtils = {
