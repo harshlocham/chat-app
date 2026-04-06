@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { ChatsStackParamList } from "@/app/navigation/types";
 import ChatBubble from "@/features/chat/components/ChatBubble";
 import MessageInput from "@/features/chat/components/MessageInput";
+import TypingIndicator from "@/features/chat/components/TypingIndicator";
 import { useAuthStore } from "@/features/auth/store/authStore";
 import type { ChatMessage } from "@/features/chat/store/chatStore";
 import { chatSelectors, useChatStore } from "@/features/chat/store/chatStore";
@@ -44,6 +45,7 @@ export default function ChatScreen({ route }: ChatScreenProps) {
     const storeMessages = useChatStore((state) =>
         conversationId ? state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES
     );
+    const typingUsers = useChatStore(chatSelectors.typingUsersByConversationId(conversationId));
     const setMessages = useChatStore((state) => state.setMessages);
     const clearMessages = useChatStore((state) => state.clearMessages);
     const setHasMore = useChatStore((state) => state.setHasMore);
@@ -74,15 +76,26 @@ export default function ChatScreen({ route }: ChatScreenProps) {
         [data?.pages]
     );
 
+    const messagesMatch = useMemo(() => {
+        if (storeMessages.length !== queryMessages.length) {
+            return false;
+        }
+
+        return storeMessages.every((message, index) => message._id === queryMessages[index]?._id);
+    }, [queryMessages, storeMessages]);
+
     useEffect(() => {
         if (!conversationId || !queryMessages) {
             return;
         }
 
-        setMessages(conversationId, queryMessages, "replace");
+        if (!messagesMatch) {
+            setMessages(conversationId, queryMessages, "replace");
+        }
+
         clearUnread(conversationId);
         setHasMore(conversationId, Boolean(hasNextPage));
-    }, [clearUnread, conversationId, hasNextPage, queryMessages, setHasMore, setMessages]);
+    }, [clearUnread, conversationId, hasNextPage, messagesMatch, queryMessages, setHasMore, setMessages]);
 
     useEffect(() => {
         if (!conversationId) {
@@ -120,36 +133,40 @@ export default function ChatScreen({ route }: ChatScreenProps) {
                         <ActivityIndicator />
                     </View>
                 ) : (
-                    <FlatList
-                        inverted
-                        contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-                        data={storeMessages}
-                        keyExtractor={(item) => item._id}
-                        renderItem={({ item }) => (
-                            <ChatBubble
-                                message={item}
-                                isMine={Boolean(currentUserId && item.sender._id === currentUserId)}
-                            />
-                        )}
-                        onEndReachedThreshold={0.2}
-                        onEndReached={() => {
-                            if (hasNextPage && !isFetchingNextPage) {
-                                void fetchNextPage();
+                    <View className="flex-1">
+                        <FlatList
+                            inverted
+                            contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+                            data={storeMessages}
+                            keyExtractor={(item) => item._id}
+                            renderItem={({ item }) => (
+                                <ChatBubble
+                                    message={item}
+                                    isMine={Boolean(currentUserId && item.sender._id === currentUserId)}
+                                />
+                            )}
+                            onEndReachedThreshold={0.2}
+                            onEndReached={() => {
+                                if (hasNextPage && !isFetchingNextPage) {
+                                    void fetchNextPage();
+                                }
+                            }}
+                            ListFooterComponent={
+                                isFetchingNextPage ? (
+                                    <View className="items-center py-3">
+                                        <ActivityIndicator />
+                                    </View>
+                                ) : null
                             }
-                        }}
-                        ListFooterComponent={
-                            isFetchingNextPage ? (
-                                <View className="items-center py-3">
-                                    <ActivityIndicator />
+                            ListEmptyComponent={
+                                <View className="flex-1 items-center justify-center px-6 py-10">
+                                    <Text className="text-sm text-slate-500 dark:text-slate-400">No messages yet.</Text>
                                 </View>
-                            ) : null
-                        }
-                        ListEmptyComponent={
-                            <View className="flex-1 items-center justify-center px-6 py-10">
-                                <Text className="text-sm text-slate-500 dark:text-slate-400">No messages yet.</Text>
-                            </View>
-                        }
-                    />
+                            }
+                        />
+
+                        <TypingIndicator typingUsers={typingUsers} currentUserId={currentUserId} />
+                    </View>
                 )}
 
                 <MessageInput conversationId={conversationId} />

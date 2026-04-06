@@ -12,6 +12,8 @@ export const ChatSocketEvents = {
     MESSAGE_SEND: "message:send",
     MESSAGE_NEW: "message:new",
     MESSAGE_SEEN: "message:seen",
+    TYPING_START: "typing:start",
+    TYPING_STOP: "typing:stop",
     SYNC_MESSAGES: "sync:messages",
     SYNC_CONVERSATIONS: "sync:conversations",
     CONVERSATION_JOIN: "conversation:join",

@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -13,6 +13,7 @@ type MessageInputProps = {
 };
 
 const SEND_TIMEOUT_MS = 12_000;
+const TYPING_STOP_DELAY_MS = 700;
 
 const getUserId = (user: unknown): string | null => {
     if (!user || typeof user !== "object") {
@@ -65,6 +66,74 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
     const removeMessage = useChatStore((state) => state.removeMessage);
     const user = useAuthStore((state) => state.user);
     const { emit, connected } = useSocket();
+    const typingStartedRef = useRef(false);
+    const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const emitTypingStop = useCallback(() => {
+        if (!typingStartedRef.current) {
+            return;
+        }
+
+        typingStartedRef.current = false;
+
+        if (typingStopTimerRef.current) {
+            clearTimeout(typingStopTimerRef.current);
+            typingStopTimerRef.current = null;
+        }
+
+        if (connected) {
+            emit(ChatSocketEvents.TYPING_STOP, {
+                conversationId,
+                userId: getUserId(user),
+            });
+        }
+    }, [connected, conversationId, emit, user]);
+
+    const scheduleTypingStop = useCallback(() => {
+        if (typingStopTimerRef.current) {
+            clearTimeout(typingStopTimerRef.current);
+        }
+
+        typingStopTimerRef.current = setTimeout(() => {
+            emitTypingStop();
+        }, TYPING_STOP_DELAY_MS);
+    }, [emitTypingStop]);
+
+    const handleChangeText = useCallback((nextText: string) => {
+        setText(nextText);
+
+        if (!connected) {
+            return;
+        }
+
+        const trimmed = nextText.trim();
+
+        if (trimmed.length > 0 && !typingStartedRef.current) {
+            typingStartedRef.current = true;
+            emit(ChatSocketEvents.TYPING_START, {
+                conversationId,
+                userId: getUserId(user),
+                username: getUsername(user),
+            });
+        }
+
+        if (trimmed.length === 0) {
+            scheduleTypingStop();
+            return;
+        }
+
+        scheduleTypingStop();
+    }, [connected, conversationId, emit, getUsername, scheduleTypingStop, user]);
+
+    useEffect(() => {
+        return () => {
+            if (typingStopTimerRef.current) {
+                clearTimeout(typingStopTimerRef.current);
+            }
+
+            emitTypingStop();
+        };
+    }, [emitTypingStop]);
 
     const handleSend = () => {
         const content = text.trim();
@@ -79,6 +148,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
             return;
         }
 
+        emitTypingStop();
         setText("");
 
         const createdAt = new Date().toISOString();
@@ -179,7 +249,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
                     placeholder="Message"
                     placeholderTextColor="#94a3b8"
                     value={text}
-                    onChangeText={setText}
+                    onChangeText={handleChangeText}
                     multiline
                 />
                 <Pressable
