@@ -37,6 +37,8 @@ export default function ChatBubble({ message, isMine }: ChatBubbleProps) {
                 ? "checkmark-done"
                 : status === "pending" || status === "queued"
                     ? "time-outline"
+                    : status === "failed"
+                        ? "alert-circle-outline"
                     : "checkmark";
 
     const statusColor =
@@ -44,7 +46,20 @@ export default function ChatBubble({ message, isMine }: ChatBubbleProps) {
             ? "#60a5fa"
             : status === "delivered"
                 ? "#cbd5e1"
+                : status === "failed"
+                    ? "#fca5a5"
                 : "#cbd5e1";
+
+    const statusLabel =
+        status === "seen"
+            ? "Seen"
+            : status === "delivered"
+                ? "Delivered"
+                : status === "pending" || status === "queued"
+                    ? "Sending"
+                    : status === "failed"
+                        ? "Failed"
+                        : "Sent";
 
     return (
         <View className={`mb-3 ${isMine ? "items-end" : "items-start"}`}>
@@ -70,7 +85,7 @@ export default function ChatBubble({ message, isMine }: ChatBubbleProps) {
                 {showStatus ? (
                     <View className="mt-2 flex-row items-center justify-end gap-1">
                         <Text className="text-[10px] text-white/75">
-                            {status === "seen" ? "Seen" : status === "delivered" ? "Delivered" : "Sent"}
+                            {statusLabel}
                         </Text>
                         <Ionicons name={statusIconName as any} size={12} color={statusColor} />
                     </View>

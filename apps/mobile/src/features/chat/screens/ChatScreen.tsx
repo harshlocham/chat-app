@@ -33,6 +33,7 @@ const getUserId = (user: unknown): string | null => {
 };
 
 export default function ChatScreen({ route }: ChatScreenProps) {
+    const conversationId = route.params.conversationId;
     const selectedConversationId = useChatStore(chatSelectors.selectedConversationId);
     const setSelectedConversationId = useChatStore((state) => state.setSelectedConversationId);
     const conversation = useChatStore((state) =>
@@ -40,14 +41,15 @@ export default function ChatScreen({ route }: ChatScreenProps) {
             ? state.conversations.find((item) => item._id === selectedConversationId) ?? null
             : null
     );
+    const storeMessages = useChatStore((state) =>
+        conversationId ? state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES
+    );
     const setMessages = useChatStore((state) => state.setMessages);
     const clearMessages = useChatStore((state) => state.clearMessages);
     const setHasMore = useChatStore((state) => state.setHasMore);
     const clearUnread = useChatStore((state) => state.clearUnread);
     const user = useAuthStore((state) => state.user);
     const currentUserId = getUserId(user);
-
-    const conversationId = route.params.conversationId;
 
     useEffect(() => {
         if (conversationId) {
@@ -67,20 +69,20 @@ export default function ChatScreen({ route }: ChatScreenProps) {
         isFetchingNextPage,
     } = useMessages(conversationId);
 
-    const messages = useMemo(
+    const queryMessages = useMemo(
         () => data?.pages.flatMap((page) => page.messages) ?? EMPTY_MESSAGES,
         [data?.pages]
     );
 
     useEffect(() => {
-        if (!conversationId || !messages) {
+        if (!conversationId || !queryMessages) {
             return;
         }
 
-        setMessages(conversationId, messages, "replace");
+        setMessages(conversationId, queryMessages, "replace");
         clearUnread(conversationId);
         setHasMore(conversationId, Boolean(hasNextPage));
-    }, [clearUnread, conversationId, hasNextPage, messages, setHasMore, setMessages]);
+    }, [clearUnread, conversationId, hasNextPage, queryMessages, setHasMore, setMessages]);
 
     useEffect(() => {
         if (!conversationId) {
@@ -121,7 +123,7 @@ export default function ChatScreen({ route }: ChatScreenProps) {
                     <FlatList
                         inverted
                         contentContainerStyle={{ padding: 16, flexGrow: 1 }}
-                        data={messages}
+                        data={storeMessages}
                         keyExtractor={(item) => item._id}
                         renderItem={({ item }) => (
                             <ChatBubble

@@ -9,7 +9,9 @@ import { normalizeConversation } from "@/features/chat/api/chatApi";
 import { socketClient } from "@/lib/socket";
 
 export const ChatSocketEvents = {
+    MESSAGE_SEND: "message:send",
     MESSAGE_NEW: "message:new",
+    MESSAGE_SEEN: "message:seen",
     SYNC_MESSAGES: "sync:messages",
     SYNC_CONVERSATIONS: "sync:conversations",
     CONVERSATION_JOIN: "conversation:join",
