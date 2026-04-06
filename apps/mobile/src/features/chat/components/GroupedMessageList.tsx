@@ -32,24 +32,38 @@ function GroupedMessageList({
             inverted
             contentContainerStyle={{ padding: 16, flexGrow: 1 }}
             data={groupedMessages}
-            keyExtractor={(item) => item.message._id}
+            keyExtractor={(item) => item.key}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             initialNumToRender={12}
             maxToRenderPerBatch={12}
             windowSize={8}
             removeClippedSubviews
-            renderItem={({ item }) => (
-                <ChatBubble
-                    message={item.message}
-                    isMine={item.isMine}
-                    showAvatar={item.showAvatar}
-                    showSenderName={item.showSenderName}
-                    showTimestamp={item.showTimestamp}
-                    timestampLabel={item.timestampLabel}
-                    compactSpacing={item.compactSpacing}
-                />
-            )}
+            renderItem={({ item }) => {
+                if (item.type === "separator") {
+                    return (
+                        <View className="my-2 flex-row items-center gap-3">
+                            <View className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                            <Text className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                {item.label}
+                            </Text>
+                            <View className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                        </View>
+                    );
+                }
+
+                return (
+                    <ChatBubble
+                        message={item.message}
+                        isMine={item.isMine}
+                        showAvatar={item.showAvatar}
+                        showSenderName={item.showSenderName}
+                        showTimestamp={item.showTimestamp}
+                        timestampLabel={item.timestampLabel}
+                        compactSpacing={item.compactSpacing}
+                    />
+                );
+            }}
             onEndReachedThreshold={0.2}
             onEndReached={() => {
                 if (hasNextPage && !isFetchingNextPage) {

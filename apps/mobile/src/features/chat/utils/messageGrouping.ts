@@ -1,6 +1,8 @@
 import type { ChatMessage } from "@/features/chat/store/chatStore";
 
 export type GroupedChatMessage = {
+    type: "message";
+    key: string;
     message: ChatMessage;
     isMine: boolean;
     showAvatar: boolean;
@@ -10,6 +12,14 @@ export type GroupedChatMessage = {
     isSystem: boolean;
     compactSpacing: boolean;
 };
+
+export type ChatDateSeparator = {
+    type: "separator";
+    key: string;
+    label: string;
+};
+
+export type GroupedChatRow = GroupedChatMessage | ChatDateSeparator;
 
 function isSameDay(left?: string, right?: string) {
     if (!left || !right) {
@@ -62,8 +72,37 @@ function formatTimestamp(dateValue: string, showDate: boolean) {
     return `${dateText}, ${timeText}`;
 }
 
+function formatDayLabel(dateValue: string) {
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) {
+        return "";
+    }
+
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+        return "Today";
+    }
+
+    if (date.toDateString() === yesterday.toDateString()) {
+        return "Yesterday";
+    }
+
+    return new Intl.DateTimeFormat("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    }).format(date);
+}
+
 export function buildGroupedChatMessages(messages: ChatMessage[], currentUserId: string | null) {
-    return messages.map((message, index) => {
+    const rows: GroupedChatRow[] = [];
+
+    messages.forEach((message, index) => {
         const nextOlderMessage = messages[index + 1];
         const isSystem = message.messageType === "system";
         const isMine = Boolean(currentUserId && message.sender._id === currentUserId);
@@ -78,7 +117,9 @@ export function buildGroupedChatMessages(messages: ChatMessage[], currentUserId:
         const showTimestamp = isSystem || !isSameSenderAndDayAsOlder || !nextOlderMessage;
         const showDate = !nextOlderMessage || !isSameDay(message.createdAt, nextOlderMessage.createdAt);
 
-        return {
+        rows.push({
+            type: "message",
+            key: message._id,
             message,
             isMine,
             showAvatar,
@@ -87,6 +128,16 @@ export function buildGroupedChatMessages(messages: ChatMessage[], currentUserId:
             timestampLabel: formatTimestamp(message.updatedAt || message.createdAt, showDate),
             isSystem,
             compactSpacing: isSameSenderAndDayAsOlder,
-        } satisfies GroupedChatMessage;
+        } satisfies GroupedChatMessage);
+
+        if (nextOlderMessage && !isSameDay(message.createdAt, nextOlderMessage.createdAt)) {
+            rows.push({
+                type: "separator",
+                key: `separator-${message._id}`,
+                label: formatDayLabel(message.createdAt),
+            } satisfies ChatDateSeparator);
+        }
     });
+
+    return rows;
 }
