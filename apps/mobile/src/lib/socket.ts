@@ -11,6 +11,7 @@ type SocketAuth = {
 };
 
 type SocketCallback = (...args: any[]) => void;
+type SocketAck = (...args: any[]) => void;
 
 let socketInstance: Socket | null = null;
 let connectPromise: Promise<Socket | null> | null = null;
@@ -131,7 +132,12 @@ export const socketClient = {
         socketInstance.disconnect();
     },
 
-    emit(event: string, payload?: unknown) {
+    emit(event: string, payload?: unknown, ack?: SocketAck) {
+        if (ack) {
+            ensureSocket().emit(event, payload, ack);
+            return;
+        }
+
         ensureSocket().emit(event, payload);
     },
 

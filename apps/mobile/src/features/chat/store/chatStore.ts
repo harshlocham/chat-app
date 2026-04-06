@@ -92,6 +92,13 @@ type ChatStoreState = {
         message: ChatMessageInput
     ) => void;
     clearMessages: (conversationId: string) => void;
+    removeMessage: (conversationId: string, messageId: string) => void;
+    updateMessageStatus: (
+        conversationId: string,
+        messageId: string,
+        status: ChatMessageStatus
+    ) => void;
+    markMessageSeen: (messageId: string, userId: string) => void;
     setHasMore: (conversationId: string, hasMore: boolean) => void;
     resetChatSession: () => void;
 };
@@ -233,6 +240,30 @@ const upsertMessages = (
         ...nextBase,
         ...current.filter((message) => isTempMessageId(message._id)),
     ]);
+};
+
+const withStatus = (message: ChatMessage, status: ChatMessageStatus): ChatMessage => {
+    if (status === "seen") {
+        return {
+            ...message,
+            status,
+            seen: true,
+            delivered: true,
+        };
+    }
+
+    if (status === "delivered") {
+        return {
+            ...message,
+            status,
+            delivered: true,
+        };
+    }
+
+    return {
+        ...message,
+        status,
+    };
 };
 
 export const useChatStore = create<ChatStoreState>()(
@@ -404,15 +435,31 @@ export const useChatStore = create<ChatStoreState>()(
                     const currentMessages = loadedMessages ?? [];
                     const exists = currentMessages.some((item) => item._id === nextMessage._id);
 
+                    const tempMatchIndex =
+                        !exists && nextMessage.sender._id === state.currentUserId
+                            ? currentMessages.findIndex(
+                                (item) =>
+                                    (item.isTemp || isTempMessageId(item._id)) &&
+                                    item.content === nextMessage.content &&
+                                    item.messageType === nextMessage.messageType
+                            )
+                            : -1;
+
+                    const nextMessages = exists
+                        ? currentMessages.map((item) =>
+                            item._id === nextMessage._id ? nextMessage : item
+                        )
+                        : tempMatchIndex >= 0
+                            ? currentMessages.map((item, index) =>
+                                index === tempMatchIndex ? nextMessage : item
+                            )
+                            : [...currentMessages, nextMessage];
+
                     return {
                         conversations: nextConversations,
                         messagesByConversation: {
                             ...state.messagesByConversation,
-                            [conversationId]: exists
-                                ? currentMessages.map((item) =>
-                                    item._id === nextMessage._id ? nextMessage : item
-                                )
-                                : [...currentMessages, nextMessage],
+                            [conversationId]: nextMessages,
                         },
                     };
                 }),
@@ -446,6 +493,57 @@ export const useChatStore = create<ChatStoreState>()(
                 set((state) => {
                     const nextMessagesByConversation = { ...state.messagesByConversation };
                     delete nextMessagesByConversation[conversationId];
+
+                    return {
+                        messagesByConversation: nextMessagesByConversation,
+                    };
+                }),
+
+            removeMessage: (conversationId, messageId) =>
+                set((state) => {
+                    const currentMessages = state.messagesByConversation[conversationId] ?? [];
+
+                    return {
+                        messagesByConversation: {
+                            ...state.messagesByConversation,
+                            [conversationId]: currentMessages.filter((item) => item._id !== messageId),
+                        },
+                    };
+                }),
+
+            updateMessageStatus: (conversationId, messageId, status) =>
+                set((state) => {
+                    const currentMessages = state.messagesByConversation[conversationId] ?? [];
+
+                    return {
+                        messagesByConversation: {
+                            ...state.messagesByConversation,
+                            [conversationId]: currentMessages.map((item) =>
+                                item._id === messageId ? withStatus(item, status) : item
+                            ),
+                        },
+                    };
+                }),
+
+            markMessageSeen: (messageId, userId) =>
+                set((state) => {
+                    const nextMessagesByConversation = Object.fromEntries(
+                        Object.entries(state.messagesByConversation).map(([conversationId, messages]) => {
+                            const nextMessages = messages.map((item) => {
+                                if (item._id !== messageId) {
+                                    return item;
+                                }
+
+                                if (item.sender._id !== state.currentUserId || userId === state.currentUserId) {
+                                    return item;
+                                }
+
+                                return withStatus(item, "seen");
+                            });
+
+                            return [conversationId, nextMessages];
+                        })
+                    ) as Record<string, ChatMessage[]>;
 
                     return {
                         messagesByConversation: nextMessagesByConversation,
