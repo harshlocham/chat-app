@@ -21,12 +21,23 @@ const normalizeParticipant = (participant: unknown): ChatParticipant => {
         _id?: unknown;
         username?: unknown;
         profilePicture?: unknown;
+        isOnline?: unknown;
+        lastSeen?: unknown;
     };
+
+    const lastSeen =
+        typeof value.lastSeen === "string"
+            ? value.lastSeen
+            : value.lastSeen instanceof Date
+                ? value.lastSeen.toISOString()
+                : null;
 
     return {
         _id: chatStoreUtils.toStringId(value._id),
         username: typeof value.username === "string" ? value.username : "",
         profilePicture: typeof value.profilePicture === "string" ? value.profilePicture : null,
+        isOnline: Boolean(value.isOnline),
+        lastSeen,
     };
 };
 
