@@ -110,10 +110,12 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
 
         if (trimmed.length > 0 && !typingStartedRef.current) {
             typingStartedRef.current = true;
+            const displayName = getUsername(user);
             emit(ChatSocketEvents.TYPING_START, {
                 conversationId,
                 userId: getUserId(user),
-                username: getUsername(user),
+                name: displayName,
+                username: displayName,
             });
         }
 
@@ -161,6 +163,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
             messageType: "text",
             sender: {
                 _id: senderId,
+                name: getUsername(user),
                 username: getUsername(user),
             },
             createdAt,
@@ -183,6 +186,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
                     messageType: "text",
                     sender: {
                         _id: senderId,
+                        name: getUsername(user),
                         username: getUsername(user),
                     },
                     createdAt,

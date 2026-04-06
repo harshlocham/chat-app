@@ -26,7 +26,7 @@ export default function ChatBubble({
     timestampLabel,
     compactSpacing = false,
 }: ChatBubbleProps) {
-    const senderName = message.sender.username || message.sender._id || "Unknown";
+    const senderName = message.sender.name || message.sender.username || message.sender._id || "Unknown";
     const status = message.status ?? (message.seen ? "seen" : message.delivered ? "delivered" : "sent");
     const showStatus = isMine;
     const isSystem = message.messageType === "system";
