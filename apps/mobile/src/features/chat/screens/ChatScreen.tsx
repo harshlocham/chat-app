@@ -1,6 +1,6 @@
 import { StackScreenProps } from "@react-navigation/stack";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { ChatsStackParamList } from "@/app/navigation/types";
@@ -12,6 +12,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import type { ChatMessage } from "@/features/chat/store/chatStore";
 import { chatSelectors, useChatStore } from "@/features/chat/store/chatStore";
 import { useMessages } from "@/features/chat/hooks/useMessages";
+import { getDirectConversationUser, toChatUserIdentity } from "@/features/chat/models/chatUser";
 import { usePresenceStore } from "@/store/presence-store";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -64,11 +65,10 @@ function formatLastSeen(value?: string | null) {
 
 export default function ChatScreen({ route }: ChatScreenProps) {
     const conversationId = route.params.conversationId;
-    const selectedConversationId = useChatStore(chatSelectors.selectedConversationId);
     const setSelectedConversationId = useChatStore((state) => state.setSelectedConversationId);
     const conversation = useChatStore((state) =>
-        selectedConversationId
-            ? state.conversations.find((item) => item._id === selectedConversationId) ?? null
+        conversationId
+            ? state.conversations.find((item) => item._id === conversationId) ?? null
             : null
     );
     const onlineUsers = usePresenceStore((state) => state.onlineUsers);
@@ -90,32 +90,50 @@ export default function ChatScreen({ route }: ChatScreenProps) {
         }
     }, [conversationId, setSelectedConversationId]);
 
-    const title = useMemo(() => {
-        return conversation?.name ?? conversation?.groupName ?? "Chat";
-    }, [conversation?.groupName, conversation?.name]);
+    const headerIdentity = useMemo(() => {
+        if (!conversation) {
+            return {
+                title: "Loading user...",
+                avatar: null as string | null,
+                online: false,
+                subtitle: "Loading status...",
+                isLoading: true,
+            };
+        }
 
-    const presence = useMemo(() => {
-        const participants = conversation?.participants.filter((participant) => participant._id !== currentUserId) ?? [];
+        if (!conversation.isGroup) {
+            const directParticipant = conversation.participants.find((participant) => participant._id !== currentUserId);
+            const directUser = getDirectConversationUser(conversation, currentUserId);
+            const directIdentity = toChatUserIdentity(
+                directUser,
+                onlineUsers,
+                lastSeenByUser,
+                Boolean(directParticipant?.isOnline)
+            );
+
+            if (!directIdentity) {
+                return {
+                    title: "Loading user...",
+                    avatar: null as string | null,
+                    online: false,
+                    subtitle: "Loading status...",
+                    isLoading: true,
+                };
+            }
+
+            return {
+                title: directIdentity.name,
+                avatar: directIdentity.avatar,
+                online: directIdentity.online,
+                subtitle: directIdentity.online ? "Online" : formatLastSeen(directIdentity.lastSeen),
+                isLoading: false,
+            };
+        }
+
+        const participants = conversation.participants.filter((participant) => participant._id !== currentUserId);
         const activeParticipants = participants.filter((participant) => {
             return Boolean(onlineUsers[participant._id] || participant.isOnline);
         });
-
-        if (participants.length === 0) {
-            return { online: false, label: "Offline" };
-        }
-
-        if (!conversation?.isGroup) {
-            const other = participants[0] ?? null;
-            const lastSeen =
-                other ? (lastSeenByUser[other._id] ?? other.lastSeen ?? null) : null;
-
-            return {
-                online: Boolean(other && (onlineUsers[other._id] || other.isOnline)),
-                label: Boolean(other && (onlineUsers[other._id] || other.isOnline))
-                    ? "Online"
-                    : formatLastSeen(lastSeen),
-            };
-        }
 
         const latestLastSeen = participants.reduce<string | null>((latest, participant) => {
             const candidate = lastSeenByUser[participant._id] ?? participant.lastSeen ?? null;
@@ -134,14 +152,16 @@ export default function ChatScreen({ route }: ChatScreenProps) {
             return Number.isNaN(candidateTime) || candidateTime <= latestTime ? latest : candidate;
         }, null);
 
+        const online = activeParticipants.length > 0;
+
         return {
-            online: activeParticipants.length > 0,
-            label:
-                activeParticipants.length > 0
-                    ? `${activeParticipants.length} online`
-                    : formatLastSeen(latestLastSeen),
+            title: conversation.groupName ?? conversation.name ?? "Group",
+            avatar: conversation.image ?? null,
+            online,
+            subtitle: online ? `${activeParticipants.length} online` : formatLastSeen(latestLastSeen),
+            isLoading: false,
         };
-    }, [conversation?.isGroup, conversation?.participants, currentUserId, lastSeenByUser, onlineUsers]);
+    }, [conversation, currentUserId, lastSeenByUser, onlineUsers]);
 
     const {
         data,
@@ -206,17 +226,27 @@ export default function ChatScreen({ route }: ChatScreenProps) {
                 <View className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
                     <View className="flex-row items-center gap-2">
                         <View className="relative h-9 w-9 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800">
-                            <Text className="text-sm font-semibold text-slate-700 dark:text-slate-100">
-                                {title.trim().charAt(0).toUpperCase() || "C"}
-                            </Text>
+                            {headerIdentity.avatar ? (
+                                <Image
+                                    source={{ uri: headerIdentity.avatar }}
+                                    className="h-full w-full rounded-full"
+                                    resizeMode="cover"
+                                />
+                            ) : headerIdentity.isLoading ? (
+                                <ActivityIndicator size="small" />
+                            ) : (
+                                <Text className="text-sm font-semibold text-slate-700 dark:text-slate-100">
+                                    {headerIdentity.title.trim().charAt(0).toUpperCase() || "C"}
+                                </Text>
+                            )}
                             <View className="absolute -right-0.5 -top-0.5">
-                                <PresenceDot online={presence.online} />
+                                {headerIdentity.isLoading ? <ActivityIndicator size="small" /> : <PresenceDot online={headerIdentity.online} />}
                             </View>
                         </View>
 
                         <View className="flex-1">
-                            <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</Text>
-                            <Text className="text-sm text-slate-500 dark:text-slate-400">{presence.label}</Text>
+                            <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">{headerIdentity.title}</Text>
+                            <Text className="text-sm text-slate-500 dark:text-slate-400">{headerIdentity.subtitle}</Text>
                         </View>
                     </View>
                 </View>

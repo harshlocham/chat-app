@@ -1,8 +1,9 @@
-import { Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
 
 import PresenceDot from "@/components/common/PresenceDot";
 import { usePresenceStore } from "@/store/presence-store";
 import type { ChatConversation } from "@/features/chat/store/chatStore";
+import { getDirectConversationUser, toChatUserIdentity } from "@/features/chat/models/chatUser";
 
 type ConversationListItemProps = {
     conversation: ChatConversation;
@@ -36,23 +37,20 @@ function formatConversationTime(value?: string) {
     }).format(date);
 }
 
-function getConversationName(conversation: ChatConversation, currentUserId?: string | null) {
+function getConversationName(conversation: ChatConversation, directUserName?: string | null) {
     if (conversation.isGroup) {
         return conversation.groupName || conversation.name || "Group";
     }
 
-    const other = conversation.participants.find((participant) => participant._id !== currentUserId);
-
-    return other?.username || conversation.name || "Conversation";
+    return directUserName || conversation.name || "Loading user...";
 }
 
-function getConversationAvatar(conversation: ChatConversation, currentUserId?: string | null) {
+function getConversationAvatar(conversation: ChatConversation, directUserAvatar?: string | null) {
     if (conversation.image) {
         return conversation.image;
     }
 
-    const other = conversation.participants.find((participant) => participant._id !== currentUserId);
-    return other?.profilePicture ?? null;
+    return directUserAvatar ?? null;
 }
 
 function getPreviewText(conversation: ChatConversation, currentUserId?: string | null) {
@@ -102,21 +100,32 @@ export default function ConversationListItem({
     onPress,
 }: ConversationListItemProps) {
     const conversationId = conversation._id;
-    const title = getConversationName(conversation, currentUserId);
     const preview = getPreviewText(conversation, currentUserId);
     const timeLabel = formatConversationTime(conversation.updatedAt || conversation.createdAt);
-    const initial = title.trim().charAt(0).toUpperCase() || "C";
     const unreadCount = conversation.unreadCount ?? 0;
-    const avatarUri = getConversationAvatar(conversation, currentUserId);
-    const otherParticipants = conversation.participants.filter((participant) => participant._id !== currentUserId);
     const onlineUsers = usePresenceStore((state) => state.onlineUsers);
     const lastSeenByUser = usePresenceStore((state) => state.lastSeenByUser);
+    const directParticipant = conversation.participants.find((participant) => participant._id !== currentUserId);
+    const directUser = getDirectConversationUser(conversation, currentUserId);
+    const directIdentity = toChatUserIdentity(
+        directUser,
+        onlineUsers,
+        lastSeenByUser,
+        Boolean(directParticipant?.isOnline)
+    );
+
+    const avatarUri = getConversationAvatar(conversation, directIdentity?.avatar ?? null);
+    const title = getConversationName(conversation, directIdentity?.name ?? null);
+    const initial = title.trim().charAt(0).toUpperCase() || "C";
+    const isDirectIdentityLoading = !conversation.isGroup && !directIdentity;
+
+    const otherParticipants = conversation.participants.filter((participant) => participant._id !== currentUserId);
 
     const onlineCount = otherParticipants.filter((participant) => {
         return Boolean(onlineUsers[participant._id] || participant.isOnline);
     }).length;
 
-    const isOnline = onlineCount > 0;
+    const isOnline = conversation.isGroup ? onlineCount > 0 : Boolean(directIdentity?.online);
 
     const latestLastSeen = otherParticipants.reduce<string | null>((latest, participant) => {
         const candidate = lastSeenByUser[participant._id] ?? participant.lastSeen ?? null;
@@ -139,9 +148,11 @@ export default function ConversationListItem({
         ? isOnline
             ? `${onlineCount} online`
             : formatLastSeen(latestLastSeen)
-        : isOnline
-            ? "Online"
-            : formatLastSeen(latestLastSeen);
+        : isDirectIdentityLoading
+            ? "Loading status..."
+            : isOnline
+                ? "Online"
+                : formatLastSeen(directIdentity?.lastSeen ?? latestLastSeen);
 
     return (
         <Pressable
@@ -161,7 +172,7 @@ export default function ConversationListItem({
                     </View>
                 )}
                 <View className="absolute -right-0.5 -top-0.5">
-                    <PresenceDot online={isOnline} />
+                    {isDirectIdentityLoading ? <ActivityIndicator size="small" /> : <PresenceDot online={isOnline} />}
                 </View>
             </View>
 
