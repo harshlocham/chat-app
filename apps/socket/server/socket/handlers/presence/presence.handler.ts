@@ -2,7 +2,6 @@
 import type { Redis } from "ioredis";
 import type { Server as IOServer } from "socket.io";
 
-import * as UserModel from "../../../../../../packages/db/models/User.js";
 import {
     ClientToServerEvents,
     ServerToClientEvents,
@@ -14,9 +13,6 @@ import {
     trackSocketConnected,
     trackSocketDisconnected,
 } from "../../services/presence.redis.service.js";
-
-const User = (UserModel as { User?: any; default?: any }).User
-    ?? (UserModel as { default?: any }).default;
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -32,17 +28,6 @@ export function presenceHandler(io: IO, socket: Socket, redis: Redis) {
     void (async () => {
         try {
             const { becameOnline } = await trackSocketConnected(redis, userId, socket.id);
-
-            if (becameOnline) {
-                await User.updateOne(
-                    { _id: userId },
-                    {
-                        $set: {
-                            isOnline: true,
-                        },
-                    }
-                );
-            }
 
             const activeUsers = await getActiveUsers(redis);
             for (const activeUserId of activeUsers) {
@@ -71,16 +56,6 @@ export function presenceHandler(io: IO, socket: Socket, redis: Redis) {
 
             if (wentOffline) {
                 const lastSeen = new Date();
-
-                await User.updateOne(
-                    { _id: userId },
-                    {
-                        $set: {
-                            isOnline: false,
-                            lastSeen,
-                        },
-                    }
-                );
 
                 io.emit(SocketEvents.USER_OFFLINE, {
                     userId,
