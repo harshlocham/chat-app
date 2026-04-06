@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import type { ChatMessage } from "@/features/chat/store/chatStore";
 
@@ -26,6 +27,24 @@ function formatMessageTime(value?: string) {
 
 export default function ChatBubble({ message, isMine }: ChatBubbleProps) {
     const senderName = message.sender.username || message.sender._id || "Unknown";
+    const status = message.status ?? (message.seen ? "seen" : message.delivered ? "delivered" : "sent");
+    const showStatus = isMine;
+
+    const statusIconName =
+        status === "seen"
+            ? "checkmark-done"
+            : status === "delivered"
+                ? "checkmark-done"
+                : status === "pending" || status === "queued"
+                    ? "time-outline"
+                    : "checkmark";
+
+    const statusColor =
+        status === "seen"
+            ? "#60a5fa"
+            : status === "delivered"
+                ? "#cbd5e1"
+                : "#cbd5e1";
 
     return (
         <View className={`mb-3 ${isMine ? "items-end" : "items-start"}`}>
@@ -47,6 +66,15 @@ export default function ChatBubble({ message, isMine }: ChatBubbleProps) {
                 >
                     {message.content}
                 </Text>
+
+                {showStatus ? (
+                    <View className="mt-2 flex-row items-center justify-end gap-1">
+                        <Text className="text-[10px] text-white/75">
+                            {status === "seen" ? "Seen" : status === "delivered" ? "Delivered" : "Sent"}
+                        </Text>
+                        <Ionicons name={statusIconName as any} size={12} color={statusColor} />
+                    </View>
+                ) : null}
             </View>
 
             <Text className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">

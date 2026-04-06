@@ -1,4 +1,5 @@
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { getFocusedRouteNameFromRoute } from "@react-navigation/native";
 import type { TabsParamList } from "./types";
 import ChatsStack from "./stacks/ChatsStack";
 import CallsStack from "./stacks/CallsStack";
@@ -11,6 +12,15 @@ export default function TabsNavigator() {
     return (
         <Tab.Navigator screenOptions={({ route }) => ({
             headerShown: false,
+            tabBarStyle: (() => {
+                const focusedRouteName = getFocusedRouteNameFromRoute(route);
+
+                if (route.name === "ChatsTab" && focusedRouteName === "ChatRoom") {
+                    return { display: "none" };
+                }
+
+                return undefined;
+            })(),
             tabBarIcon: ({ focused, color, size }) => {
                 let iconName: keyof typeof Ionicons.glyphMap = "ellipse-outline";
 
