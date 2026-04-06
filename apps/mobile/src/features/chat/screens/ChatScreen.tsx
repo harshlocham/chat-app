@@ -1,19 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-    ActivityIndicator,
-    FlatList,
-    Text,
-    View,
-} from "react-native";
+import { StackScreenProps } from "@react-navigation/stack";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo } from "react";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import type { ChatsStackParamList } from "@/app/navigation/types";
 import { fetchConversationMessages } from "@/features/chat/api/chatApi";
+import ChatBubble from "@/features/chat/components/ChatBubble";
+import { useAuthStore } from "@/features/auth/store/authStore";
+import type { ChatMessage } from "@/features/chat/store/chatStore";
 import { chatSelectors, useChatStore } from "@/features/chat/store/chatStore";
 
-const EMPTY_MESSAGES = [] as const;
+const EMPTY_MESSAGES: ChatMessage[] = [];
+type ChatScreenProps = StackScreenProps<ChatsStackParamList, "ChatRoom">;
 
-export default function ChatScreen() {
+const getUserId = (user: unknown): string | null => {
+    if (!user || typeof user !== "object") {
+        return null;
+    }
+
+    const value = user as { id?: unknown; _id?: unknown };
+
+    if (typeof value.id === "string") {
+        return value.id;
+    }
+
+    if (typeof value._id === "string") {
+        return value._id;
+    }
+
+    return null;
+};
+
+export default function ChatScreen({ route }: ChatScreenProps) {
     const selectedConversationId = useChatStore(chatSelectors.selectedConversationId);
+    const setSelectedConversationId = useChatStore((state) => state.setSelectedConversationId);
     const conversation = useChatStore((state) =>
         selectedConversationId
             ? state.conversations.find((item) => item._id === selectedConversationId) ?? null
@@ -28,50 +49,51 @@ export default function ChatScreen() {
     const clearMessages = useChatStore((state) => state.clearMessages);
     const setHasMore = useChatStore((state) => state.setHasMore);
     const clearUnread = useChatStore((state) => state.clearUnread);
+    const user = useAuthStore((state) => state.user);
+    const currentUserId = getUserId(user);
 
-    const [loading, setLoading] = useState(false);
+    const conversationId = route.params.conversationId;
+
+    const { data: queryMessages = EMPTY_MESSAGES, isLoading } = useQuery({
+        queryKey: ["chat", "messages", conversationId],
+        queryFn: () => fetchConversationMessages(conversationId),
+        enabled: Boolean(conversationId),
+    });
+
+    useEffect(() => {
+        if (conversationId) {
+            setSelectedConversationId(conversationId);
+        }
+    }, [conversationId, setSelectedConversationId]);
 
     const title = useMemo(() => {
         return conversation?.name ?? conversation?.groupName ?? "Chat";
     }, [conversation?.groupName, conversation?.name]);
 
     useEffect(() => {
-        if (!selectedConversationId) {
+        if (!conversationId || !queryMessages) {
             return;
         }
 
-        let isActive = true;
+        setMessages(conversationId, queryMessages, "replace");
+        clearUnread(conversationId);
+        setHasMore(conversationId, queryMessages.length > 0);
+    }, [clearUnread, conversationId, queryMessages, setHasMore, setMessages]);
 
-        (async () => {
-            setLoading(true);
-
-            try {
-                const loadedMessages = await fetchConversationMessages(selectedConversationId);
-
-                if (!isActive) {
-                    return;
-                }
-
-                setMessages(selectedConversationId, loadedMessages, "replace");
-                clearUnread(selectedConversationId);
-                setHasMore(selectedConversationId, loadedMessages.length > 0);
-            } finally {
-                if (isActive) {
-                    setLoading(false);
-                }
-            }
-        })();
+    useEffect(() => {
+        if (!conversationId) {
+            return;
+        }
 
         return () => {
-            isActive = false;
-            clearMessages(selectedConversationId);
+            clearMessages(conversationId);
         };
-    }, [clearMessages, clearUnread, selectedConversationId, setHasMore, setMessages]);
+    }, [clearMessages, conversationId]);
 
-    if (!selectedConversationId) {
+    if (!conversationId) {
         return (
-            <SafeAreaView className="flex-1 items-center justify-center px-6 bg-white">
-                <Text className="text-center text-slate-500">
+            <SafeAreaView className="flex-1 items-center justify-center px-6 bg-white dark:bg-slate-950">
+                <Text className="text-center text-slate-500 dark:text-slate-400">
                     Select a conversation to start chatting.
                 </Text>
             </SafeAreaView>
@@ -79,13 +101,13 @@ export default function ChatScreen() {
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-white">
-            <View className="border-b border-slate-200 px-4 py-3">
-                <Text className="text-lg font-semibold text-slate-900">{title}</Text>
-                <Text className="text-sm text-slate-500">{conversation?._id ?? selectedConversationId}</Text>
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-950">
+            <View className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                <Text className="text-lg font-semibold text-slate-900 dark:text-slate-100">{title}</Text>
+                <Text className="text-sm text-slate-500 dark:text-slate-400">{conversation?._id ?? conversationId}</Text>
             </View>
 
-            {loading ? (
+            {isLoading ? (
                 <View className="flex-1 items-center justify-center">
                     <ActivityIndicator />
                 </View>
@@ -95,16 +117,11 @@ export default function ChatScreen() {
                     data={messages}
                     keyExtractor={(item) => item._id}
                     renderItem={({ item }) => (
-                        <View className="rounded-[18px] bg-slate-100 px-4 py-3 mb-3">
-                            <Text className="text-xs font-medium text-slate-900 mb-1">
-                                {item.sender.username || item.sender._id}
-                            </Text>
-                            <Text className="text-base text-slate-700">{item.content}</Text>
-                        </View>
+                        <ChatBubble message={item} isMine={Boolean(currentUserId && item.sender._id === currentUserId)} />
                     )}
                     ListEmptyComponent={
                         <View className="items-center justify-center px-6 py-10">
-                            <Text className="text-sm text-slate-500">No messages yet.</Text>
+                            <Text className="text-sm text-slate-500 dark:text-slate-400">No messages yet.</Text>
                         </View>
                     }
                 />

@@ -2,13 +2,16 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
+import { AppQueryProvider } from "./src/app/providers/query-provider";
 import AppNavigator from "./src/app/navigation/AppNavigator";
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="auto" />
-      <AppNavigator />
+      <AppQueryProvider>
+        <StatusBar style="auto" />
+        <AppNavigator />
+      </AppQueryProvider>
     </SafeAreaProvider>
   );
 }
