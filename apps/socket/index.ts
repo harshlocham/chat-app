@@ -22,6 +22,37 @@ function parseAllowedOrigins(raw: string | undefined): string[] {
         .filter(Boolean);
 }
 
+function isOriginAllowed(origin: string | undefined, allowedOrigins: string[]) {
+    if (!origin) {
+        return true;
+    }
+
+    if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        return true;
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+        if (origin.startsWith("exp://")) {
+            return true;
+        }
+
+        if (
+            origin.startsWith("http://localhost:")
+            || origin.startsWith("http://127.0.0.1:")
+            || origin.startsWith("http://10.")
+            || origin.startsWith("http://192.168.")
+        ) {
+            return true;
+        }
+
+        if (allowedOrigins.length === 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const visitedEnvPaths = new Set<string>();
 let scanDir = currentDir;
@@ -46,11 +77,7 @@ const app = express();
 const allowedOrigins = parseAllowedOrigins(process.env.ORIGIN);
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) {
-            return callback(null, true);
-        }
-
-        if (allowedOrigins.includes(origin)) {
+        if (isOriginAllowed(origin, allowedOrigins)) {
             return callback(null, true);
         }
 
