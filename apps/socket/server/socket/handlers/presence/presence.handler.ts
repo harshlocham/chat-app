@@ -2,7 +2,7 @@
 import type { Redis } from "ioredis";
 import type { Server as IOServer } from "socket.io";
 
-import { User } from "../../../../../../packages/db/models/User.js";
+import * as UserModel from "../../../../../../packages/db/models/User.js";
 import {
     ClientToServerEvents,
     ServerToClientEvents,
@@ -14,6 +14,9 @@ import {
     trackSocketConnected,
     trackSocketDisconnected,
 } from "../../services/presence.redis.service.js";
+
+const User = (UserModel as { User?: any; default?: any }).User
+    ?? (UserModel as { default?: any }).default;
 
 type IO = IOServer<ClientToServerEvents, ServerToClientEvents>;
 type Socket = import("socket.io").Socket<ClientToServerEvents, ServerToClientEvents>;
