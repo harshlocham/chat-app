@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 
+import PresenceDot from "@/components/common/PresenceDot";
+import { usePresenceStore } from "@/store/presence-store";
 import type { ChatConversation } from "@/features/chat/store/chatStore";
 
 type ConversationListItemProps = {
@@ -58,6 +60,33 @@ function getPreviewText(conversation: ChatConversation, currentUserId?: string |
     return combined.length > 42 ? `${combined.slice(0, 42)}...` : combined;
 }
 
+function formatLastSeen(value?: string | null) {
+    if (!value) {
+        return "Offline";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Offline";
+    }
+
+    const diffMinutes = Math.max(1, Math.floor((Date.now() - date.getTime()) / 60000));
+
+    if (diffMinutes < 60) {
+        return `last seen ${diffMinutes} min ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+
+    if (diffHours < 24) {
+        return `last seen ${diffHours} hr ago`;
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `last seen ${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
+}
+
 export default function ConversationListItem({
     conversation,
     currentUserId,
@@ -69,21 +98,63 @@ export default function ConversationListItem({
     const timeLabel = formatConversationTime(conversation.updatedAt || conversation.createdAt);
     const initial = title.trim().charAt(0).toUpperCase() || "C";
     const unreadCount = conversation.unreadCount ?? 0;
+    const otherParticipants = conversation.participants.filter((participant) => participant._id !== currentUserId);
+    const onlineUsers = usePresenceStore((state) => state.onlineUsers);
+    const lastSeenByUser = usePresenceStore((state) => state.lastSeenByUser);
+
+    const onlineCount = otherParticipants.filter((participant) => {
+        return Boolean(onlineUsers[participant._id] || participant.isOnline);
+    }).length;
+
+    const isOnline = onlineCount > 0;
+
+    const latestLastSeen = otherParticipants.reduce<string | null>((latest, participant) => {
+        const candidate = lastSeenByUser[participant._id] ?? participant.lastSeen ?? null;
+
+        if (!candidate) {
+            return latest;
+        }
+
+        if (!latest) {
+            return candidate;
+        }
+
+        const candidateTime = new Date(candidate).getTime();
+        const latestTime = new Date(latest).getTime();
+
+        return Number.isNaN(candidateTime) || candidateTime <= latestTime ? latest : candidate;
+    }, null);
+
+    const presenceLabel = conversation.isGroup
+        ? isOnline
+            ? `${onlineCount} online`
+            : formatLastSeen(latestLastSeen)
+        : isOnline
+            ? "Online"
+            : formatLastSeen(latestLastSeen);
 
     return (
         <Pressable
             className="flex-row items-center gap-3 px-4 py-3 active:opacity-80"
             onPress={() => onPress(conversationId)}
         >
-            <View className="h-11 w-11 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+            <View className="relative h-11 w-11 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
                 <Text className="text-sm font-semibold text-slate-700 dark:text-slate-100">{initial}</Text>
+                <View className="absolute -right-0.5 -top-0.5">
+                    <PresenceDot online={isOnline} />
+                </View>
             </View>
 
             <View className="flex-1 border-b border-slate-200 pb-3 dark:border-slate-800">
                 <View className="mb-1 flex-row items-center justify-between gap-2">
-                    <Text className="flex-1 text-sm font-semibold text-slate-900 dark:text-slate-100" numberOfLines={1}>
-                        {title}
-                    </Text>
+                    <View className="flex-1">
+                        <Text className="text-sm font-semibold text-slate-900 dark:text-slate-100" numberOfLines={1}>
+                            {title}
+                        </Text>
+                        <Text className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400" numberOfLines={1}>
+                            {presenceLabel}
+                        </Text>
+                    </View>
                     <Text className="text-xs text-slate-500 dark:text-slate-400">{timeLabel}</Text>
                 </View>
 

@@ -23,6 +23,8 @@ export type ChatParticipant = {
     _id: string;
     username: string;
     profilePicture?: string | null;
+    isOnline?: boolean;
+    lastSeen?: string | null;
 };
 
 export type ChatMessageInput = {
@@ -147,6 +149,9 @@ const normalizeParticipant = (participant: ChatParticipant | string): ChatPartic
         return {
             _id: participant,
             username: participant,
+            profilePicture: null,
+            isOnline: false,
+            lastSeen: null,
         };
     }
 
@@ -154,6 +159,8 @@ const normalizeParticipant = (participant: ChatParticipant | string): ChatPartic
         _id: toStringId(participant._id),
         username: participant.username,
         profilePicture: participant.profilePicture ?? null,
+        isOnline: participant.isOnline ?? false,
+        lastSeen: typeof participant.lastSeen === "string" ? participant.lastSeen : null,
     };
 };
 
