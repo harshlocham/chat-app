@@ -23,9 +23,32 @@ export default function ChatSocketBridge() {
     }, [emit]);
 
     const handleMessageNew = useCallback((message: unknown) => {
-        useChatStore
-            .getState()
-            .receiveMessage(chatStoreUtils.normalizeChatMessage(message as ChatMessageInput));
+        const normalized = chatStoreUtils.normalizeChatMessage(message as ChatMessageInput);
+        const currentUserId = useChatStore.getState().currentUserId;
+
+        useChatStore.getState().receiveMessage({
+            ...normalized,
+            status:
+                normalized.sender._id === currentUserId
+                    ? "delivered"
+                    : normalized.status,
+            delivered:
+                normalized.sender._id === currentUserId
+                    ? true
+                    : normalized.delivered,
+        });
+    }, []);
+
+    const handleMessageSeen = useCallback((payload: unknown) => {
+        const value = payload as { messageId?: unknown; userId?: unknown };
+        const messageId = chatStoreUtils.toStringId(value.messageId);
+        const userId = chatStoreUtils.toStringId(value.userId);
+
+        if (!messageId || !userId) {
+            return;
+        }
+
+        useChatStore.getState().markMessageSeen(messageId, userId);
     }, []);
 
     const handleSyncMessages = useCallback((payload: unknown) => {
@@ -60,6 +83,7 @@ export default function ChatSocketBridge() {
     useEffect(() => {
         on("connect", handleConnect);
         on(ChatSocketEvents.MESSAGE_NEW, handleMessageNew);
+        on(ChatSocketEvents.MESSAGE_SEEN, handleMessageSeen);
         on(ChatSocketEvents.SYNC_MESSAGES, handleSyncMessages);
         on(ChatSocketEvents.SYNC_CONVERSATIONS, handleSyncConversations);
         on(ChatSocketEvents.CONVERSATION_UPDATED, handleConversationUpdated);
@@ -67,11 +91,12 @@ export default function ChatSocketBridge() {
         return () => {
             off("connect", handleConnect);
             off(ChatSocketEvents.MESSAGE_NEW, handleMessageNew);
+            off(ChatSocketEvents.MESSAGE_SEEN, handleMessageSeen);
             off(ChatSocketEvents.SYNC_MESSAGES, handleSyncMessages);
             off(ChatSocketEvents.SYNC_CONVERSATIONS, handleSyncConversations);
             off(ChatSocketEvents.CONVERSATION_UPDATED, handleConversationUpdated);
         };
-    }, [handleConnect, handleConversationUpdated, handleMessageNew, handleSyncConversations, handleSyncMessages, off, on]);
+    }, [handleConnect, handleConversationUpdated, handleMessageNew, handleMessageSeen, handleSyncConversations, handleSyncMessages, off, on]);
 
     useEffect(() => {
         if (!connected) {
