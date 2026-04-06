@@ -22,6 +22,8 @@ config.resolver.extraNodeModules = {
     "@react-navigation/bottom-tabs": path.resolve(projectRoot, "node_modules/@react-navigation/bottom-tabs"),
     "@react-navigation/stack": path.resolve(projectRoot, "node_modules/@react-navigation/stack"),
     "@react-navigation/elements": path.resolve(projectRoot, "node_modules/@react-navigation/elements"),
+    "@tanstack/react-query": path.resolve(projectRoot, "node_modules/@tanstack/react-query"),
+    "@tanstack/query-core": path.resolve(projectRoot, "node_modules/@tanstack/query-core"),
 };
 
 module.exports = withNativeWind(config, { input: "./global.css" });
