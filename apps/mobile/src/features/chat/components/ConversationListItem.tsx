@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 
 import PresenceDot from "@/components/common/PresenceDot";
 import { usePresenceStore } from "@/store/presence-store";
@@ -44,6 +44,15 @@ function getConversationName(conversation: ChatConversation, currentUserId?: str
     const other = conversation.participants.find((participant) => participant._id !== currentUserId);
 
     return other?.username || conversation.name || "Conversation";
+}
+
+function getConversationAvatar(conversation: ChatConversation, currentUserId?: string | null) {
+    if (conversation.image) {
+        return conversation.image;
+    }
+
+    const other = conversation.participants.find((participant) => participant._id !== currentUserId);
+    return other?.profilePicture ?? null;
 }
 
 function getPreviewText(conversation: ChatConversation, currentUserId?: string | null) {
@@ -98,6 +107,7 @@ export default function ConversationListItem({
     const timeLabel = formatConversationTime(conversation.updatedAt || conversation.createdAt);
     const initial = title.trim().charAt(0).toUpperCase() || "C";
     const unreadCount = conversation.unreadCount ?? 0;
+    const avatarUri = getConversationAvatar(conversation, currentUserId);
     const otherParticipants = conversation.participants.filter((participant) => participant._id !== currentUserId);
     const onlineUsers = usePresenceStore((state) => state.onlineUsers);
     const lastSeenByUser = usePresenceStore((state) => state.lastSeenByUser);
@@ -138,8 +148,18 @@ export default function ConversationListItem({
             className="flex-row items-center gap-3 px-4 py-3 active:opacity-80"
             onPress={() => onPress(conversationId)}
         >
-            <View className="relative h-11 w-11 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
-                <Text className="text-sm font-semibold text-slate-700 dark:text-slate-100">{initial}</Text>
+            <View className="relative h-12 w-12 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                {avatarUri ? (
+                    <Image
+                        source={{ uri: avatarUri }}
+                        className="h-full w-full"
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View className="flex-1 items-center justify-center">
+                        <Text className="text-sm font-semibold text-slate-700 dark:text-slate-100">{initial}</Text>
+                    </View>
+                )}
                 <View className="absolute -right-0.5 -top-0.5">
                     <PresenceDot online={isOnline} />
                 </View>

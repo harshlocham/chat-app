@@ -2,7 +2,7 @@ import { CompositeNavigationProp } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -29,25 +29,29 @@ type ChatsListProps = {
 
 export default function ChatsList({ navigation }: ChatsListProps) {
     const currentUserId = useChatStore((state) => state.currentUserId);
+    const conversations = useChatStore((state) => state.conversations);
     const setConversations = useChatStore((state) => state.setConversations);
     const setSelectedConversationId = useChatStore((state) => state.setSelectedConversationId);
     const clearUnread = useChatStore((state) => state.clearUnread);
 
     const {
-        data: conversations = [],
+        data: fetchedConversations = [],
         isLoading,
         isError,
         refetch,
     } = useQuery({
         queryKey: ["chat", "conversations"],
         queryFn: fetchConversations,
+        staleTime: 30_000,
     });
 
     useEffect(() => {
-        if (conversations.length > 0) {
-            setConversations(conversations);
+        if (fetchedConversations.length > 0) {
+            setConversations(fetchedConversations);
         }
-    }, [conversations, setConversations]);
+    }, [fetchedConversations, setConversations]);
+
+    const listData = useMemo(() => conversations, [conversations]);
 
     const handleConversationPress = (conversationId: string) => {
         setSelectedConversationId(conversationId);
@@ -79,8 +83,15 @@ export default function ChatsList({ navigation }: ChatsListProps) {
                 </View>
             ) : (
                 <FlatList
-                    data={conversations}
+                    data={listData}
                     keyExtractor={(item) => item._id}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    initialNumToRender={12}
+                    maxToRenderPerBatch={12}
+                    windowSize={8}
+                    removeClippedSubviews
+                    contentContainerStyle={listData.length === 0 ? { flexGrow: 1 } : undefined}
                     renderItem={({ item }) => (
                         <ConversationListItem
                             conversation={item}

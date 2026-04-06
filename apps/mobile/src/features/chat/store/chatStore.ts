@@ -254,6 +254,33 @@ const upsertMessages = (
     ]);
 };
 
+const getConversationTimestamp = (conversation: ChatConversation) => {
+    const candidate = conversation.updatedAt ?? conversation.lastMessage?.updatedAt ?? conversation.lastMessage?.createdAt ?? conversation.createdAt;
+
+    if (!candidate) {
+        return 0;
+    }
+
+    const parsed = new Date(candidate).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const sortConversations = (
+    conversations: ChatConversation[],
+    selectedConversationId: string | null
+) => {
+    return [...conversations].sort((left, right) => {
+        const leftSelected = left._id === selectedConversationId;
+        const rightSelected = right._id === selectedConversationId;
+
+        if (leftSelected !== rightSelected) {
+            return leftSelected ? -1 : 1;
+        }
+
+        return getConversationTimestamp(right) - getConversationTimestamp(left);
+    });
+};
+
 const withStatus = (message: ChatMessage, status: ChatMessageStatus): ChatMessage => {
     if (status === "seen") {
         return {
@@ -286,31 +313,37 @@ export const useChatStore = create<ChatStoreState>()(
             setSelectedConversationId: (conversationId) =>
                 set((state) => ({
                     selectedConversationId: conversationId,
-                    conversations: conversationId
-                        ? state.conversations.map((conversation) =>
-                            conversation._id === conversationId
-                                ? { ...conversation, unreadCount: 0 }
-                                : conversation
-                        )
-                        : state.conversations,
+                    conversations: sortConversations(
+                        conversationId
+                            ? state.conversations.map((conversation) =>
+                                conversation._id === conversationId
+                                    ? { ...conversation, unreadCount: 0 }
+                                    : conversation
+                            )
+                            : state.conversations,
+                        conversationId
+                    ),
                 })),
 
             setCurrentUserId: (userId) => set({ currentUserId: userId }),
 
             setConversations: (conversations) =>
                 set((state) => ({
-                    conversations: conversations.map((conversation) => {
-                        const nextConversation = normalizeConversation(conversation);
-                        const existing = state.conversations.find(
-                            (item) => item._id === nextConversation._id
-                        );
+                    conversations: sortConversations(
+                        conversations.map((conversation) => {
+                            const nextConversation = normalizeConversation(conversation);
+                            const existing = state.conversations.find(
+                                (item) => item._id === nextConversation._id
+                            );
 
-                        return {
-                            ...existing,
-                            ...nextConversation,
-                            unreadCount: nextConversation.unreadCount ?? existing?.unreadCount ?? 0,
-                        };
-                    }),
+                            return {
+                                ...existing,
+                                ...nextConversation,
+                                unreadCount: nextConversation.unreadCount ?? existing?.unreadCount ?? 0,
+                            };
+                        }),
+                        state.selectedConversationId
+                    ),
                 })),
 
             upsertConversation: (conversation) =>
@@ -320,33 +353,41 @@ export const useChatStore = create<ChatStoreState>()(
                         (item) => item._id === nextConversation._id
                     );
 
+                    const nextConversations = exists
+                        ? state.conversations.map((item) =>
+                            item._id === nextConversation._id ? nextConversation : item
+                        )
+                        : [nextConversation, ...state.conversations];
+
                     return {
-                        conversations: exists
-                            ? state.conversations.map((item) =>
-                                item._id === nextConversation._id ? nextConversation : item
-                            )
-                            : [nextConversation, ...state.conversations],
+                        conversations: sortConversations(nextConversations, state.selectedConversationId),
                     };
                 }),
 
             incrementUnread: (conversationId) =>
                 set((state) => ({
-                    conversations: state.conversations.map((conversation) =>
-                        conversation._id === conversationId
-                            ? {
-                                ...conversation,
-                                unreadCount: (conversation.unreadCount ?? 0) + 1,
-                            }
-                            : conversation
+                    conversations: sortConversations(
+                        state.conversations.map((conversation) =>
+                            conversation._id === conversationId
+                                ? {
+                                    ...conversation,
+                                    unreadCount: (conversation.unreadCount ?? 0) + 1,
+                                }
+                                : conversation
+                        ),
+                        state.selectedConversationId
                     ),
                 })),
 
             clearUnread: (conversationId) =>
                 set((state) => ({
-                    conversations: state.conversations.map((conversation) =>
-                        conversation._id === conversationId
-                            ? { ...conversation, unreadCount: 0 }
-                            : conversation
+                    conversations: sortConversations(
+                        state.conversations.map((conversation) =>
+                            conversation._id === conversationId
+                                ? { ...conversation, unreadCount: 0 }
+                                : conversation
+                        ),
+                        state.selectedConversationId
                     ),
                 })),
 
@@ -377,15 +418,18 @@ export const useChatStore = create<ChatStoreState>()(
                             ...state.messagesByConversation,
                             [conversationId]: [...currentMessages, nextMessage],
                         },
-                        conversations: syncConversationPreview(
-                            state.conversations,
-                            conversationId,
-                            nextMessage,
-                            {
-                                selectedConversationId: state.selectedConversationId,
-                                currentUserId: state.currentUserId,
-                                incrementUnread: false,
-                            }
+                        conversations: sortConversations(
+                            syncConversationPreview(
+                                state.conversations,
+                                conversationId,
+                                nextMessage,
+                                {
+                                    selectedConversationId: state.selectedConversationId,
+                                    currentUserId: state.currentUserId,
+                                    incrementUnread: false,
+                                }
+                            ),
+                            state.selectedConversationId
                         ),
                     };
                 }),
@@ -408,15 +452,18 @@ export const useChatStore = create<ChatStoreState>()(
                             ...state.messagesByConversation,
                             [conversationId]: [...currentMessages, nextMessage],
                         },
-                        conversations: syncConversationPreview(
-                            state.conversations,
-                            conversationId,
-                            nextMessage,
-                            {
-                                selectedConversationId: state.selectedConversationId,
-                                currentUserId: state.currentUserId,
-                                incrementUnread: false,
-                            }
+                        conversations: sortConversations(
+                            syncConversationPreview(
+                                state.conversations,
+                                conversationId,
+                                nextMessage,
+                                {
+                                    selectedConversationId: state.selectedConversationId,
+                                    currentUserId: state.currentUserId,
+                                    incrementUnread: false,
+                                }
+                            ),
+                            state.selectedConversationId
                         ),
                     };
                 }),
@@ -441,7 +488,7 @@ export const useChatStore = create<ChatStoreState>()(
                     );
 
                     if (!shouldStoreMessage) {
-                        return { conversations: nextConversations };
+                        return { conversations: sortConversations(nextConversations, state.selectedConversationId) };
                     }
 
                     const currentMessages = loadedMessages ?? [];
@@ -468,7 +515,7 @@ export const useChatStore = create<ChatStoreState>()(
                             : [...currentMessages, nextMessage];
 
                     return {
-                        conversations: nextConversations,
+                        conversations: sortConversations(nextConversations, state.selectedConversationId),
                         messagesByConversation: {
                             ...state.messagesByConversation,
                             [conversationId]: nextMessages,
@@ -488,15 +535,18 @@ export const useChatStore = create<ChatStoreState>()(
                                 item._id === tempId ? nextMessage : item
                             ),
                         },
-                        conversations: syncConversationPreview(
-                            state.conversations,
-                            conversationId,
-                            nextMessage,
-                            {
-                                selectedConversationId: state.selectedConversationId,
-                                currentUserId: state.currentUserId,
-                                incrementUnread: false,
-                            }
+                        conversations: sortConversations(
+                            syncConversationPreview(
+                                state.conversations,
+                                conversationId,
+                                nextMessage,
+                                {
+                                    selectedConversationId: state.selectedConversationId,
+                                    currentUserId: state.currentUserId,
+                                    incrementUnread: false,
+                                }
+                            ),
+                            state.selectedConversationId
                         ),
                     };
                 }),
