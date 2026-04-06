@@ -13,12 +13,14 @@ const normalizeParticipant = (participant: unknown): ChatParticipant => {
     if (!participant || typeof participant !== "object") {
         return {
             _id: "",
+            name: "",
             username: "",
         };
     }
 
     const value = participant as {
         _id?: unknown;
+        name?: unknown;
         username?: unknown;
         profilePicture?: unknown;
         isOnline?: unknown;
@@ -32,8 +34,16 @@ const normalizeParticipant = (participant: unknown): ChatParticipant => {
                 ? value.lastSeen.toISOString()
                 : null;
 
+    const normalizedName =
+        typeof value.name === "string" && value.name.trim()
+            ? value.name
+            : typeof value.username === "string" && value.username.trim()
+                ? value.username
+                : "";
+
     return {
         _id: chatStoreUtils.toStringId(value._id),
+        name: normalizedName,
         username: typeof value.username === "string" ? value.username : "",
         profilePicture: typeof value.profilePicture === "string" ? value.profilePicture : null,
         isOnline: Boolean(value.isOnline),

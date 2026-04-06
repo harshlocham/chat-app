@@ -18,7 +18,7 @@ export function toChatUser(participant: ChatParticipant | null | undefined): Cha
 
     return {
         _id: participant._id,
-        name: participant.username || "Unknown",
+        name: participant.name || participant.username || "Unknown",
         avatar: participant.profilePicture ?? null,
         lastSeen: typeof participant.lastSeen === "string" ? participant.lastSeen : null,
     };

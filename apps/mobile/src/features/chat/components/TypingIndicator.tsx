@@ -13,7 +13,7 @@ function buildLabel(users: ChatParticipant[]) {
     }
 
     const names = users
-        .map((user) => user.username || user._id || "User")
+        .map((user) => user.name || user.username || user._id || "User")
         .filter(Boolean);
 
     if (names.length === 1) {

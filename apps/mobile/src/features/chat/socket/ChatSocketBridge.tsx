@@ -58,6 +58,7 @@ export default function ChatSocketBridge() {
         const value = payload as {
             conversationId?: unknown;
             userId?: unknown;
+            name?: unknown;
             username?: unknown;
             profilePicture?: unknown;
         };
@@ -69,9 +70,17 @@ export default function ChatSocketBridge() {
             return;
         }
 
+        const normalizedName =
+            typeof value.name === "string" && value.name.trim()
+                ? value.name
+                : typeof value.username === "string" && value.username.trim()
+                    ? value.username
+                    : "User";
+
         setTypingUser(conversationId, {
             _id: userId,
-            username: typeof value.username === "string" && value.username.trim() ? value.username : "User",
+            name: normalizedName,
+            username: typeof value.username === "string" ? value.username : normalizedName,
             profilePicture: typeof value.profilePicture === "string" ? value.profilePicture : null,
         });
     }, [setTypingUser]);
