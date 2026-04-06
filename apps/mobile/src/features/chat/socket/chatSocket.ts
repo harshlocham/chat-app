@@ -1,16 +1,12 @@
 import type { Socket } from "socket.io-client";
-import { io } from "socket.io-client";
 
-import { tokenStore } from "@/features/auth/api/tokenStore";
-import { ENV } from "@/shared/config/env";
 import {
     chatStoreUtils,
     type ChatMessageInput,
     useChatStore,
 } from "@/features/chat/store/chatStore";
 import { normalizeConversation } from "@/features/chat/api/chatApi";
-
-const SOCKET_PATH = "/api/socket";
+import { socketClient } from "@/lib/socket";
 
 export const ChatSocketEvents = {
     MESSAGE_NEW: "message:new",
@@ -23,21 +19,8 @@ export const ChatSocketEvents = {
 } as const;
 
 export async function createChatSocket() {
-    const [accessToken, deviceId] = await Promise.all([
-        tokenStore.getAccessToken(),
-        tokenStore.getOrCreateDeviceId(),
-    ]);
-
-    return io(ENV.SOCKET_URL, {
-        path: SOCKET_PATH,
-        autoConnect: false,
-        transports: ["websocket"],
-        reconnection: true,
-        auth: {
-            token: accessToken,
-            deviceId,
-        },
-    });
+    await socketClient.connect();
+    return socketClient.getSocket();
 }
 
 export function initializeChatSocketListeners(
@@ -114,5 +97,5 @@ export function initializeChatSocketListeners(
 
 export function disconnectChatSocket(socket: Socket, cleanup?: () => void) {
     cleanup?.();
-    socket.disconnect();
+    socketClient.disconnect();
 }
