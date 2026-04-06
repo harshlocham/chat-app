@@ -67,7 +67,10 @@ export default function ChatScreen({ route }: ChatScreenProps) {
         isFetchingNextPage,
     } = useMessages(conversationId);
 
-    const messages = data?.pages.flatMap((page) => page.messages) ?? EMPTY_MESSAGES;
+    const messages = useMemo(
+        () => data?.pages.flatMap((page) => page.messages) ?? EMPTY_MESSAGES,
+        [data?.pages]
+    );
 
     useEffect(() => {
         if (!conversationId || !messages) {
