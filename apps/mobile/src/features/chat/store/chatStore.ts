@@ -119,6 +119,9 @@ const initialState = {
     typingUsersByConversation: {} as Record<string, Record<string, ChatParticipant>>,
 };
 
+const EMPTY_MESSAGE_LIST: ChatMessage[] = [];
+const EMPTY_TYPING_USER_MAP: Record<string, ChatParticipant> = {};
+
 const tempIdPrefix = "temp_";
 
 const toStringId = (value: unknown): string => {
@@ -702,11 +705,11 @@ export const chatSelectors = {
     messagesByConversationId:
         (conversationId: string) =>
             (state: ChatStoreState) =>
-                state.messagesByConversation[conversationId] ?? [],
+                state.messagesByConversation[conversationId] ?? EMPTY_MESSAGE_LIST,
     typingUsersByConversationId:
         (conversationId: string) =>
             (state: ChatStoreState) =>
-                state.typingUsersByConversation[conversationId] ?? {},
+                state.typingUsersByConversation[conversationId] ?? EMPTY_TYPING_USER_MAP,
 };
 
 export const chatStoreUtils = {

@@ -81,7 +81,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
             setConnecting(false);
         };
 
-        const handleConnectError = () => {
+        const handleConnectError = (error: unknown) => {
+            const message =
+                typeof error === "object" && error && "message" in error
+                    ? String((error as { message?: unknown }).message ?? "")
+                    : "";
+
+            if (message.toLowerCase().includes("unauthorized")) {
+                socketClient.disconnect();
+                setConnected(false);
+            }
+
             setConnecting(false);
         };
 
