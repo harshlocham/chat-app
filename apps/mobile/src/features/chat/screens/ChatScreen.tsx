@@ -9,13 +9,14 @@ import GroupedMessageList from "@/features/chat/components/GroupedMessageList";
 import MessageInput from "@/features/chat/components/MessageInput";
 import TypingIndicator from "@/features/chat/components/TypingIndicator";
 import { useAuthStore } from "@/features/auth/store/authStore";
-import type { ChatMessage } from "@/features/chat/store/chatStore";
+import type { ChatMessage, ChatParticipant } from "@/features/chat/store/chatStore";
 import { chatSelectors, useChatStore } from "@/features/chat/store/chatStore";
 import { useMessages } from "@/features/chat/hooks/useMessages";
 import { getDirectConversationUser, toChatUserIdentity } from "@/features/chat/models/chatUser";
 import { usePresenceStore } from "@/store/presence-store";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
+const EMPTY_TYPING_USERS: Record<string, ChatParticipant> = {};
 type ChatScreenProps = StackScreenProps<ChatsStackParamList, "ChatRoom">;
 
 const getUserId = (user: unknown): string | null => {
@@ -76,7 +77,8 @@ export default function ChatScreen({ route }: ChatScreenProps) {
     const storeMessages = useChatStore((state) =>
         conversationId ? state.messagesByConversation[conversationId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES
     );
-    const typingUsers = useChatStore(chatSelectors.typingUsersByConversationId(conversationId));
+    const typingUsersMap = useChatStore(chatSelectors.typingUsersByConversationId(conversationId));
+    const typingUsers = useMemo(() => Object.values(typingUsersMap ?? EMPTY_TYPING_USERS), [typingUsersMap]);
     const setMessages = useChatStore((state) => state.setMessages);
     const clearMessages = useChatStore((state) => state.clearMessages);
     const setHasMore = useChatStore((state) => state.setHasMore);

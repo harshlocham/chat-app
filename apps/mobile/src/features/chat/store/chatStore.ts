@@ -706,7 +706,7 @@ export const chatSelectors = {
     typingUsersByConversationId:
         (conversationId: string) =>
             (state: ChatStoreState) =>
-                Object.values(state.typingUsersByConversation[conversationId] ?? {}),
+                state.typingUsersByConversation[conversationId] ?? {},
 };
 
 export const chatStoreUtils = {
