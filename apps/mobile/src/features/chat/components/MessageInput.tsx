@@ -7,6 +7,7 @@ import { useAuthStore } from "@/features/auth/store/authStore";
 import { useChatStore } from "@/features/chat/store/chatStore";
 import { useSocket } from "@/providers/socket-provider";
 import { ChatSocketEvents } from "@/features/chat/socket/chatSocket";
+import { sendChatMessage } from "@/features/chat/api/chatApi";
 
 type MessageInputProps = {
     conversationId: string;
@@ -137,10 +138,10 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
         };
     }, [emitTypingStop]);
 
-    const handleSend = () => {
+    const handleSend = async () => {
         const content = text.trim();
 
-        if (!content || !connected) {
+        if (!content) {
             return;
         }
 
@@ -208,35 +209,49 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
             rollback();
         }, SEND_TIMEOUT_MS);
 
-        emit(
-            ChatSocketEvents.MESSAGE_SEND,
-            { conversationId, text: content },
-            (ack?: { ok?: boolean; success?: boolean; error?: string; message?: unknown }) => {
-                clearTimeout(timeout);
+        try {
+            const savedMessage = await sendChatMessage({
+                conversationId,
+                content,
+                messageType: "text",
+            });
 
-                if (ack && ack.ok === false) {
-                    rollback();
-                    return;
-                }
+            replaceTempMessage(conversationId, tempId, {
+                ...savedMessage,
+                status: "sent",
+                delivered: Boolean(savedMessage.delivered),
+                seen: Boolean(savedMessage.seen),
+            });
 
-                if (ack && ack.success === false) {
-                    rollback();
-                    return;
-                }
+            const participants = nextConversation?.participants ?? [];
+            const conversationMembers = Array.from(
+                new Set(
+                    participants
+                        .map((participant) => participant._id)
+                        .filter((id) => typeof id === "string" && id.length > 0)
+                        .concat(senderId)
+                )
+            );
 
-                if (ack?.message && typeof ack.message === "object") {
-                    replaceTempMessage(conversationId, tempId, {
-                        ...(ack.message as any),
-                        status: "sent",
-                        delivered: false,
-                        seen: false,
-                    });
-                    return;
-                }
-
-                updateMessageStatus(conversationId, tempId, "sent");
+            if (connected) {
+                emit(
+                    ChatSocketEvents.MESSAGE_SEND,
+                    { data: savedMessage, conversationMembers },
+                    (ack?: { ok?: boolean }) => {
+                        if (ack?.ok === false) {
+                            console.warn("message:send socket ack failed", {
+                                conversationId,
+                                messageId: savedMessage._id,
+                            });
+                        }
+                    }
+                );
             }
-        );
+        } catch {
+            rollback();
+        } finally {
+            clearTimeout(timeout);
+        }
     };
 
     return (
@@ -259,7 +274,7 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
                 <Pressable
                     className={`h-9 w-9 items-center justify-center rounded-full ${text.trim() ? "bg-emerald-600" : "bg-slate-200 dark:bg-slate-800"}`}
                     onPress={handleSend}
-                    disabled={!text.trim() || !connected}
+                    disabled={!text.trim()}
                 >
                     <Ionicons
                         name="send"
