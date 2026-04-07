@@ -186,18 +186,32 @@ export default function ChatScreen({ route }: ChatScreenProps) {
         return storeMessages.every((message, index) => message._id === queryMessages[index]?._id);
     }, [queryMessages, storeMessages]);
 
+    const canHydrateFromQuery = useMemo(() => {
+        if (storeMessages.length === 0) {
+            return true;
+        }
+
+        const queryIds = new Set(queryMessages.map((message) => message._id));
+
+        // If store already has messages not present in the current query snapshot,
+        // keep them to avoid dropping freshly sent/socket-delivered items.
+        const hasStoreOnlyMessages = storeMessages.some((message) => !queryIds.has(message._id));
+
+        return !hasStoreOnlyMessages;
+    }, [queryMessages, storeMessages]);
+
     useEffect(() => {
         if (!conversationId || !queryMessages) {
             return;
         }
 
-        if (!messagesMatch) {
+        if (!messagesMatch && canHydrateFromQuery) {
             setMessages(conversationId, queryMessages, "replace");
         }
 
         clearUnread(conversationId);
         setHasMore(conversationId, Boolean(hasNextPage));
-    }, [clearUnread, conversationId, hasNextPage, messagesMatch, queryMessages, setHasMore, setMessages]);
+    }, [canHydrateFromQuery, clearUnread, conversationId, hasNextPage, messagesMatch, queryMessages, setHasMore, setMessages]);
 
     useEffect(() => {
         if (!conversationId) {
