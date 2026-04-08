@@ -25,6 +25,24 @@ type Socket = import("socket.io").Socket<
 export function registerMessageHandlers(io: IO, socket: Socket, redis: Redis) {
     const conversationRoom = (id: string) => `conversation:${id}`;
 
+    const toStringId = (value: unknown): string | null => {
+        if (typeof value === "string" && value.trim()) {
+            return value;
+        }
+
+        if (
+            value
+            && typeof value === "object"
+            && "toString" in value
+            && typeof (value as { toString: () => string }).toString === "function"
+        ) {
+            const str = (value as { toString: () => string }).toString();
+            return str && str !== "[object Object]" ? str : null;
+        }
+
+        return null;
+    };
+
     socket.on(SocketEvents.CONVERSATION_JOIN, async (payload: { conversationId: string }) => {
         const { conversationId } = payload;
         if (!conversationId) return;
@@ -44,18 +62,49 @@ export function registerMessageHandlers(io: IO, socket: Socket, redis: Redis) {
     socket.on(
         SocketEvents.MESSAGE_SEND,
         async (
-            payload: { data: MessageDTO; conversationMembers: string[] },
+            payload: unknown,
             ack?: (res: { ok: boolean; error?: string }) => void
         ) => {
             try {
-                const { data, conversationMembers } = payload;
-                const { conversationId } = data;
-                if (!conversationId || !data._id) {
+                const value = (payload ?? {}) as {
+                    data?: MessageDTO;
+                    message?: MessageDTO;
+                    conversationMembers?: unknown[];
+                    members?: unknown[];
+                    recipients?: unknown[];
+                };
+
+                const data = value.data ?? value.message ?? (payload as MessageDTO);
+                const conversationId = toStringId((data as { conversationId?: unknown })?.conversationId);
+                const messageId = toStringId((data as { _id?: unknown; id?: unknown })?._id)
+                    ?? toStringId((data as { _id?: unknown; id?: unknown })?.id);
+
+                if (!conversationId || !messageId) {
                     ack?.({ ok: false, error: "Invalid message payload" });
                     return;
                 }
 
-                let recipients = (conversationMembers || []).filter(Boolean);
+                const normalizedData: MessageDTO = {
+                    ...(data as MessageDTO),
+                    _id: messageId,
+                    conversationId,
+                };
+
+                const rawRecipients = value.conversationMembers ?? value.members ?? value.recipients ?? [];
+
+                let recipients = (Array.isArray(rawRecipients) ? rawRecipients : [])
+                    .map((entry) => toStringId(entry))
+                    .filter((entry): entry is string => Boolean(entry));
+
+                const senderFromPayload = toStringId(
+                    (normalizedData as { sender?: { _id?: unknown; id?: unknown } }).sender?._id
+                ) ?? toStringId(
+                    (normalizedData as { sender?: { _id?: unknown; id?: unknown } }).sender?.id
+                );
+
+                if (senderFromPayload && !recipients.includes(senderFromPayload)) {
+                    recipients.push(senderFromPayload);
+                }
 
                 if (!recipients.includes(socket.data.userId)) {
                     recipients.push(socket.data.userId);
@@ -63,8 +112,11 @@ export function registerMessageHandlers(io: IO, socket: Socket, redis: Redis) {
 
                 recipients = Array.from(new Set(recipients));
 
+                // Fallback broadcast for participants who joined conversation room but were not in recipients.
+                io.to(conversationRoom(conversationId)).emit(SocketEvents.MESSAGE_NEW, normalizedData);
+
                 for (const userId of recipients) {
-                    io.to(`user:${userId}`).emit(SocketEvents.MESSAGE_NEW, data);
+                    io.to(`user:${userId}`).emit(SocketEvents.MESSAGE_NEW, normalizedData);
                 }
 
                 const senderId = socket.data.userId;
@@ -89,16 +141,16 @@ export function registerMessageHandlers(io: IO, socket: Socket, redis: Redis) {
                 const at = new Date();
 
                 if (seenUsers.length > 0) {
-                    await setMessageDeliveryState(redis, data._id, "seen");
+                    await setMessageDeliveryState(redis, messageId, "seen");
                 } else if (deliveredUsers.length > 0) {
-                    await setMessageDeliveryState(redis, data._id, "delivered");
+                    await setMessageDeliveryState(redis, messageId, "delivered");
                 } else {
-                    await setMessageDeliveryState(redis, data._id, "sent");
+                    await setMessageDeliveryState(redis, messageId, "sent");
                 }
 
                 for (const userId of deliveredUsers) {
                     const deliveredPayload: MessageDeliveredUpdatePayload = {
-                        messageId: data._id,
+                        messageId,
                         conversationId,
                         userId,
                         deliveredAt: at,
@@ -112,7 +164,7 @@ export function registerMessageHandlers(io: IO, socket: Socket, redis: Redis) {
                 for (const userId of seenUsers) {
                     const seenPayload: MessageSeenUpdatePayload = {
                         conversationId,
-                        messageIds: [data._id],
+                        messageIds: [messageId],
                         userId,
                         seenAt: at,
                     };
