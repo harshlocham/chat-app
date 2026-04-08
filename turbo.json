@@ -37,6 +37,11 @@
             ],
             "cache": false
         },
+        "test": {
+            "dependsOn": [
+                "^test"
+            ]
+        },
         "lint": {},
         "clean": {
             "cache": false
