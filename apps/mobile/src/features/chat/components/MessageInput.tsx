@@ -56,6 +56,28 @@ const getUsername = (user: unknown): string => {
     return "You";
 };
 
+const getParticipantId = (participant: unknown): string | null => {
+    if (!participant || typeof participant !== "object") {
+        return null;
+    }
+
+    const value = participant as { _id?: unknown; id?: unknown; userId?: unknown };
+
+    if (typeof value._id === "string" && value._id.trim()) {
+        return value._id;
+    }
+
+    if (typeof value.id === "string" && value.id.trim()) {
+        return value.id;
+    }
+
+    if (typeof value.userId === "string" && value.userId.trim()) {
+        return value.userId;
+    }
+
+    return null;
+};
+
 export default function MessageInput({ conversationId }: MessageInputProps) {
     const [text, setText] = useState("");
     const insets = useSafeAreaInsets();
@@ -227,8 +249,8 @@ export default function MessageInput({ conversationId }: MessageInputProps) {
             const conversationMembers = Array.from(
                 new Set(
                     participants
-                        .map((participant) => participant._id)
-                        .filter((id) => typeof id === "string" && id.length > 0)
+                        .map((participant) => getParticipantId(participant))
+                        .filter((id): id is string => typeof id === "string" && id.length > 0)
                         .concat(senderId)
                 )
             );
