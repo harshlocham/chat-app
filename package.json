@@ -15,6 +15,7 @@
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
+    "test": "turbo run test",
     "clean": "turbo run clean",
     "changeset": "changeset",
     "version-packages": "changeset version",
