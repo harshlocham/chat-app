@@ -82,6 +82,7 @@ async function resolveAuth(): Promise<SocketAuth | null> {
 
 function applyAuth(auth: SocketAuth) {
     const socket = ensureSocket();
+    (socket as Socket & { auth?: SocketAuth }).auth = auth;
     (socket.io.opts as { auth?: SocketAuth }).auth = auth;
 }
 
