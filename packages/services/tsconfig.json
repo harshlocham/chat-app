@@ -1,0 +1,39 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@/models/*": [
+                "../db/models/*"
+            ],
+            "@/lib/Db/*": [
+                "../db/*"
+            ],
+            "@/lib/services/*": [
+                "./*"
+            ],
+            "@/lib/repositories/*": [
+                "./repositories/*"
+            ],
+            "@/lib/validators/*": [
+                "./validators/*"
+            ],
+            "@/server/normalizers/*": [
+                "./normalizers/*"
+            ]
+        },
+        "target": "ES2022",
+        "module": "esnext",
+        "moduleResolution": "bundler",
+        "noEmit": true,
+        "strict": true,
+        "types": [
+            "node"
+        ]
+    },
+    "include": [
+        "./**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
