@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: read
 
 concurrency:
   group: release-${{ github.event.workflow_run.head_branch }}
@@ -126,6 +127,13 @@ jobs:
           echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "release_version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Compute release commit short SHA
+        id: release_sha
+        run: |
+          set -euo pipefail
+          SHORT_SHA="$(git rev-parse --short=12 "${{ github.event.workflow_run.head_sha }}")"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Create or update clean GitHub release
         if: steps.clean_tag.outputs.deployable == 'true'
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
@@ -166,6 +174,7 @@ jobs:
 
           {
             printf 'RELEASE_SHA=%s\n' "$RELEASE_SHA"
+            printf 'RELEASE_SHORT_SHA=%s\n' "${{ steps.release_sha.outputs.short_sha }}"
             printf 'DEPLOYABLE=%s\n' "$DEPLOYABLE"
             printf 'RELEASE_TAG=%s\n' "$TAG"
             printf 'RELEASE_VERSION=%s\n' "$VERSION"
