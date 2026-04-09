@@ -429,7 +429,7 @@ export const useChatStore = create<ChatStoreState>()(
                     return {
                         messagesByConversation: {
                             ...state.messagesByConversation,
-                            [conversationId]: [...currentMessages, nextMessage],
+                            [conversationId]: [nextMessage, ...currentMessages],
                         },
                         conversations: sortConversations(
                             syncConversationPreview(
@@ -463,7 +463,7 @@ export const useChatStore = create<ChatStoreState>()(
                     return {
                         messagesByConversation: {
                             ...state.messagesByConversation,
-                            [conversationId]: [...currentMessages, nextMessage],
+                            [conversationId]: [nextMessage, ...currentMessages],
                         },
                         conversations: sortConversations(
                             syncConversationPreview(
@@ -525,7 +525,7 @@ export const useChatStore = create<ChatStoreState>()(
                             ? currentMessages.map((item, index) =>
                                 index === tempMatchIndex ? nextMessage : item
                             )
-                            : [...currentMessages, nextMessage];
+                            : [nextMessage, ...currentMessages];
 
                     return {
                         conversations: sortConversations(nextConversations, state.selectedConversationId),
