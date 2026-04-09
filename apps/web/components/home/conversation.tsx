@@ -114,7 +114,7 @@ const Conversation = ({ conversation }: ConversationProps) => {
                 </div>
             </div>
 
-            <hr className="h-[1px] mx-10 bg-gray-primary" />
+            <hr className="h-px mx-10 bg-gray-primary" />
         </>
     );
 };

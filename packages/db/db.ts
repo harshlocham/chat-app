@@ -17,8 +17,8 @@ const cached = global.mongooseCache;
 
 export async function connectToDatabase(): Promise<Mongoose> {
     if (!MONGODB_URI) {
-    throw new Error("Please define the MONGODB_URI environment variable in your .env file");
-}
+        throw new Error("Please define the MONGODB_URI environment variable in your .env file");
+    }
     if (cached.conn) return cached.conn;
 
     if (!cached.promise) {
@@ -40,18 +40,24 @@ export async function connectToDatabase(): Promise<Mongoose> {
 
     return cached.conn;
 }
-// lib/db.ts (or wherever you keep DB helimport { connect } fropers)
+import { User } from "@/models/User";
 
-import { User } from "@/models/User";// Path to your user model
+export interface UserFromDatabase {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+    role: string;
+}
 
-export async function getUserFromDB(email: string) {
+export async function getUserFromDB(email: string): Promise<UserFromDatabase | undefined> {
     try {
-        await connectToDatabase(); // Ensure DB connection
+        await connectToDatabase();
 
         const user = await User.findOne({ email });
 
         if (!user) {
-            throw new Error('User not found');
+            throw new Error("User not found");
         }
 
         return {
@@ -62,6 +68,6 @@ export async function getUserFromDB(email: string) {
             role: user.role,
         };
     } catch (error) {
-        console.error('Error fetching user from DB:', error);
+        console.error("Error fetching user from DB:", error);
     }
 }
