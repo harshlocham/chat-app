@@ -23,7 +23,6 @@
                 "^build"
             ],
             "outputs": [
-                ".next/**",
                 "dist/**"
             ]
         },
@@ -42,7 +41,18 @@
                 "^test"
             ]
         },
-        "lint": {},
+        "typecheck": {
+            "dependsOn": [
+                "^typecheck"
+            ],
+            "outputs": []
+        },
+        "lint": {
+            "dependsOn": [
+                "^lint"
+            ],
+            "outputs": []
+        },
         "clean": {
             "cache": false
         }
