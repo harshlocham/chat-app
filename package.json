@@ -4,14 +4,19 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/mobile",
+    "apps/web",
+    "apps/socket",
+    "packages/auth",
+    "packages/types",
+    "packages/db",
+    "packages/redis",
+    "packages/services"
   ],
   "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "turbo run dev",
     "mobile": "npm run start --workspace=mobile",
-    "postinstall": "npm install --prefix apps/mobile nativewind@4.2.3 tailwindcss@3.4.19 react-native-css-interop@0.2.3 --save-exact",
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
@@ -20,7 +25,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "echo \"Skipping npm publish for private repository\"",
-    "typecheck": "npm run typecheck --workspace mobile && npm run typecheck --workspace @chat/web && npm run typecheck --workspace @chat/socket",
+    "typecheck": "turbo run typecheck",
     "ci:verify-artifacts": "bash ./scripts/ci/verify-artifacts.sh",
     "security:audit": "npm audit --omit=dev --audit-level=high"
   },
