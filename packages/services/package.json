@@ -1,6 +1,9 @@
 {
     "name": "@chat/services",
     "version": "1.0.3",
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
     "dependencies": {
         "@chat/types": "*",
         "zod": "^4.0.5"
