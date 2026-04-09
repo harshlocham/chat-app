@@ -2,6 +2,7 @@
     "name": "@chat/services",
     "version": "1.0.3",
     "scripts": {
+        "build": "tsc -p tsconfig.build.json",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
