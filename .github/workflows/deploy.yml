@@ -5,16 +5,31 @@ on:
     workflows: ["Release"]
     types:
       - completed
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to promote (example: v1.2.3). Defaults to latest release tag."
+        required: false
+        type: string
+      deploy_target:
+        description: "Where to promote this release"
+        required: true
+        default: both
+        type: choice
+        options:
+          - staging
+          - production
+          - both
 
 permissions:
-  actions: read
+  actions: write
   contents: read
   packages: write
   deployments: write
 
 concurrency:
   # One deploy lane per released commit SHA prevents duplicate concurrent deploys.
-  group: deploy-${{ github.event.workflow_run.head_sha }}
+  group: deploy-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -25,15 +40,19 @@ jobs:
 
     # Deploy only from successful Release workflow runs.
     if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      github.event_name == 'workflow_dispatch'
 
     outputs:
-      should_deploy: ${{ steps.release_signal.outputs.should_deploy }}
-      release_tag: ${{ steps.release_signal.outputs.release_tag }}
-      release_version: ${{ steps.release_signal.outputs.release_version }}
-      release_sha: ${{ steps.release_signal.outputs.release_sha }}
-      release_short_sha: ${{ steps.release_signal.outputs.release_short_sha }}
+      should_deploy: ${{ steps.release_signal.outputs.should_deploy || steps.manual_signal.outputs.should_deploy }}
+      release_tag: ${{ steps.release_signal.outputs.release_tag || steps.manual_signal.outputs.release_tag }}
+      release_version: ${{ steps.release_signal.outputs.release_version || steps.manual_signal.outputs.release_version }}
+      release_sha: ${{ steps.release_signal.outputs.release_sha || steps.manual_signal.outputs.release_sha }}
+      release_short_sha: ${{ steps.release_signal.outputs.release_short_sha || steps.manual_signal.outputs.release_short_sha }}
+      previous_release_tag: ${{ steps.meta.outputs.previous_release_tag }}
+      target: ${{ steps.meta.outputs.target }}
       image: ${{ steps.meta.outputs.image }}
       version_tag: ${{ steps.meta.outputs.version_tag }}
       sha_tag: ${{ steps.meta.outputs.sha_tag }}
@@ -41,6 +60,7 @@ jobs:
 
     steps:
       - name: Print workflow_run context
+        if: github.event_name == 'workflow_run'
         run: |
           set -euxo pipefail
           echo "Triggered by workflow: ${{ github.event.workflow_run.name }}"
@@ -49,6 +69,7 @@ jobs:
           echo "Release commit: ${{ github.event.workflow_run.head_sha }}"
 
       - name: Download release metadata artifact
+        if: github.event_name == 'workflow_run'
         # Consume explicit deploy signal produced by Release workflow run.
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -58,8 +79,15 @@ jobs:
           repository: ${{ github.repository }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout repository for manual promotion
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
       - name: Resolve deploy gate from release metadata
         id: release_signal
+        if: github.event_name == 'workflow_run'
         run: |
           set -euxo pipefail
 
@@ -100,14 +128,48 @@ jobs:
           echo "release_sha=${RELEASE_SHA:-}" >> "$GITHUB_OUTPUT"
           echo "release_short_sha=${RELEASE_SHORT_SHA:-}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve deploy gate for manual promotion
+        id: manual_signal
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euxo pipefail
+          git fetch --force --tags
+
+          INPUT_TAG="${{ inputs.release_tag }}"
+          if [[ -z "$INPUT_TAG" ]]; then
+            INPUT_TAG="$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n1 || true)"
+          fi
+
+          if [[ -z "$INPUT_TAG" ]]; then
+            echo "::error::No release tag available for manual promotion."
+            exit 1
+          fi
+
+          if [[ ! "$INPUT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid release tag format: $INPUT_TAG"
+            exit 1
+          fi
+
+          RELEASE_SHA="$(git rev-list -n 1 "$INPUT_TAG" 2>/dev/null || true)"
+          if [[ -z "$RELEASE_SHA" ]]; then
+            echo "::error::Tag not found in git history: $INPUT_TAG"
+            exit 1
+          fi
+
+          echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_version=${INPUT_TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "release_short_sha=$(git rev-parse --short=12 "$RELEASE_SHA")" >> "$GITHUB_OUTPUT"
+
       - name: Stop early when release is not deployable
-        if: steps.release_signal.outputs.should_deploy != 'true'
+        if: github.event_name == 'workflow_run' && steps.release_signal.outputs.should_deploy != 'true'
         run: |
           set -euxo pipefail
           echo "Skipping deploy because Release marked this run as non-deployable."
 
       - name: Checkout release commit
-        if: steps.release_signal.outputs.should_deploy == 'true'
+        if: github.event_name == 'workflow_run' && steps.release_signal.outputs.should_deploy == 'true'
         # Always build/deploy the exact commit that Release processed.
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -115,7 +177,9 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Fetch tags
-        if: steps.release_signal.outputs.should_deploy == 'true'
+        if: >
+          (github.event_name == 'workflow_run' && steps.release_signal.outputs.should_deploy == 'true') ||
+          (github.event_name == 'workflow_dispatch' && steps.manual_signal.outputs.should_deploy == 'true')
         # Tags are required to derive package version from git state.
         run: |
           set -euxo pipefail
@@ -123,20 +187,33 @@ jobs:
           git tag --points-at HEAD | sort || true
 
       - name: Resolve release metadata from git tags
-        if: steps.release_signal.outputs.should_deploy == 'true'
+        if: >
+          (github.event_name == 'workflow_run' && steps.release_signal.outputs.should_deploy == 'true') ||
+          (github.event_name == 'workflow_dispatch' && steps.manual_signal.outputs.should_deploy == 'true')
         id: meta
         run: |
           set -euxo pipefail
 
-          EXPECTED_TAG="${{ steps.release_signal.outputs.release_tag }}"
-          EXPECTED_VERSION="${{ steps.release_signal.outputs.release_version }}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            EXPECTED_TAG="${{ steps.manual_signal.outputs.release_tag }}"
+            EXPECTED_VERSION="${{ steps.manual_signal.outputs.release_version }}"
+            EXPECTED_SHA="${{ steps.manual_signal.outputs.release_sha }}"
+            TARGET="${{ inputs.deploy_target }}"
+          else
+            EXPECTED_TAG="${{ steps.release_signal.outputs.release_tag }}"
+            EXPECTED_VERSION="${{ steps.release_signal.outputs.release_version }}"
+            EXPECTED_SHA="${{ steps.release_signal.outputs.release_sha }}"
+            TARGET="both"
+          fi
 
-          if [[ -z "$EXPECTED_TAG" || -z "$EXPECTED_VERSION" ]]; then
+          if [[ -z "$EXPECTED_TAG" || -z "$EXPECTED_VERSION" || -z "$EXPECTED_SHA" ]]; then
             echo "::error::Missing release tag/version from release metadata output."
             exit 1
           fi
 
-          # Derive release tag only from git state and validate against Release metadata.
+          git checkout --force "$EXPECTED_SHA"
+
+          # Derive release tag only from git state and validate against release metadata.
           mapfile -t RELEASE_TAGS < <(
             git tag --points-at HEAD \
               | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$' \
@@ -176,6 +253,10 @@ jobs:
           echo "version_tag=$IMAGE:$VERSION" >> "$GITHUB_OUTPUT"
           echo "sha_tag=$IMAGE:sha-$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "latest_tag=$IMAGE:latest" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          PREVIOUS_TAG="$(git tag -l 'v[0-9]*' --sort=-v:refname | awk -v current="$TAG" '$0 != current { print; exit }')"
+          echo "previous_release_tag=${PREVIOUS_TAG:-}" >> "$GITHUB_OUTPUT"
 
           echo "Detected tag: $TAG"
           echo "Version: $VERSION"
@@ -257,7 +338,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [prepare, build_image]
-    if: needs.prepare.outputs.should_deploy == 'true'
+    if: needs.prepare.outputs.should_deploy == 'true' && (needs.prepare.outputs.target == 'staging' || needs.prepare.outputs.target == 'both')
     environment:
       name: staging
     concurrency:
@@ -327,6 +408,16 @@ jobs:
           set -euxo pipefail
           echo "Deploying ${{ needs.prepare.outputs.version_tag }} to staging"
 
+      - name: Health check staging
+        if: steps.staging_guard.outputs.already_deployed != 'true'
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ vars.STAGING_HEALTHCHECK_URL || '' }}" ]]; then
+            echo "STAGING_HEALTHCHECK_URL is not set. Skipping health check."
+            exit 0
+          fi
+          curl -f -L --retry 5 --retry-delay 5 "${{ vars.STAGING_HEALTHCHECK_URL }}"
+
       - name: Mark staging deployment success
         if: steps.staging_guard.outputs.already_deployed != 'true'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
@@ -342,12 +433,38 @@ jobs:
               description: "Deployed ${{ needs.prepare.outputs.release_tag }} (${{ needs.prepare.outputs.release_short_sha }}) to staging"
             });
 
+  approve_promotion:
+    name: Approve Promotion To Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: [prepare, deploy_staging]
+    if: needs.prepare.outputs.should_deploy == 'true' && needs.prepare.outputs.target == 'both'
+    # Configure required reviewers on this environment for manual approval.
+    environment:
+      name: production
+    steps:
+      - name: Confirm staging success before production
+        run: |
+          set -euo pipefail
+          echo "Staging deployment succeeded for ${{ needs.prepare.outputs.release_tag }}."
+          echo "Promotion to production approved."
+
   deploy_production:
     name: Deploy Production
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [prepare, deploy_staging]
-    if: needs.prepare.outputs.should_deploy == 'true'
+    needs: [prepare, build_image, deploy_staging, approve_promotion]
+    if: >
+      always() &&
+      needs.prepare.outputs.should_deploy == 'true' &&
+      (
+        needs.prepare.outputs.target == 'production' ||
+        (
+          needs.prepare.outputs.target == 'both' &&
+          needs.deploy_staging.result == 'success' &&
+          needs.approve_promotion.result == 'success'
+        )
+      )
     environment:
       name: production
     concurrency:
@@ -417,8 +534,42 @@ jobs:
           set -euxo pipefail
           echo "Deploying ${{ needs.prepare.outputs.version_tag }} to production"
 
-      - name: Mark production deployment success
+      - name: Health check production
         if: steps.production_guard.outputs.already_deployed != 'true'
+        id: production_health
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [[ -z "${{ vars.PRODUCTION_HEALTHCHECK_URL || '' }}" ]]; then
+            echo "PRODUCTION_HEALTHCHECK_URL is not set. Skipping health check."
+            exit 0
+          fi
+          curl -f -L --retry 8 --retry-delay 10 "${{ vars.PRODUCTION_HEALTHCHECK_URL }}"
+
+      - name: Trigger rollback workflow on failed production health check
+        if: steps.production_guard.outputs.already_deployed != 'true' && steps.production_health.outcome == 'failure' && needs.prepare.outputs.previous_release_tag != ''
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "rollback.yml",
+              ref: "main",
+              inputs: {
+                version: "${{ needs.prepare.outputs.previous_release_tag }}"
+              }
+            });
+
+      - name: Fail run when production health check fails
+        if: steps.production_guard.outputs.already_deployed != 'true' && steps.production_health.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          echo "::error::Production health check failed. Rollback workflow has been dispatched when possible."
+          exit 1
+
+      - name: Mark production deployment success
+        if: steps.production_guard.outputs.already_deployed != 'true' && steps.production_health.outcome != 'failure'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
@@ -431,3 +582,50 @@ jobs:
               environment_url: "${{ vars.PRODUCTION_APP_URL || '' }}",
               description: "Deployed ${{ needs.prepare.outputs.release_tag }} (${{ needs.prepare.outputs.release_short_sha }}) to production"
             });
+
+  notify_release:
+    name: Notify Release Metadata
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy_staging, deploy_production]
+    if: always() && needs.prepare.outputs.should_deploy == 'true'
+    steps:
+      - name: Resolve notification metadata
+        id: notify_meta
+        run: |
+          set -euo pipefail
+          REPO_URL="https://github.com/${{ github.repository }}"
+          WORKFLOW_URL="${REPO_URL}/actions/runs/${{ github.run_id }}"
+          RELEASE_URL="${REPO_URL}/releases/tag/${{ needs.prepare.outputs.release_tag }}"
+          STAGING_URL="${{ vars.STAGING_APP_URL || '' }}"
+          PRODUCTION_URL="${{ vars.PRODUCTION_APP_URL || '' }}"
+
+          {
+            echo "workflow_url=$WORKFLOW_URL"
+            echo "release_url=$RELEASE_URL"
+            echo "staging_url=$STAGING_URL"
+            echo "production_url=$PRODUCTION_URL"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send Slack notification
+        if: secrets.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          payload="$(cat <<EOF
+          {"text":"Release deployed\nTag: ${{ needs.prepare.outputs.release_tag }}\nVersion: ${{ needs.prepare.outputs.release_version }}\nSHA: ${{ needs.prepare.outputs.release_sha }}\nTarget: ${{ needs.prepare.outputs.target }}\nWorkflow: ${{ steps.notify_meta.outputs.workflow_url }}\nRelease: ${{ steps.notify_meta.outputs.release_url }}\nStaging: ${{ steps.notify_meta.outputs.staging_url }}\nProduction: ${{ steps.notify_meta.outputs.production_url }}"}
+          EOF
+          )"
+          curl -X POST -H "content-type: application/json" --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Send Discord notification
+        if: secrets.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          payload="$(cat <<EOF
+          {"content":"Release deployed\nTag: ${{ needs.prepare.outputs.release_tag }}\nVersion: ${{ needs.prepare.outputs.release_version }}\nSHA: ${{ needs.prepare.outputs.release_sha }}\nTarget: ${{ needs.prepare.outputs.target }}\nWorkflow: ${{ steps.notify_meta.outputs.workflow_url }}\nRelease: ${{ steps.notify_meta.outputs.release_url }}\nStaging: ${{ steps.notify_meta.outputs.staging_url }}\nProduction: ${{ steps.notify_meta.outputs.production_url }}"}
+          EOF
+          )"
+          curl -X POST -H "content-type: application/json" --data "$payload" "$DISCORD_WEBHOOK_URL"
