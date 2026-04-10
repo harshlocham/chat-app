@@ -2,6 +2,7 @@
 
 import { io, Socket } from "socket.io-client";
 import {
+    type ClientConversation,
     type MessageDTO,
     type ServerToClientEvents,
     type ClientToServerEvents,
@@ -17,6 +18,7 @@ import { getClientSocketUrl } from "@/lib/socket/socketConfig";
 let socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> | null =
     null;
 const typingExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const conversationFetchInFlight = new Map<string, Promise<ClientConversation | null>>();
 
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -83,15 +85,62 @@ export function registerGlobalSocketListeners() {
     if (listenersRegistered) return;
     listenersRegistered = true;
 
-    socket.on(SocketEvents.MESSAGE_NEW, (dto: unknown) => {
+    const fetchConversationById = async (conversationId: string): Promise<ClientConversation | null> => {
+        const id = String(conversationId || "").trim();
+        if (!id) return null;
+
+        const existingRequest = conversationFetchInFlight.get(id);
+        if (existingRequest) {
+            return existingRequest;
+        }
+
+        const request = (async () => {
+            const response = await fetch(`/api/conversations/${id}`);
+            if (!response.ok) {
+                return null;
+            }
+
+            const conversation = (await response.json()) as ClientConversation;
+            useChatStore.getState().upsertConversation(conversation);
+            return conversation;
+        })()
+            .catch((error) => {
+                console.error("Failed to fetch conversation", error);
+                return null;
+            })
+            .finally(() => {
+                conversationFetchInFlight.delete(id);
+            });
+
+        conversationFetchInFlight.set(id, request);
+        return request;
+    };
+
+    socket.on(SocketEvents.MESSAGE_NEW, async (dto: unknown) => {
         if (!isMessageDTO(dto)) {
             console.error("Invalid MESSAGE_NEW payload:", dto);
             return;
         }
 
         const uiMessage = convertDTOToUI(dto);
+        const conversationId = String(uiMessage.conversationId);
+        const hasConversation = useChatStore
+            .getState()
+            .conversations
+            .some((conversation) => String(conversation._id) === conversationId);
+
+        if (!hasConversation) {
+            await fetchConversationById(conversationId);
+        }
 
         useChatStore.getState().receiveMessage(uiMessage);
+    });
+
+    socket.on(SocketEvents.CONVERSATION_CREATED, async (payload) => {
+        const conversationId = String(payload?.conversationId || "").trim();
+        if (!conversationId) return;
+
+        await fetchConversationById(conversationId);
     });
     socket.on(SocketEvents.MESSAGE_DELETE, (payload) => {
         console.log("🔌 MESSAGE_DELETE", payload);
