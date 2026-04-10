@@ -10,6 +10,7 @@ module.exports = {
     ],
   },
   moduleNameMapper: {
+    "^@/lib/socket/(.*)$": "<rootDir>/hooks/$1",
     "^@/(.*)$": "<rootDir>/$1",
   },
   clearMocks: true,
