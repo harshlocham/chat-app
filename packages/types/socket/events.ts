@@ -11,6 +11,7 @@ import type {
     CallRingingPayload,
     CallStatePayload,
     ConversationJoinPayload,
+    ConversationCreatedPayload,
     ConversationJoinedPayload,
     ConversationLeavePayload,
     ConversationLeftPayload,
@@ -77,6 +78,7 @@ export const SocketEvents = {
     CONVERSATION_LEAVE: "conversation:leave",
     CONVERSATION_JOINED: "conversation:joined",
     CONVERSATION_LEFT: "conversation:left",
+    CONVERSATION_CREATED: "conversation:created",
     CONVERSATION_UPDATED: "conversation:updated",
     SYNC_MESSAGES: "sync:messages",
     SYNC_CONVERSATIONS: "sync:conversations",
@@ -134,6 +136,7 @@ export interface ServerToClientEvents {
     // Conversation
     [SocketEvents.CONVERSATION_JOINED]: (data: ConversationJoinedPayload) => void;
     [SocketEvents.CONVERSATION_LEFT]: (data: ConversationLeftPayload) => void;
+    [SocketEvents.CONVERSATION_CREATED]: (data: ConversationCreatedPayload) => void;
     [SocketEvents.CONVERSATION_UPDATED]: (data: ConversationUpdatedPayload) => void;
 
     // Sync
