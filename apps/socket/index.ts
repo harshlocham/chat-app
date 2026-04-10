@@ -169,6 +169,28 @@ app.post("/internal/message-seen", (req, res) => {
     return res.json({ success: true });
 });
 
+app.post("/internal/conversation-created", (req, res) => {
+    const { conversationId, participantIds } = req.body || {};
+
+    if (!conversationId || !Array.isArray(participantIds) || participantIds.length === 0) {
+        return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    const uniqueParticipantIds = Array.from(
+        new Set(participantIds.filter((value: unknown): value is string => typeof value === "string" && value.trim().length > 0))
+    );
+
+    if (uniqueParticipantIds.length === 0) {
+        return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    for (const userId of uniqueParticipantIds) {
+        emitToUser(userId, SocketEvents.CONVERSATION_CREATED, { conversationId });
+    }
+
+    return res.json({ success: true });
+});
+
 server.listen(3001, () => {
     console.log("🚀 Server running on http://localhost:3001");
 });
