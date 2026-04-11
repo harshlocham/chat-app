@@ -247,7 +247,7 @@ const useChatStore = create<ChatStore>((set) => ({
 
             return {
                 conversations: sortConversationsByActivity(state.conversations.map((conv) =>
-                    conv._id === conversationId
+                    idOf(conv) === conversationId
                         ? {
                             ...conv,
                             lastMessage: msg,
@@ -302,9 +302,13 @@ const useChatStore = create<ChatStore>((set) => ({
                 idOf(m) === tempId ? realMessage : m
             );
 
+            const deduped = Array.from(
+                new Map(mapped.map((m) => [idOf(m), m])).values()
+            );
+
             return {
                 conversations: sortConversationsByActivity(state.conversations.map((conv) =>
-                    conv._id === conversationId
+                    idOf(conv) === conversationId
                         ? {
                             ...conv,
                             lastMessage: realMessage,
@@ -314,7 +318,7 @@ const useChatStore = create<ChatStore>((set) => ({
                 ) as (ClientConversation)[]),
                 messagesByConversation: {
                     ...state.messagesByConversation,
-                    [conversationId]: mapped,
+                    [conversationId]: deduped,
                 },
             };
         }),
@@ -358,7 +362,7 @@ const useChatStore = create<ChatStore>((set) => ({
                     [conversationId]: updatedMessages,
                 },
                 conversations: state.conversations.map((conv) =>
-                    conv._id === conversationId
+                    idOf(conv) === conversationId
                         ? {
                             ...conv,
                             lastMessage: newLastMessage,
@@ -392,7 +396,7 @@ const useChatStore = create<ChatStore>((set) => ({
             );
 
             const updatedConversations = state.conversations.map((conv) =>
-                conv._id === convId
+                idOf(conv) === convId
                     ? {
                         ...conv,
                         lastMessage: updated[updated.length - 1],
@@ -501,7 +505,7 @@ const useChatStore = create<ChatStore>((set) => ({
     updateLastMessage: (conversationId, message) =>
         set((state) => ({
             conversations: sortConversationsByActivity(state.conversations.map((conv) =>
-                conv._id === conversationId
+                idOf(conv) === conversationId
                     ? {
                         ...conv,
                         lastMessage: message,
@@ -514,14 +518,14 @@ const useChatStore = create<ChatStore>((set) => ({
     incrementUnread: (conversationId) =>
         set((state) => ({
             conversations: state.conversations.map((conv) =>
-                conv._id === conversationId ? { ...conv, unreadCount: (conv.unreadCount || 0) + 1 } : conv
+                idOf(conv) === conversationId ? { ...conv, unreadCount: (conv.unreadCount || 0) + 1 } : conv
             ) as (ClientConversation)[],
         })),
 
     clearUnread: (conversationId) =>
         set((state) => ({
             conversations: state.conversations.map((conv) =>
-                conv._id === conversationId ? { ...conv, unreadCount: 0 } : conv
+                idOf(conv) === conversationId ? { ...conv, unreadCount: 0 } : conv
             ) as (ClientConversation)[],
         })),
 
@@ -555,7 +559,7 @@ const useChatStore = create<ChatStore>((set) => ({
     clearEditingMessage: () => set({ editingMessage: null }),
     receiveMessage: (message: UIMessage) =>
         set((state) => {
-            const conversationId = message.conversationId;
+            const conversationId = String(message.conversationId);
             const existing = state.messagesByConversation[conversationId] || [];
 
             if (existing.some((m) => idOf(m) === idOf(message))) {
@@ -565,16 +569,15 @@ const useChatStore = create<ChatStore>((set) => ({
             const updatedMessages = [...existing, message];
 
             const isOpen = state.selectedConversationId === conversationId;
-            console.log("message", message);
-            if (!message.sender || !message.sender._id) {
+            const senderId = senderIdOf(message);
+            if (!senderId) {
                 console.error("Invalid message shape in store:", message);
                 return {};
             }
-            const senderId = message.sender._id;
             const isOwn = senderId === state.currentUserId;
 
             const conversations = state.conversations.map((conv) =>
-                conv._id === conversationId
+                idOf(conv) === conversationId
                     ? {
                         ...conv,
                         lastMessage: message,
@@ -587,7 +590,7 @@ const useChatStore = create<ChatStore>((set) => ({
                     : conv
             );
 
-            const target = conversations.find((c) => c._id === conversationId);
+            const target = conversations.find((c) => idOf(c) === conversationId);
 
             return {
                 messagesByConversation: {
@@ -595,7 +598,7 @@ const useChatStore = create<ChatStore>((set) => ({
                     [conversationId]: updatedMessages,
                 },
                 conversations: target
-                    ? sortConversationsByActivity([target, ...conversations.filter((c) => c._id !== conversationId)])
+                    ? sortConversationsByActivity([target, ...conversations.filter((c) => idOf(c) !== conversationId)])
                     : sortConversationsByActivity(conversations),
             };
         }),
