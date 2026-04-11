@@ -2,10 +2,10 @@
     "name": "@chat/web",
     "private": true,
     "scripts": {
-        "dev": "next dev",
-        "build": "npm run build --workspace=@chat/types && next build",
-        "start": "next start",
-        "lint": "next lint",
+        "dev": "node ./node_modules/next/dist/bin/next dev",
+        "build": "npm run build --workspace=@chat/types && NEXT_IGNORE_INCORRECT_LOCKFILE=1 node ./node_modules/next/dist/bin/next build",
+        "start": "node ./node_modules/next/dist/bin/next start",
+        "lint": "node ./node_modules/next/dist/bin/next lint",
         "typecheck": "tsc --noEmit -p tsconfig.json",
         "test": "jest --config ./jest.config.cjs",
         "test:watch": "jest --config ./jest.config.cjs --watch"
