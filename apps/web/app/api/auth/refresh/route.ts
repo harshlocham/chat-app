@@ -151,11 +151,15 @@ export async function POST(req: NextRequest) {
             metadata: { sessionId: tokens.sessionId },
         });
 
-        const response = NextResponse.json({ success: true });
+        const response = NextResponse.json({
+            success: true,
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+        });
         response.headers.append("Set-Cookie", buildAccessTokenCookie(tokens.accessToken));
         response.headers.append("Set-Cookie", buildRefreshTokenCookie(tokens.refreshToken));
 
-        return NextResponse.json({ success: true, accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }, { status: 200 });
+        return response;
     } catch (error) {
         if (error instanceof AuthStepUpRequiredError) {
             void logAuthEventBestEffort({
