@@ -6,7 +6,5 @@
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "mobile"
-  ]
+  "ignore": []
 }
