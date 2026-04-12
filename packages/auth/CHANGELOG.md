@@ -1,5 +1,11 @@
 # @chat/auth
 
+## 2.2.0
+
+### Minor Changes
+
+- e396e5f: Fix realtime message delivery and auth infrastructure
+
 ## 2.1.0
 
 ### Minor Changes
