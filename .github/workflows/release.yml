@@ -24,19 +24,19 @@ jobs:
       github.event.workflow_run.head_branch == 'main'
 
     steps:
+     
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.workflow_run.head_sha }}
-
       - name: Setup Node.js 22 with npm cache
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-
+ 
       - name: Install dependencies
         run: npm ci
 
@@ -53,17 +53,33 @@ jobs:
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "before_tags=$BEFORE_TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Version and release with Changesets
+      - name: Version with Changesets
         id: changesets
-        uses: changesets/action@6a0a831ff30acef54f2c6aa1cbbc1096b066edaf # v1.7.0
+        uses: changesets/action@v1
         with:
           version: npm run version-packages
-          publish:  echo "skip publish"
-          createGithubReleases: true
+          publish: echo "skip publish"
+          createGithubReleases: false
           setupGitUser: true
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGESETS_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Create Git Tag
+        id: create_tag
+        run: |
+          set -euo pipefail
+
+          # Read version from root package.json
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+
+          echo "Creating tag: $TAG"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      
       - name: Resolve release metadata
         id: metadata
         run: |
@@ -123,7 +139,7 @@ jobs:
           cat release-metadata.env
 
       - name: Upload release metadata artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: release-metadata
           path: release-metadata.env
