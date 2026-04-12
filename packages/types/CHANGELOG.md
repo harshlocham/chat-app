@@ -1,5 +1,11 @@
 # @chat/types
 
+## 1.2.0
+
+### Minor Changes
+
+- e396e5f: Fix realtime message delivery and auth infrastructure
+
 ## 1.1.0
 
 ### Minor Changes
