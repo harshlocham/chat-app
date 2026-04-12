@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run -c vitest.config.ts",
+    "teypecheck": "tsc --noEmit",
     "test:watch": "vitest -c vitest.config.ts"
   },
   "dependencies": {
