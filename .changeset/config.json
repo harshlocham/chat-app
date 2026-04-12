@@ -7,8 +7,6 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "mobile",
-    "@chat/web",
-    "@chat/socket"
+    "mobile"
   ]
 }
