@@ -19,11 +19,17 @@ import {
 import {
     acceptCall,
     buildCallStatePayload,
+    clearReconnectGraceTimeout,
     clearCallTimeout,
     endCall,
+    expireReconnectGrace,
+    refreshCallHeartbeat,
     initiateCall,
     markCallActive,
+    markCallReconnecting,
     rejectCall,
+    resumeCallFromReconnect,
+    scheduleReconnectGraceTimeout,
     scheduleCallTimeout,
     timeoutCall,
 } from "../../services/call.orchestration.service.js";
@@ -154,9 +160,11 @@ export function callHandler(io: IO, socket: Socket, redis: Redis) {
         const activePayload = buildCallStatePayload(activeResult.state);
         io.to(userRoom(activeResult.state.initiatorId)).emit(SocketEvents.CALL_STATE, activePayload);
         io.to(userRoom(activeResult.state.recipientId)).emit(SocketEvents.CALL_STATE, activePayload);
+
+        await refreshCallHeartbeat(redis, callId);
     });
 
-    socket.on(SocketEvents.CALL_ICE_CANDIDATE, ({ to, candidate, callId }: CallIceCandidatePayload) => {
+    socket.on(SocketEvents.CALL_ICE_CANDIDATE, async ({ to, candidate, callId }: CallIceCandidatePayload) => {
         const from = socket.data.userId;
         if (!to) return;
 
@@ -166,6 +174,10 @@ export function callHandler(io: IO, socket: Socket, redis: Redis) {
             to,
             candidate,
         });
+
+        if (callId) {
+            await refreshCallHeartbeat(redis, callId);
+        }
     });
 
     socket.on(SocketEvents.CALL_ACCEPT, async ({ callId, conversationId, to, acceptedAt, deviceId }: CallAcceptPayload) => {
@@ -212,6 +224,8 @@ export function callHandler(io: IO, socket: Socket, redis: Redis) {
         const statePayload = buildCallStatePayload(result.state);
         io.to(userRoom(result.state.initiatorId)).emit(SocketEvents.CALL_STATE, statePayload);
         io.to(userRoom(result.state.recipientId)).emit(SocketEvents.CALL_STATE, statePayload);
+
+        await refreshCallHeartbeat(redis, callId);
     });
 
     socket.on(SocketEvents.CALL_REJECT, async ({ callId, conversationId, to, reason }: CallRejectPayload) => {
@@ -301,14 +315,67 @@ export function callHandler(io: IO, socket: Socket, redis: Redis) {
         });
     });
 
-    socket.on(SocketEvents.CALL_RECONNECT, ({ to, callId }) => {
+    socket.on(SocketEvents.CALL_RECONNECT, async ({ to, callId, iceRestartRequired }) => {
         const from = socket.data.userId;
         if (!to) return;
+        if (!callId) {
+            emitCallError(socket, "callId is required for reconnect", { to });
+            return;
+        }
+
+        if (iceRestartRequired) {
+            const reconnectResult = await markCallReconnecting(redis, callId);
+            if (!reconnectResult.ok) {
+                emitCallError(socket, reconnectResult.message, { callId, to });
+                return;
+            }
+
+            const reconnectStatePayload = buildCallStatePayload(reconnectResult.state);
+            io.to(userRoom(reconnectResult.state.initiatorId)).emit(SocketEvents.CALL_STATE, reconnectStatePayload);
+            io.to(userRoom(reconnectResult.state.recipientId)).emit(SocketEvents.CALL_STATE, reconnectStatePayload);
+
+            scheduleReconnectGraceTimeout(callId, async () => {
+                const expired = await expireReconnectGrace(redis, callId);
+                if (!expired.ok) return;
+
+                const statePayload = buildCallStatePayload(expired.state);
+                io.to(userRoom(expired.state.initiatorId)).emit(SocketEvents.CALL_STATE, statePayload);
+                io.to(userRoom(expired.state.recipientId)).emit(SocketEvents.CALL_STATE, statePayload);
+
+                if (expired.state.status === "ended") {
+                    io.to(userRoom(expired.state.initiatorId)).emit(SocketEvents.CALL_END, {
+                        callId,
+                        from,
+                        to,
+                        reason: "disconnect",
+                        endedAt: new Date(),
+                    });
+                    io.to(userRoom(expired.state.recipientId)).emit(SocketEvents.CALL_END, {
+                        callId,
+                        from,
+                        to,
+                        reason: "disconnect",
+                        endedAt: new Date(),
+                    });
+                }
+            });
+        } else {
+            const resumed = await resumeCallFromReconnect(redis, callId);
+            if (resumed.ok) {
+                clearReconnectGraceTimeout(callId);
+                const statePayload = buildCallStatePayload(resumed.state);
+                io.to(userRoom(resumed.state.initiatorId)).emit(SocketEvents.CALL_STATE, statePayload);
+                io.to(userRoom(resumed.state.recipientId)).emit(SocketEvents.CALL_STATE, statePayload);
+            }
+
+            await refreshCallHeartbeat(redis, callId);
+        }
 
         io.to(userRoom(to)).emit(SocketEvents.CALL_RECONNECT, {
             callId,
             from,
             to,
+            iceRestartRequired,
         });
     });
 }
