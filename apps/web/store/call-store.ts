@@ -103,6 +103,14 @@ const useCallStore = create<CallStoreState>((set) => ({
     setStatus: (status) =>
         set((state) => ({
             status,
+            isIncomingModalOpen:
+                status === "rejected" || status === "ended" || status === "missed" || status === "failed"
+                    ? false
+                    : state.isIncomingModalOpen,
+            isRingtonePlaying:
+                status === "rejected" || status === "ended" || status === "missed" || status === "failed"
+                    ? false
+                    : state.isRingtonePlaying,
             connectedAt:
                 status === "active" && !state.connectedAt
                     ? new Date()

@@ -9,6 +9,7 @@ import { getAvatarUrl } from "@/lib/utils/imagekit";
 import TypingIndicator from "./typing-indicator";
 import ChatHeader from "../chat/chat-header";
 import { useUser } from "@/context/UserContext";
+import CallController from "@/components/call/call-controller";
 
 // type guard
 function isUser(p: ClientUser) {
@@ -34,9 +35,12 @@ const RightPanel = () => {
 
     if (!selectedConversation) {
         return (
-            <div className="hidden min-h-0 flex-1 p-2 sm:p-3 lg:flex">
-                <ChatPlaceHolder />
-            </div>
+            <>
+                <CallController />
+                <div className="hidden min-h-0 flex-1 p-2 sm:p-3 lg:flex">
+                    <ChatPlaceHolder />
+                </div>
+            </>
         );
     }
 
@@ -61,6 +65,12 @@ const RightPanel = () => {
 
     return (
         <div className="flex min-h-0 flex-1 flex-col">
+            <CallController
+                conversationId={conversationId}
+                peerUserId={otherUser?._id ? String(otherUser._id) : undefined}
+                peerName={conversationName}
+            />
+
             <ChatHeader
                 conversationName={conversationName}
                 avatarSrc={avatarSrc}
