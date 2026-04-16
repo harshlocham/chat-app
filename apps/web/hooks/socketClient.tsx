@@ -11,6 +11,7 @@ import {
     // SocketEvents,
 } from "@chat/types";
 import useChatStore from "@/store/chat-store";
+import { registerTaskSocketListeners } from "@/hooks/socketListeners";
 import { isMessageDTO } from "@chat/types/utils/message.guard";
 import { UIMessage } from "@chat/types";
 import { getClientSocketUrl } from "@/lib/socket/socketConfig";
@@ -160,6 +161,8 @@ export function registerGlobalSocketListeners() {
         const uiMessage = convertDTOToUI(dto);
         useChatStore.getState().updateMessage(uiMessage);
     });
+
+    registerTaskSocketListeners(socket);
 
     const typingKey = (payload: TypingPayload) =>
         `${String(payload.conversationId)}:${String(payload.userId)}`;

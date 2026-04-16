@@ -55,6 +55,18 @@ export function normalizeMessage(doc: IMessagePopulated): MessageDTO {
             ? new Date(doc.updatedAt).toISOString()
             : undefined,
 
+        semanticType: doc.semanticType,
+        semanticConfidence: doc.semanticConfidence,
+        aiStatus: doc.aiStatus,
+        aiVersion: doc.aiVersion ?? null,
+        linkedTaskIds: doc.linkedTaskIds?.map((taskId) => taskId.toString()) ?? [],
+        manualOverride: doc.manualOverride,
+        overrideBy: doc.overrideBy ? doc.overrideBy.toString() : null,
+        overrideAt: doc.overrideAt ? new Date(doc.overrideAt).toISOString() : null,
+        semanticProcessedAt: doc.semanticProcessedAt
+            ? new Date(doc.semanticProcessedAt).toISOString()
+            : null,
+
         isDeleted: doc.isDeleted,
         isEdited: doc.isEdited,
         delivered: Boolean(doc.delivered),
