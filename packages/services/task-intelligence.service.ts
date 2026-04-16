@@ -88,6 +88,75 @@ function classifyMessage(content: string): ClassificationResult {
 
     return { semanticType: "chat", confidence: 0.94 };
 }
+type LlmDecision = {
+    isTask: boolean;
+    semanticType: "task" | "chat" | "decision" | "reminder" | "unknown";
+    confidence: number;
+};
+
+async function classifyMessageWithLLM(content: string): Promise<ClassificationResult> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+        // Safe fallback to your existing heuristic path
+        return classifyMessage(content);
+    }
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model: "gpt-4.1-mini",
+            input: [
+                {
+                    role: "system",
+                    content:
+                        "Classify message intent for task extraction. Return strict JSON only: {isTask, semanticType, confidence}.",
+                },
+                { role: "user", content },
+            ],
+            // keep output constrained for deterministic parsing
+            text: {
+                format: {
+                    type: "json_schema",
+                    name: "task_intent",
+                    schema: {
+                        type: "object",
+                        properties: {
+                            isTask: { type: "boolean" },
+                            semanticType: {
+                                type: "string",
+                                enum: ["task", "chat", "decision", "reminder", "unknown"],
+                            },
+                            confidence: { type: "number", minimum: 0, maximum: 1 },
+                        },
+                        required: ["isTask", "semanticType", "confidence"],
+                        additionalProperties: false,
+                    },
+                },
+            },
+        }),
+    });
+
+    if (!response.ok) {
+        return classifyMessage(content);
+    }
+
+    const payload = await response.json();
+    const jsonText =
+        payload?.output_text ??
+        payload?.output?.[0]?.content?.[0]?.text ??
+        "{}";
+
+    const parsed = JSON.parse(jsonText) as LlmDecision;
+
+    return {
+        semanticType: parsed.isTask ? "task" : parsed.semanticType,
+        confidence: parsed.confidence ?? 0.5,
+    };
+}
 
 function toTaskTitle(content: string) {
     const normalized = normalizeContent(content);
@@ -121,7 +190,7 @@ export async function processMessageTaskIntelligence(
         return null;
     }
 
-    const classification = classifyMessage(input.content);
+    const classification = await classifyMessageWithLLM(input.content);
     const processedAt = new Date();
 
     if (classification.semanticType !== "task") {
