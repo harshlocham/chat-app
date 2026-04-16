@@ -17,7 +17,10 @@ function patchMessageSemanticState(payload: MessageSemanticUpdatedPayload) {
 			aiStatus: payload.aiStatus,
 			aiVersion: payload.aiVersion,
 			linkedTaskIds: payload.linkedTaskIds,
-			semanticProcessedAt: payload.semanticProcessedAt,
+			semanticProcessedAt:
+				typeof payload.semanticProcessedAt === "string"
+					? payload.semanticProcessedAt
+					: payload.semanticProcessedAt.toISOString(),
 		};
 	});
 

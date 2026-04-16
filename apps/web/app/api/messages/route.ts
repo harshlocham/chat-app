@@ -4,9 +4,6 @@ import { CreateMessageSchema } from "@/lib/validators/message.schema";
 import { getPaginatedMessages } from "@/lib/repositories/message.repo";
 import { normalizeMessage } from "@/server/normalizers/message.normalizer";
 import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
-import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
-import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
-import { processMessageTaskIntelligence } from "@/lib/services/task-intelligence.service";
 
 //import { messageRateLimiter } from "@/lib/utils/rateLimiter";
 
@@ -24,67 +21,6 @@ export async function POST(req: NextRequest) {
         const parsed = CreateMessageSchema.parse(requestBody);
         const message = await createMessage(parsed, senderId);
         const clientMessage = normalizeMessage(message);
-
-        void (async () => {
-            try {
-                const taskResult = await processMessageTaskIntelligence({
-                    messageId: clientMessage._id,
-                    conversationId: clientMessage.conversationId,
-                    senderId,
-                    content: clientMessage.content,
-                    messageType: clientMessage.messageType,
-                });
-
-                if (!taskResult) return;
-
-                const headers = createInternalRequestHeaders();
-                const baseUrl = getInternalSocketServerUrl();
-
-                await fetch(`${baseUrl}/internal/message-semantic-updated`, {
-                    method: "POST",
-                    headers,
-                    body: JSON.stringify({
-                        conversationId: clientMessage.conversationId,
-                        payload: taskResult.semanticPayload,
-                    }),
-                });
-
-                if (taskResult.taskCreatedPayload) {
-                    await fetch(`${baseUrl}/internal/task-created`, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({
-                            conversationId: clientMessage.conversationId,
-                            payload: taskResult.taskCreatedPayload,
-                        }),
-                    });
-                }
-
-                if (taskResult.taskUpdatedPayload) {
-                    await fetch(`${baseUrl}/internal/task-updated`, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({
-                            conversationId: clientMessage.conversationId,
-                            payload: taskResult.taskUpdatedPayload,
-                        }),
-                    });
-                }
-
-                if (taskResult.taskLinkedPayload) {
-                    await fetch(`${baseUrl}/internal/task-linked-to-message`, {
-                        method: "POST",
-                        headers,
-                        body: JSON.stringify({
-                            conversationId: clientMessage.conversationId,
-                            payload: taskResult.taskLinkedPayload,
-                        }),
-                    });
-                }
-            } catch (taskProcessingError) {
-                console.error("Task intelligence processing failed", taskProcessingError);
-            }
-        })();
 
         return NextResponse.json(clientMessage, { status: 201 });
     } catch (error) {

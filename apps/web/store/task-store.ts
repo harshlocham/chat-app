@@ -22,6 +22,7 @@ interface TaskStore {
     linksByMessageId: Record<string, TaskLinkState>;
     semanticByMessageId: Record<string, MessageSemanticUpdatedPayload>;
 
+    setConversationTasks: (conversationId: string, tasks: TaskRecord[]) => void;
     upsertTask: (task: TaskRecord) => void;
     patchTask: (payload: TaskUpdatedPayload) => void;
     linkTaskToMessage: (payload: TaskLinkedToMessagePayload) => void;
@@ -43,6 +44,25 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     tasksByConversation: {},
     linksByMessageId: {},
     semanticByMessageId: {},
+
+    setConversationTasks: (conversationId, tasks) =>
+        set((state) => {
+            const ids: string[] = [];
+            const nextById = { ...state.tasksById };
+
+            for (const task of tasks) {
+                ids.push(task._id);
+                nextById[task._id] = task;
+            }
+
+            return {
+                tasksById: nextById,
+                tasksByConversation: {
+                    ...state.tasksByConversation,
+                    [conversationId]: ids,
+                },
+            };
+        }),
 
     upsertTask: (task) =>
         set((state) => ({
