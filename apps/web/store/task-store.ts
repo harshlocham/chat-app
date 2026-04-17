@@ -4,6 +4,7 @@ import { create } from "zustand";
 import type {
     MessageSemanticUpdatedPayload,
     TaskCreatedPayload,
+    TaskExecutionUpdatedPayload,
     TaskLinkedToMessagePayload,
     TaskRecord,
     TaskUpdatedPayload,
@@ -21,12 +22,14 @@ interface TaskStore {
     tasksByConversation: Record<string, string[]>;
     linksByMessageId: Record<string, TaskLinkState>;
     semanticByMessageId: Record<string, MessageSemanticUpdatedPayload>;
+    executionByTaskId: Record<string, TaskExecutionUpdatedPayload>;
 
     setConversationTasks: (conversationId: string, tasks: TaskRecord[]) => void;
     upsertTask: (task: TaskRecord) => void;
     patchTask: (payload: TaskUpdatedPayload) => void;
     linkTaskToMessage: (payload: TaskLinkedToMessagePayload) => void;
     setMessageSemanticState: (payload: MessageSemanticUpdatedPayload) => void;
+    setTaskExecutionState: (payload: TaskExecutionUpdatedPayload) => void;
     removeTask: (taskId: string) => void;
     resetConversationTasks: (conversationId: string) => void;
     handleTaskCreated: (payload: TaskCreatedPayload) => void;
@@ -44,6 +47,7 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     tasksByConversation: {},
     linksByMessageId: {},
     semanticByMessageId: {},
+    executionByTaskId: {},
 
     setConversationTasks: (conversationId, tasks) =>
         set((state) => {
@@ -132,6 +136,14 @@ const useTaskStore = create<TaskStore>((set, get) => ({
             semanticByMessageId: {
                 ...state.semanticByMessageId,
                 [payload.messageId]: payload,
+            },
+        })),
+
+    setTaskExecutionState: (payload) =>
+        set((state) => ({
+            executionByTaskId: {
+                ...state.executionByTaskId,
+                [payload.taskId]: payload,
             },
         })),
 

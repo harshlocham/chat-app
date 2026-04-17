@@ -1,4 +1,4 @@
-import type { MessageAiStatus, MessageSemanticType, TaskLinkType, TaskPriority, TaskRecord, TaskStatus } from "../task/task";
+import type { MessageAiStatus, MessageSemanticType, TaskExecutionActionType, TaskLinkType, TaskPriority, TaskRecord, TaskStatus } from "../task/task";
 
 export interface JoinConversationPayload {
     conversationId: string;
@@ -256,6 +256,16 @@ export interface TaskLinkedToMessagePayload {
     conversationId: string;
     linkType: TaskLinkType;
     taskVersion: number;
+}
+
+export interface TaskExecutionUpdatedPayload {
+    taskId: string;
+    conversationId: string;
+    state: "queued" | "running" | "succeeded" | "failed";
+    actionType: TaskExecutionActionType;
+    summary: string | null;
+    error: string | null;
+    updatedAt: Date | string;
 }
 
 export interface MessageSemanticUpdatedPayload {

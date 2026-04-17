@@ -1,6 +1,7 @@
 import type {
     MessageSemanticType,
     MessageSemanticUpdatedPayload,
+    TaskExecutionActionType,
     TaskCreatedPayload,
     TaskLinkedToMessagePayload,
     TaskUpdatedPayload,
@@ -16,6 +17,7 @@ import {
     updateMessageSemanticState,
 } from "@/lib/repositories/task.repo";
 import { connectToDatabase } from "@/lib/Db/db";
+import { enqueueOutboxEvent } from "@/lib/services/outbox.service";
 
 const AI_VERSION = "heuristic-v1";
 
@@ -43,6 +45,18 @@ const REMINDER_TERMS = ["remind", "reminder", "by tomorrow", "deadline", "due", 
 interface ClassificationResult {
     semanticType: MessageSemanticType;
     confidence: number;
+}
+
+interface TaskExecutionDecision {
+    actionType: TaskExecutionActionType;
+    parameters: Record<string, unknown>;
+    confidence: number;
+    needsApproval: boolean;
+}
+
+interface IntelligenceDecision {
+    classification: ClassificationResult;
+    execution: TaskExecutionDecision;
 }
 
 export interface ProcessMessageTaskIntelligenceInput {
@@ -89,16 +103,89 @@ function classifyMessage(content: string): ClassificationResult {
     return { semanticType: "chat", confidence: 0.94 };
 }
 type LlmDecision = {
-    isTask: boolean;
     semanticType: "task" | "chat" | "decision" | "reminder" | "unknown";
     confidence: number;
+    actionType: TaskExecutionActionType;
+    parameters?: Record<string, unknown>;
+    needsApproval: boolean;
 };
 
-async function classifyMessageWithLLM(content: string): Promise<ClassificationResult> {
+function clampConfidence(value: number | undefined, fallback: number) {
+    if (typeof value !== "number" || Number.isNaN(value)) return fallback;
+    if (value < 0) return 0;
+    if (value > 1) return 1;
+    return value;
+}
+
+function decideExecutionActionFromHeuristics(content: string): TaskExecutionDecision {
+    const normalized = normalizeContent(content).toLowerCase();
+
+    const isBugOrFix = ["bug", "issue", "error", "broken", "fix", "regression"].some((term) =>
+        normalized.includes(term)
+    );
+
+    if (isBugOrFix) {
+        return {
+            actionType: "create_github_issue",
+            parameters: {
+                title: toTaskTitle(content),
+                body: content,
+            },
+            confidence: 0.74,
+            needsApproval: false,
+        };
+    }
+
+    const isScheduling = ["schedule", "meeting", "calendar", "call", "sync", "book"].some((term) =>
+        normalized.includes(term)
+    );
+
+    if (isScheduling) {
+        return {
+            actionType: "schedule_meeting",
+            parameters: {
+                summary: toTaskTitle(content),
+                notes: content,
+            },
+            confidence: 0.7,
+            needsApproval: true,
+        };
+    }
+
+    const isEmail = ["email", "mail", "send this", "send an update", "notify"].some((term) =>
+        normalized.includes(term)
+    );
+
+    if (isEmail) {
+        return {
+            actionType: "send_email",
+            parameters: {
+                subject: toTaskTitle(content),
+                body: content,
+            },
+            confidence: 0.68,
+            needsApproval: true,
+        };
+    }
+
+    return {
+        actionType: "none",
+        parameters: {},
+        confidence: 0.5,
+        needsApproval: false,
+    };
+}
+
+async function classifyMessageWithLLM(content: string): Promise<IntelligenceDecision> {
     const apiKey = process.env.OPENAI_API_KEY;
+    const fallbackClassification = classifyMessage(content);
+    const fallbackExecution = decideExecutionActionFromHeuristics(content);
+
     if (!apiKey) {
-        // Safe fallback to your existing heuristic path
-        return classifyMessage(content);
+        return {
+            classification: fallbackClassification,
+            execution: fallbackExecution,
+        };
     }
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -113,7 +200,7 @@ async function classifyMessageWithLLM(content: string): Promise<ClassificationRe
                 {
                     role: "system",
                     content:
-                        "Classify message intent for task extraction. Return strict JSON only: {isTask, semanticType, confidence}.",
+                        "Classify message intent and execution action. Return strict JSON only with this exact shape: {semanticType, confidence, actionType, parameters, needsApproval}. actionType must be one of create_github_issue, schedule_meeting, send_email, none.",
                 },
                 { role: "user", content },
             ],
@@ -121,18 +208,26 @@ async function classifyMessageWithLLM(content: string): Promise<ClassificationRe
             text: {
                 format: {
                     type: "json_schema",
-                    name: "task_intent",
+                    name: "task_intent_and_action",
                     schema: {
                         type: "object",
                         properties: {
-                            isTask: { type: "boolean" },
                             semanticType: {
                                 type: "string",
                                 enum: ["task", "chat", "decision", "reminder", "unknown"],
                             },
                             confidence: { type: "number", minimum: 0, maximum: 1 },
+                            actionType: {
+                                type: "string",
+                                enum: ["create_github_issue", "schedule_meeting", "send_email", "none"],
+                            },
+                            parameters: {
+                                type: "object",
+                                additionalProperties: true,
+                            },
+                            needsApproval: { type: "boolean" },
                         },
-                        required: ["isTask", "semanticType", "confidence"],
+                        required: ["semanticType", "confidence", "actionType", "parameters", "needsApproval"],
                         additionalProperties: false,
                     },
                 },
@@ -141,21 +236,39 @@ async function classifyMessageWithLLM(content: string): Promise<ClassificationRe
     });
 
     if (!response.ok) {
-        return classifyMessage(content);
+        return {
+            classification: fallbackClassification,
+            execution: fallbackExecution,
+        };
     }
 
-    const payload = await response.json();
-    const jsonText =
-        payload?.output_text ??
-        payload?.output?.[0]?.content?.[0]?.text ??
-        "{}";
+    try {
+        const payload = await response.json();
+        const jsonText =
+            payload?.output_text ??
+            payload?.output?.[0]?.content?.[0]?.text ??
+            "{}";
 
-    const parsed = JSON.parse(jsonText) as LlmDecision;
+        const parsed = JSON.parse(jsonText) as LlmDecision;
 
-    return {
-        semanticType: parsed.isTask ? "task" : parsed.semanticType,
-        confidence: parsed.confidence ?? 0.5,
-    };
+        return {
+            classification: {
+                semanticType: parsed.semanticType,
+                confidence: clampConfidence(parsed.confidence, fallbackClassification.confidence),
+            },
+            execution: {
+                actionType: parsed.actionType,
+                parameters: parsed.parameters && typeof parsed.parameters === "object" ? parsed.parameters : {},
+                confidence: clampConfidence(parsed.confidence, fallbackExecution.confidence),
+                needsApproval: Boolean(parsed.needsApproval),
+            },
+        };
+    } catch {
+        return {
+            classification: fallbackClassification,
+            execution: fallbackExecution,
+        };
+    }
 }
 
 function toTaskTitle(content: string) {
@@ -190,7 +303,8 @@ export async function processMessageTaskIntelligence(
         return null;
     }
 
-    const classification = await classifyMessageWithLLM(input.content);
+    const decision = await classifyMessageWithLLM(input.content);
+    const classification = decision.classification;
     const processedAt = new Date();
 
     if (classification.semanticType !== "task") {
@@ -258,6 +372,24 @@ export async function processMessageTaskIntelligence(
         linkedTaskIds: [task._id.toString()],
         semanticProcessedAt: processedAt,
     });
+
+    if (decision.execution.actionType !== "none") {
+        await enqueueOutboxEvent({
+            topic: "task.execution.requested",
+            dedupeKey: `task.execution.requested:${task._id.toString()}:${input.messageId}:${decision.execution.actionType}`,
+            payload: {
+                taskId: task._id.toString(),
+                conversationId: input.conversationId,
+                triggerMessageId: input.messageId,
+                requestedByType: "agent",
+                requestedById: null,
+                actionType: decision.execution.actionType,
+                parameters: decision.execution.parameters,
+                confidence: decision.execution.confidence,
+                needsApproval: decision.execution.needsApproval,
+            },
+        });
+    }
 
     try {
         await createTaskAction({

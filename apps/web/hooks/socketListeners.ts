@@ -1,4 +1,4 @@
-import { SocketEvents, type MessageSemanticUpdatedPayload, type TaskCreatedPayload, type TaskLinkedToMessagePayload, type TaskUpdatedPayload } from "@chat/types";
+import { SocketEvents, type MessageSemanticUpdatedPayload, type TaskCreatedPayload, type TaskExecutionUpdatedPayload, type TaskLinkedToMessagePayload, type TaskUpdatedPayload } from "@chat/types";
 import useChatStore from "@/store/chat-store";
 import useTaskStore from "@/store/task-store";
 import type { TypedSocket } from "@/hooks/socketClient";
@@ -45,6 +45,10 @@ export function registerTaskSocketListeners(socket: TypedSocket) {
 
 	socket.on(SocketEvents.TASK_LINKED_TO_MESSAGE, (payload: TaskLinkedToMessagePayload) => {
 		taskStore.linkTaskToMessage(payload);
+	});
+
+	socket.on(SocketEvents.TASK_EXECUTION_UPDATED, (payload: TaskExecutionUpdatedPayload) => {
+		taskStore.setTaskExecutionState(payload);
 	});
 
 	socket.on(SocketEvents.MESSAGE_SEMANTIC_UPDATED, (payload: MessageSemanticUpdatedPayload) => {

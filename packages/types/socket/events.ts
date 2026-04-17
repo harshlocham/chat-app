@@ -32,6 +32,7 @@ import type {
     SyncMessagesPayload,
     SyncStatusPayload,
     TaskCreatedPayload,
+    TaskExecutionUpdatedPayload,
     TaskLinkedToMessagePayload,
     TaskUpdatedPayload,
     TypingPayload,
@@ -59,6 +60,7 @@ export const SocketEvents = {
     TASK_CREATED: "task:created",
     TASK_UPDATED: "task:updated",
     TASK_LINKED_TO_MESSAGE: "task:linked_to_message",
+    TASK_EXECUTION_UPDATED: "task:execution_updated",
     MESSAGE_SEMANTIC_UPDATED: "message:semantic_updated",
     TYPING_START: "typing:start",
     TYPING_STOP: "typing:stop",
@@ -113,6 +115,7 @@ export interface ServerToClientEvents {
     [SocketEvents.TASK_CREATED]: (data: TaskCreatedPayload) => void;
     [SocketEvents.TASK_UPDATED]: (data: TaskUpdatedPayload) => void;
     [SocketEvents.TASK_LINKED_TO_MESSAGE]: (data: TaskLinkedToMessagePayload) => void;
+    [SocketEvents.TASK_EXECUTION_UPDATED]: (data: TaskExecutionUpdatedPayload) => void;
     [SocketEvents.MESSAGE_SEMANTIC_UPDATED]: (data: MessageSemanticUpdatedPayload) => void;
 
     // Typing

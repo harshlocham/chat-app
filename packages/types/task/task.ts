@@ -23,6 +23,8 @@ export type TaskActorType = "user" | "agent" | "system";
 
 export type TaskLinkType = "source" | "context" | "decision";
 
+export type TaskExecutionActionType = "create_github_issue" | "schedule_meeting" | "send_email" | "none";
+
 export interface MessageTaskMetadata {
     semanticType?: MessageSemanticType;
     semanticConfidence?: number;

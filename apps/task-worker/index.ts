@@ -4,8 +4,10 @@ import mongoose from "mongoose";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { TaskExecutionActionType, TaskExecutionUpdatedPayload, TaskUpdatedPayload } from "@chat/types";
 import * as outboxModule from "../../packages/services/outbox.service";
 import * as intelligenceModule from "../../packages/services/task-intelligence.service";
+import TaskModel from "../../packages/db/models/Task";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const visitedEnvPaths = new Set<string>();
@@ -83,6 +85,22 @@ type MessageCreatedPayload = {
     messageType: string;
 };
 
+type TaskExecutionRequestedPayload = {
+    taskId: string;
+    conversationId: string;
+    triggerMessageId: string;
+    requestedByType: "user" | "agent" | "system";
+    requestedById: string | null;
+    actionType: TaskExecutionActionType;
+    parameters?: Record<string, unknown>;
+    confidence?: number;
+    needsApproval?: boolean;
+};
+
+type ActionExecutionResult = {
+    summary: string;
+};
+
 function wait(ms: number) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
@@ -96,6 +114,17 @@ function isMessageCreatedPayload(payload: Record<string, unknown>): payload is M
         && typeof payload.senderId === "string"
         && typeof payload.content === "string"
         && typeof payload.messageType === "string"
+    );
+}
+
+function isTaskExecutionRequestedPayload(payload: Record<string, unknown>): payload is TaskExecutionRequestedPayload {
+    return (
+        typeof payload.taskId === "string"
+        && typeof payload.conversationId === "string"
+        && typeof payload.triggerMessageId === "string"
+        && typeof payload.requestedByType === "string"
+        && typeof payload.actionType === "string"
+        && ["create_github_issue", "schedule_meeting", "send_email", "none"].includes(payload.actionType)
     );
 }
 
@@ -144,6 +173,243 @@ function getIntelligenceFn() {
     return fn;
 }
 
+async function emitTaskExecutionUpdate(payload: TaskExecutionUpdatedPayload) {
+    await emitInternal("/internal/task-execution-updated", payload.conversationId, payload);
+}
+
+async function applyTaskStatus(taskId: string, conversationId: string, nextStatus: "in_progress" | "done" | "blocked") {
+    const task = await TaskModel.findById(taskId);
+    if (!task) {
+        throw new Error(`Task not found: ${taskId}`);
+    }
+
+    if (task.status === nextStatus) {
+        return task;
+    }
+
+    const previousVersion = task.version;
+    task.status = nextStatus;
+    task.updatedBy = null;
+    await task.save();
+
+    const taskUpdatedPayload: TaskUpdatedPayload = {
+        taskId: task._id.toString(),
+        conversationId,
+        patch: {
+            status: nextStatus,
+            updatedBy: null,
+        },
+        previousVersion,
+        newVersion: task.version,
+        updatedByType: "agent",
+        updatedById: null,
+    };
+
+    await emitInternal("/internal/task-updated", conversationId, taskUpdatedPayload);
+    return task;
+}
+
+async function executeCreateGithubIssueAction(payload: TaskExecutionRequestedPayload): Promise<ActionExecutionResult> {
+    const token = process.env.GITHUB_TOKEN;
+    const repo = process.env.GITHUB_REPO;
+
+    if (!token || !repo || !repo.includes("/")) {
+        throw new Error("GitHub adapter is not configured. Set GITHUB_TOKEN and GITHUB_REPO=owner/repo.");
+    }
+
+    const title = typeof payload.parameters?.title === "string"
+        ? payload.parameters.title
+        : `Task: ${payload.taskId}`;
+    const body = typeof payload.parameters?.body === "string"
+        ? payload.parameters.body
+        : `Auto-created from task ${payload.taskId} in conversation ${payload.conversationId}.`;
+
+    const response = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+        method: "POST",
+        headers: {
+            Accept: "application/vnd.github+json",
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "User-Agent": "chat-task-worker",
+        },
+        body: JSON.stringify({ title, body }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`GitHub issue creation failed (${response.status}): ${errorText.slice(0, 500)}`);
+    }
+
+    const issue = (await response.json()) as { html_url?: string; number?: number };
+    return {
+        summary: `Created GitHub issue #${issue.number ?? "?"}${issue.html_url ? ` (${issue.html_url})` : ""}`,
+    };
+}
+
+async function executeScheduleMeetingAction(payload: TaskExecutionRequestedPayload): Promise<ActionExecutionResult> {
+    const webhookUrl = process.env.SCHEDULE_MEETING_WEBHOOK_URL;
+    if (!webhookUrl) {
+        throw new Error("Schedule meeting adapter is not configured. Set SCHEDULE_MEETING_WEBHOOK_URL.");
+    }
+
+    const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            taskId: payload.taskId,
+            conversationId: payload.conversationId,
+            triggerMessageId: payload.triggerMessageId,
+            parameters: payload.parameters ?? {},
+        }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Meeting scheduling failed (${response.status}): ${errorText.slice(0, 500)}`);
+    }
+
+    return {
+        summary: "Scheduled meeting via external adapter.",
+    };
+}
+
+async function executeSendEmailAction(payload: TaskExecutionRequestedPayload): Promise<ActionExecutionResult> {
+    const apiKey = process.env.RESEND_API_KEY;
+    const from = process.env.RESEND_FROM_EMAIL;
+
+    if (!apiKey || !from) {
+        throw new Error("Email adapter is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.");
+    }
+
+    const to = Array.isArray(payload.parameters?.to)
+        ? payload.parameters?.to
+        : typeof payload.parameters?.to === "string"
+            ? [payload.parameters.to]
+            : [];
+
+    if (to.length === 0) {
+        throw new Error("Email adapter requires parameters.to");
+    }
+
+    const subject = typeof payload.parameters?.subject === "string"
+        ? payload.parameters.subject
+        : `Task update ${payload.taskId}`;
+
+    const body = typeof payload.parameters?.body === "string"
+        ? payload.parameters.body
+        : `Automated update for task ${payload.taskId}.`;
+
+    const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            from,
+            to,
+            subject,
+            text: body,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Email sending failed (${response.status}): ${errorText.slice(0, 500)}`);
+    }
+
+    return {
+        summary: `Sent email to ${to.join(", ")}.`,
+    };
+}
+
+async function executeActionAdapter(payload: TaskExecutionRequestedPayload): Promise<ActionExecutionResult> {
+    switch (payload.actionType) {
+        case "create_github_issue":
+            return executeCreateGithubIssueAction(payload);
+        case "schedule_meeting":
+            return executeScheduleMeetingAction(payload);
+        case "send_email":
+            return executeSendEmailAction(payload);
+        case "none":
+        default:
+            return {
+                summary: "No executable action selected.",
+            };
+    }
+}
+
+async function processTaskExecutionRequested(payload: TaskExecutionRequestedPayload) {
+    const queuedAt = new Date().toISOString();
+
+    await emitTaskExecutionUpdate({
+        taskId: payload.taskId,
+        conversationId: payload.conversationId,
+        state: "queued",
+        actionType: payload.actionType,
+        summary: null,
+        error: null,
+        updatedAt: queuedAt,
+    });
+
+    const confidence = typeof payload.confidence === "number" ? payload.confidence : 0.5;
+    const requiresApproval = Boolean(payload.needsApproval) || confidence < 0.7;
+
+    if (requiresApproval) {
+        await applyTaskStatus(payload.taskId, payload.conversationId, "blocked");
+        await emitTaskExecutionUpdate({
+            taskId: payload.taskId,
+            conversationId: payload.conversationId,
+            state: "failed",
+            actionType: payload.actionType,
+            summary: null,
+            error: "Approval required before executing this action.",
+            updatedAt: new Date().toISOString(),
+        });
+        return;
+    }
+
+    const runningAt = new Date().toISOString();
+
+    await emitTaskExecutionUpdate({
+        taskId: payload.taskId,
+        conversationId: payload.conversationId,
+        state: "running",
+        actionType: payload.actionType,
+        summary: null,
+        error: null,
+        updatedAt: runningAt,
+    });
+
+    const currentTask = await TaskModel.findById(payload.taskId);
+    if (!currentTask) {
+        throw new Error(`Task not found: ${payload.taskId}`);
+    }
+
+    if (currentTask.status === "open") {
+        await applyTaskStatus(payload.taskId, payload.conversationId, "in_progress");
+    }
+
+    const execution = await executeActionAdapter(payload);
+
+    const latestTask = await TaskModel.findById(payload.taskId);
+    if (latestTask && latestTask.status !== "done" && latestTask.status !== "canceled") {
+        await applyTaskStatus(payload.taskId, payload.conversationId, "done");
+    }
+
+    await emitTaskExecutionUpdate({
+        taskId: payload.taskId,
+        conversationId: payload.conversationId,
+        state: "succeeded",
+        actionType: payload.actionType,
+        summary: execution.summary,
+        error: null,
+        updatedAt: new Date().toISOString(),
+    });
+}
+
 async function ensureDatabaseConnection() {
     if (mongoose.connection.readyState === 1) {
         return;
@@ -169,7 +435,6 @@ async function processOneEvent(event: {
     attempts: number;
 }) {
     const { complete } = getOutboxFns();
-    const processIntelligence = getIntelligenceFn();
     const eventId = event._id.toString();
     const processedKey = `task-worker:processed:${event.dedupeKey}`;
 
@@ -185,56 +450,85 @@ async function processOneEvent(event: {
     }
 
     try {
-        if (event.topic !== "message.created") {
+        if (event.topic === "message.created") {
+            const processIntelligence = getIntelligenceFn();
+
+            if (!isMessageCreatedPayload(event.payload)) {
+                throw new Error("Invalid message.created payload shape");
+            }
+
+            const intelligence = await processIntelligence({
+                messageId: event.payload.messageId,
+                conversationId: event.payload.conversationId,
+                senderId: event.payload.senderId,
+                content: event.payload.content,
+                messageType: event.payload.messageType,
+            });
+
+            if (intelligence) {
+                await emitInternal(
+                    "/internal/message-semantic-updated",
+                    intelligence.semanticPayload.conversationId,
+                    intelligence.semanticPayload
+                );
+
+                if (intelligence.taskCreatedPayload) {
+                    await emitInternal(
+                        "/internal/task-created",
+                        intelligence.semanticPayload.conversationId,
+                        intelligence.taskCreatedPayload
+                    );
+                }
+
+                if (intelligence.taskUpdatedPayload) {
+                    await emitInternal(
+                        "/internal/task-updated",
+                        intelligence.semanticPayload.conversationId,
+                        intelligence.taskUpdatedPayload
+                    );
+                }
+
+                if (intelligence.taskLinkedPayload) {
+                    await emitInternal(
+                        "/internal/task-linked-to-message",
+                        intelligence.semanticPayload.conversationId,
+                        intelligence.taskLinkedPayload
+                    );
+                }
+            }
+
             await complete(eventId);
             return;
         }
 
-        if (!isMessageCreatedPayload(event.payload)) {
-            throw new Error("Invalid message.created payload shape");
-        }
-
-        const intelligence = await processIntelligence({
-            messageId: event.payload.messageId,
-            conversationId: event.payload.conversationId,
-            senderId: event.payload.senderId,
-            content: event.payload.content,
-            messageType: event.payload.messageType,
-        });
-
-        if (intelligence) {
-            await emitInternal(
-                "/internal/message-semantic-updated",
-                intelligence.semanticPayload.conversationId,
-                intelligence.semanticPayload
-            );
-
-            if (intelligence.taskCreatedPayload) {
-                await emitInternal(
-                    "/internal/task-created",
-                    intelligence.semanticPayload.conversationId,
-                    intelligence.taskCreatedPayload
-                );
+        if (event.topic === "task.execution.requested") {
+            if (!isTaskExecutionRequestedPayload(event.payload)) {
+                throw new Error("Invalid task.execution.requested payload shape");
             }
 
-            if (intelligence.taskUpdatedPayload) {
-                await emitInternal(
-                    "/internal/task-updated",
-                    intelligence.semanticPayload.conversationId,
-                    intelligence.taskUpdatedPayload
-                );
+            try {
+                await processTaskExecutionRequested(event.payload);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Task execution failed";
+                await emitTaskExecutionUpdate({
+                    taskId: event.payload.taskId,
+                    conversationId: event.payload.conversationId,
+                    state: "failed",
+                    actionType: event.payload.actionType,
+                    summary: null,
+                    error: message,
+                    updatedAt: new Date().toISOString(),
+                });
+                throw error;
             }
 
-            if (intelligence.taskLinkedPayload) {
-                await emitInternal(
-                    "/internal/task-linked-to-message",
-                    intelligence.semanticPayload.conversationId,
-                    intelligence.taskLinkedPayload
-                );
-            }
+            await complete(eventId);
+            return;
         }
 
         await complete(eventId);
+        return;
+
     } catch (error) {
         if (redis) {
             await redis.del(processedKey);

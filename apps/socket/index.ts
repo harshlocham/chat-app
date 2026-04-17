@@ -224,6 +224,17 @@ app.post("/internal/task-linked-to-message", (req, res) => {
     return res.json({ success: true });
 });
 
+app.post("/internal/task-execution-updated", (req, res) => {
+    const { conversationId, payload } = req.body || {};
+
+    if (!conversationId || !payload) {
+        return res.status(400).json({ error: "Invalid payload" });
+    }
+
+    emitToConversation(conversationId, SocketEvents.TASK_EXECUTION_UPDATED, payload);
+    return res.json({ success: true });
+});
+
 app.post("/internal/message-semantic-updated", (req, res) => {
     const { conversationId, payload } = req.body || {};
 
