@@ -9,7 +9,11 @@ export type TaskActionType =
     | "linked_message"
     | "unlinked_message"
     | "commented"
-    | "ai_reclassified";
+    | "ai_reclassified"
+    | "create_github_issue"
+    | "schedule_meeting"
+    | "send_email"
+    | "none";
 
 export type TaskActorType = "user" | "agent" | "system";
 
@@ -21,6 +25,10 @@ export interface ITaskAction {
     actorId?: mongoose.Types.ObjectId | null;
     actionType: TaskActionType;
     messageId?: mongoose.Types.ObjectId | null;
+    parameters?: Record<string, unknown>;
+    executionState?: "requested" | "queued" | "running" | "succeeded" | "failed" | "blocked" | null;
+    summary?: string | null;
+    error?: string | null;
     patch: {
         before: unknown | null;
         after: unknown | null;
@@ -48,11 +56,24 @@ const TaskActionSchema = new Schema<ITaskAction>(
                 "unlinked_message",
                 "commented",
                 "ai_reclassified",
+                "create_github_issue",
+                "schedule_meeting",
+                "send_email",
+                "none"
             ],
             required: true,
             index: true,
         },
         messageId: { type: Schema.Types.ObjectId, ref: "Message", default: null, index: true },
+        parameters: { type: Schema.Types.Mixed, default: {} },
+        executionState: {
+            type: String,
+            enum: ["requested", "queued", "running", "succeeded", "failed", "blocked"],
+            default: null,
+            index: true,
+        },
+        summary: { type: String, trim: true, maxlength: 2000, default: null },
+        error: { type: String, trim: true, maxlength: 4000, default: null },
         patch: {
             before: { type: Schema.Types.Mixed, default: null },
             after: { type: Schema.Types.Mixed, default: null },
