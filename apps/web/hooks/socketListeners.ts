@@ -33,26 +33,24 @@ function patchMessageSemanticState(payload: MessageSemanticUpdatedPayload) {
 }
 
 export function registerTaskSocketListeners(socket: TypedSocket) {
-	const taskStore = useTaskStore.getState();
-
 	socket.on(SocketEvents.TASK_CREATED, (payload: TaskCreatedPayload) => {
-		taskStore.handleTaskCreated(payload);
+		useTaskStore.getState().handleTaskCreated(payload);
 	});
 
 	socket.on(SocketEvents.TASK_UPDATED, (payload: TaskUpdatedPayload) => {
-		taskStore.patchTask(payload);
+		useTaskStore.getState().patchTask(payload);
 	});
 
 	socket.on(SocketEvents.TASK_LINKED_TO_MESSAGE, (payload: TaskLinkedToMessagePayload) => {
-		taskStore.linkTaskToMessage(payload);
+		useTaskStore.getState().linkTaskToMessage(payload);
 	});
 
 	socket.on(SocketEvents.TASK_EXECUTION_UPDATED, (payload: TaskExecutionUpdatedPayload) => {
-		taskStore.setTaskExecutionState(payload);
+		useTaskStore.getState().setTaskExecutionState(payload);
 	});
 
 	socket.on(SocketEvents.MESSAGE_SEMANTIC_UPDATED, (payload: MessageSemanticUpdatedPayload) => {
-		taskStore.setMessageSemanticState(payload);
+		useTaskStore.getState().setMessageSemanticState(payload);
 		patchMessageSemanticState(payload);
 	});
 }

@@ -42,6 +42,38 @@ const upsertConversationTaskId = (current: string[], taskId: string) => {
 
 const removeConversationTaskId = (current: string[], taskId: string) => current.filter((entry) => entry !== taskId);
 
+function buildPlaceholderTask(payload: TaskUpdatedPayload): TaskRecord {
+    const now = new Date().toISOString();
+    const patch = payload.patch as Partial<TaskRecord>;
+
+    return {
+        _id: payload.taskId,
+        conversationId: payload.conversationId,
+        title: typeof patch.title === "string" ? patch.title : "Task",
+        description: typeof patch.description === "string" ? patch.description : "",
+        status: (patch.status as TaskRecord["status"]) ?? "open",
+        priority: (patch.priority as TaskRecord["priority"]) ?? "medium",
+        assignees: Array.isArray(patch.assignees) ? patch.assignees : [],
+        dueAt: typeof patch.dueAt === "string" || patch.dueAt === null ? patch.dueAt : null,
+        createdBy: typeof patch.createdBy === "string" ? patch.createdBy : "",
+        source: (patch.source as TaskRecord["source"]) ?? "ai",
+        sourceMessageIds: Array.isArray(patch.sourceMessageIds) ? patch.sourceMessageIds : [],
+        latestContextMessageId:
+            typeof patch.latestContextMessageId === "string" || patch.latestContextMessageId === null
+                ? patch.latestContextMessageId
+                : null,
+        confidence: typeof patch.confidence === "number" ? patch.confidence : 0,
+        tags: Array.isArray(patch.tags) ? patch.tags : [],
+        dedupeKey: typeof patch.dedupeKey === "string" ? patch.dedupeKey : `${payload.conversationId}::${payload.taskId}`,
+        version: payload.newVersion,
+        closedAt: typeof patch.closedAt === "string" || patch.closedAt === null ? patch.closedAt : null,
+        archivedAt: typeof patch.archivedAt === "string" || patch.archivedAt === null ? patch.archivedAt : null,
+        updatedBy: typeof patch.updatedBy === "string" || patch.updatedBy === null ? patch.updatedBy : null,
+        createdAt: typeof patch.createdAt === "string" ? patch.createdAt : now,
+        updatedAt: now,
+    };
+}
+
 const useTaskStore = create<TaskStore>((set, get) => ({
     tasksById: {},
     tasksByConversation: {},
@@ -86,7 +118,22 @@ const useTaskStore = create<TaskStore>((set, get) => ({
     patchTask: (payload) =>
         set((state) => {
             const existing = state.tasksById[payload.taskId];
-            if (!existing) return {};
+            if (!existing) {
+                const created = buildPlaceholderTask(payload);
+                return {
+                    tasksById: {
+                        ...state.tasksById,
+                        [payload.taskId]: created,
+                    },
+                    tasksByConversation: {
+                        ...state.tasksByConversation,
+                        [payload.conversationId]: upsertConversationTaskId(
+                            state.tasksByConversation[payload.conversationId] || [],
+                            payload.taskId
+                        ),
+                    },
+                };
+            }
             if (existing.version >= payload.newVersion) return {};
 
             const nextTask: TaskRecord = {
@@ -145,6 +192,22 @@ const useTaskStore = create<TaskStore>((set, get) => ({
                 ...state.executionByTaskId,
                 [payload.taskId]: payload,
             },
+            tasksById: state.tasksById[payload.taskId]
+                ? {
+                    ...state.tasksById,
+                    [payload.taskId]: {
+                        ...state.tasksById[payload.taskId],
+                        status: payload.state === "running"
+                            ? "in_progress"
+                            : payload.state === "succeeded"
+                                ? "done"
+                                : state.tasksById[payload.taskId].status,
+                        updatedAt: typeof payload.updatedAt === "string"
+                            ? payload.updatedAt
+                            : payload.updatedAt.toISOString(),
+                    },
+                }
+                : state.tasksById,
         })),
 
     removeTask: (taskId) =>
