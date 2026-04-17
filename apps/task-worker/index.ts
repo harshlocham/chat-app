@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import type { TaskExecutionActionType, TaskExecutionUpdatedPayload, TaskUpdatedPayload } from "@chat/types";
 import * as outboxModule from "../../packages/services/outbox.service";
 import * as intelligenceModule from "../../packages/services/task-intelligence.service";
-import TaskModel from "../../packages/db/models/Task";
+import * as taskModule from "../../packages/db/models/Task";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const visitedEnvPaths = new Set<string>();
@@ -77,6 +77,44 @@ const processMessageTaskIntelligence = (
     } | null>;
 };
 
+type TaskModelLike = {
+    findById: (id: string) => Promise<{
+        _id: { toString(): string };
+        version: number;
+        status: string;
+        updatedBy: null | string;
+        save: () => Promise<void>;
+    } | null>;
+};
+
+function resolveTaskModel(moduleNs: unknown): TaskModelLike {
+    const asRecord = moduleNs as Record<string, unknown>;
+    const candidates: unknown[] = [
+        moduleNs,
+        asRecord?.default,
+        (asRecord?.default as Record<string, unknown> | undefined)?.default,
+        asRecord?.TaskModel,
+        (asRecord?.default as Record<string, unknown> | undefined)?.TaskModel,
+    ];
+
+    for (const candidate of candidates) {
+        if (candidate && typeof (candidate as { findById?: unknown }).findById === "function") {
+            return candidate as TaskModelLike;
+        }
+    }
+
+    const topLevelKeys = Object.keys(asRecord || {});
+    const defaultKeys = asRecord?.default && typeof asRecord.default === "object"
+        ? Object.keys(asRecord.default as Record<string, unknown>)
+        : [];
+
+    throw new Error(
+        `Task model exports are invalid. taskModule keys=${topLevelKeys.join(",")}; default keys=${defaultKeys.join(",")}`
+    );
+}
+
+const TaskModel = resolveTaskModel(taskModule);
+
 type MessageCreatedPayload = {
     messageId: string;
     conversationId: string;
@@ -95,6 +133,10 @@ type TaskExecutionRequestedPayload = {
     parameters?: Record<string, unknown>;
     confidence?: number;
     needsApproval?: boolean;
+};
+
+type NormalizedTaskExecutionRequestedPayload = Omit<TaskExecutionRequestedPayload, "actionType"> & {
+    actionType: TaskExecutionActionType;
 };
 
 type ActionExecutionResult = {
@@ -121,11 +163,34 @@ function isTaskExecutionRequestedPayload(payload: Record<string, unknown>): payl
     return (
         typeof payload.taskId === "string"
         && typeof payload.conversationId === "string"
-        && typeof payload.triggerMessageId === "string"
-        && typeof payload.requestedByType === "string"
-        && typeof payload.actionType === "string"
-        && ["create_github_issue", "schedule_meeting", "send_email", "none"].includes(payload.actionType)
+        && (typeof payload.triggerMessageId === "string" || typeof payload.triggerMessageId === "undefined")
+        && (typeof payload.requestedByType === "string" || typeof payload.requestedByType === "undefined")
+        && (typeof payload.actionType === "string" || typeof payload.actionType === "undefined")
     );
+}
+
+function normalizeTaskExecutionRequestedPayload(payload: Record<string, unknown>): NormalizedTaskExecutionRequestedPayload {
+    const actionType = ["create_github_issue", "schedule_meeting", "send_email"].includes(String(payload.actionType))
+        ? (payload.actionType as TaskExecutionActionType)
+        : "none";
+
+    return {
+        taskId: String(payload.taskId),
+        conversationId: String(payload.conversationId),
+        triggerMessageId: typeof payload.triggerMessageId === "string"
+            ? payload.triggerMessageId
+            : String(payload.taskId),
+        requestedByType: payload.requestedByType === "user" || payload.requestedByType === "agent" || payload.requestedByType === "system"
+            ? payload.requestedByType
+            : "agent",
+        requestedById: typeof payload.requestedById === "string" ? payload.requestedById : null,
+        actionType,
+        parameters: payload.parameters && typeof payload.parameters === "object" ? (payload.parameters as Record<string, unknown>) : {},
+        confidence: typeof payload.confidence === "number" ? payload.confidence : 0.5,
+        needsApproval: typeof payload.needsApproval === "boolean"
+            ? payload.needsApproval
+            : actionType !== "none" && (typeof payload.confidence === "number" ? payload.confidence < 0.7 : true),
+    };
 }
 
 async function emitInternal(path: string, conversationId: string, payload: unknown) {
@@ -341,7 +406,7 @@ async function executeActionAdapter(payload: TaskExecutionRequestedPayload): Pro
     }
 }
 
-async function processTaskExecutionRequested(payload: TaskExecutionRequestedPayload) {
+async function processTaskExecutionRequested(payload: NormalizedTaskExecutionRequestedPayload) {
     const queuedAt = new Date().toISOString();
 
     await emitTaskExecutionUpdate({
@@ -354,7 +419,7 @@ async function processTaskExecutionRequested(payload: TaskExecutionRequestedPayl
         updatedAt: queuedAt,
     });
 
-    const confidence = typeof payload.confidence === "number" ? payload.confidence : 0.5;
+    const confidence = payload.confidence ?? 0.5;
     const requiresApproval = Boolean(payload.needsApproval) || confidence < 0.7;
 
     if (requiresApproval) {
@@ -507,14 +572,16 @@ async function processOneEvent(event: {
             }
 
             try {
-                await processTaskExecutionRequested(event.payload);
+                await processTaskExecutionRequested(normalizeTaskExecutionRequestedPayload(event.payload));
             } catch (error) {
                 const message = error instanceof Error ? error.message : "Task execution failed";
                 await emitTaskExecutionUpdate({
-                    taskId: event.payload.taskId,
-                    conversationId: event.payload.conversationId,
+                    taskId: String(event.payload.taskId),
+                    conversationId: String(event.payload.conversationId),
                     state: "failed",
-                    actionType: event.payload.actionType,
+                    actionType: ["create_github_issue", "schedule_meeting", "send_email"].includes(String(event.payload.actionType))
+                        ? (event.payload.actionType as TaskExecutionActionType)
+                        : "none",
                     summary: null,
                     error: message,
                     updatedAt: new Date().toISOString(),
