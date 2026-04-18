@@ -144,6 +144,19 @@ export async function createTaskAction(input: CreateTaskActionInput): Promise<IT
     return action;
 }
 
+export async function getLatestExecutionTaskAction(taskId: string): Promise<ITaskAction | null> {
+    await connectToDatabase();
+
+    return TaskActionModel.findOne({
+        taskId: toObjectId(taskId),
+        actionType: {
+            $in: ["create_github_issue", "schedule_meeting", "send_email"],
+        },
+    })
+        .sort({ createdAt: -1 })
+        .exec();
+}
+
 export async function linkMessageToTask(input: LinkMessageToTaskInput) {
     await connectToDatabase();
 

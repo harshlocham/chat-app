@@ -9,6 +9,7 @@ import * as outboxModule from "../../packages/services/outbox.service";
 import * as intelligenceModule from "../../packages/services/task-intelligence.service";
 import * as taskModule from "../../packages/db/models/Task";
 import { RetryManager } from "./services/retry-manager.js";
+import AgentRunner from "./services/agent-runner.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const visitedEnvPaths = new Set<string>();
@@ -46,6 +47,7 @@ const redis = redisUrl
 const internalBaseUrl = process.env.SOCKET_SERVER_URL || process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 const INTERNAL_SECRET_HEADER = "x-internal-secret";
 const retryManager = new RetryManager([1000, 2000, 5000]);
+const agentRunner = new AgentRunner({ retryManager, internalBaseUrl });
 
 const outboxApi = ((outboxModule as unknown as { default?: unknown }).default || outboxModule) as {
     claimOutboxEvents?: (workerId: string, limit?: number) => Promise<Array<{
@@ -1317,7 +1319,7 @@ async function processOneEvent(event: {
             }
 
             try {
-                await processTaskExecutionRequested(normalizeTaskExecutionRequestedPayload(event.payload));
+                await agentRunner.runTask(String(event.payload.taskId));
             } catch (error) {
                 throw error;
             }
