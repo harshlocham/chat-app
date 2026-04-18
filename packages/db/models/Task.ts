@@ -27,6 +27,23 @@ export interface ITask {
     dependencyIds: mongoose.Types.ObjectId[];
     retryCount: number;
     maxRetries: number;
+    progress: number;
+    checkpoints: Array<{
+        step: string;
+        status: string;
+        timestamp: Date;
+    }>;
+    executionHistory: {
+        attempts: number;
+        failures: number;
+        results: Array<{
+            attempt: number;
+            success: boolean;
+            summary: string;
+            error?: string;
+            timestamp: Date;
+        }>;
+    };
     result: {
         success: boolean;
         confidence: number;
@@ -72,6 +89,29 @@ const TaskSchema = new Schema<ITask>(
         dependencyIds: { type: [{ type: Schema.Types.ObjectId, ref: "Task" }], default: [] },
         retryCount: { type: Number, min: 0, default: 0 },
         maxRetries: { type: Number, min: 0, default: 2 },
+        progress: { type: Number, min: 0, max: 100, default: 0 },
+        checkpoints: {
+            type: [{
+                step: { type: String, required: true, trim: true, maxlength: 120 },
+                status: { type: String, required: true, trim: true, maxlength: 40 },
+                timestamp: { type: Date, required: true, default: Date.now },
+            }],
+            default: [],
+        },
+        executionHistory: {
+            attempts: { type: Number, min: 0, default: 0 },
+            failures: { type: Number, min: 0, default: 0 },
+            results: {
+                type: [{
+                    attempt: { type: Number, min: 1, required: true },
+                    success: { type: Boolean, required: true },
+                    summary: { type: String, trim: true, maxlength: 1200, required: true },
+                    error: { type: String, trim: true, maxlength: 4000, default: undefined },
+                    timestamp: { type: Date, required: true, default: Date.now },
+                }],
+                default: [],
+            },
+        },
         result: {
             success: { type: Boolean, default: false },
             confidence: { type: Number, min: 0, max: 1, default: 0 },
@@ -106,6 +146,7 @@ TaskSchema.index({ conversationId: 1, dueAt: 1, status: 1 });
 TaskSchema.index({ assignees: 1, status: 1, dueAt: 1 });
 TaskSchema.index({ parentTaskId: 1, status: 1, updatedAt: -1 });
 TaskSchema.index({ parentTaskId: 1, dependencyIds: 1 });
+TaskSchema.index({ status: 1, progress: 1, updatedAt: -1 });
 TaskSchema.index({ sourceMessageIds: 1 });
 TaskSchema.index({ updatedAt: -1 });
 

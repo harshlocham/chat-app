@@ -44,6 +44,13 @@ export async function createTask(input: CreateTaskInput): Promise<ITask> {
         dependencyIds: input.dependencyIds?.map(toObjectId) ?? [],
         retryCount: 0,
         maxRetries: 2,
+        progress: input.progress ?? 0,
+        checkpoints: input.checkpoints ?? [],
+        executionHistory: input.executionHistory ?? {
+            attempts: 0,
+            failures: 0,
+            results: [],
+        },
         result: {
             success: false,
             confidence: 0,
@@ -81,6 +88,13 @@ export async function upsertTaskByDedupeKey(input: CreateTaskInput): Promise<ITa
                 dependencyIds: input.dependencyIds?.map(toObjectId) ?? [],
                 retryCount: 0,
                 maxRetries: 2,
+                progress: input.progress ?? 0,
+                checkpoints: input.checkpoints ?? [],
+                executionHistory: input.executionHistory ?? {
+                    attempts: 0,
+                    failures: 0,
+                    results: [],
+                },
                 result: {
                     success: false,
                     confidence: 0,
@@ -122,6 +136,9 @@ export async function updateTask(update: UpdateTaskInput): Promise<ITask | null>
             ...(update.result !== undefined ? { result: update.result } : {}),
             ...(update.retryCount !== undefined ? { retryCount: update.retryCount } : {}),
             ...(update.maxRetries !== undefined ? { maxRetries: update.maxRetries } : {}),
+            ...(update.progress !== undefined ? { progress: update.progress } : {}),
+            ...(update.checkpoints !== undefined ? { checkpoints: update.checkpoints } : {}),
+            ...(update.executionHistory !== undefined ? { executionHistory: update.executionHistory } : {}),
             ...(update.updatedBy !== undefined
                 ? { updatedBy: update.updatedBy ? toObjectId(update.updatedBy) : null }
                 : {}),

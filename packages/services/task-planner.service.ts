@@ -159,6 +159,13 @@ export class TaskPlanner {
                 dedupeKey: `${task.dedupeKey}::subtask::${subTaskIds.length + 1}`,
                 subTasks: [],
                 dependencyIds: previousSubTaskId ? [previousSubTaskId] : [],
+                progress: 0,
+                checkpoints: [],
+                executionHistory: {
+                    attempts: 0,
+                    failures: 0,
+                    results: [],
+                },
                 createdBy: task.createdBy.toString(),
             });
 

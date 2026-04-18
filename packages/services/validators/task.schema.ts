@@ -19,6 +19,23 @@ export const CreateTaskSchema = z.object({
     dedupeKey: z.string().min(1).max(160),
     subTasks: z.array(z.string().min(1)).optional().default([]),
     dependencyIds: z.array(z.string().min(1)).optional().default([]),
+    progress: z.number().min(0).max(100).optional().default(0),
+    checkpoints: z.array(z.object({
+        step: z.string().min(1).max(120),
+        status: z.string().min(1).max(40),
+        timestamp: z.coerce.date(),
+    })).optional().default([]),
+    executionHistory: z.object({
+        attempts: z.number().int().min(0).default(0),
+        failures: z.number().int().min(0).default(0),
+        results: z.array(z.object({
+            attempt: z.number().int().min(1),
+            success: z.boolean(),
+            summary: z.string().min(1).max(1200),
+            error: z.string().max(4000).optional(),
+            timestamp: z.coerce.date(),
+        })).default([]),
+    }).optional().default({ attempts: 0, failures: 0, results: [] }),
     createdBy: z.string().min(1),
 });
 
@@ -43,6 +60,23 @@ export const UpdateTaskSchema = z.object({
     }).optional(),
     retryCount: z.number().int().min(0).optional(),
     maxRetries: z.number().int().min(0).optional(),
+    progress: z.number().min(0).max(100).optional(),
+    checkpoints: z.array(z.object({
+        step: z.string().min(1).max(120),
+        status: z.string().min(1).max(40),
+        timestamp: z.coerce.date(),
+    })).optional(),
+    executionHistory: z.object({
+        attempts: z.number().int().min(0),
+        failures: z.number().int().min(0),
+        results: z.array(z.object({
+            attempt: z.number().int().min(1),
+            success: z.boolean(),
+            summary: z.string().min(1).max(1200),
+            error: z.string().max(4000).optional(),
+            timestamp: z.coerce.date(),
+        })),
+    }).optional(),
     updatedBy: z.string().min(1).nullable().optional(),
 });
 

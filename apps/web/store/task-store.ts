@@ -70,6 +70,11 @@ function buildPlaceholderTask(payload: TaskUpdatedPayload): TaskRecord {
         dependencyIds: Array.isArray(patch.dependencyIds) ? patch.dependencyIds : [],
         retryCount: typeof patch.retryCount === "number" ? patch.retryCount : 0,
         maxRetries: typeof patch.maxRetries === "number" ? patch.maxRetries : 2,
+        progress: typeof patch.progress === "number" ? patch.progress : 0,
+        checkpoints: Array.isArray(patch.checkpoints) ? patch.checkpoints : [],
+        executionHistory: patch.executionHistory
+            ? patch.executionHistory
+            : { attempts: 0, failures: 0, results: [] },
         result: {
             success: Boolean((patch.result as TaskRecord["result"] | undefined)?.success),
             confidence: typeof (patch.result as TaskRecord["result"] | undefined)?.confidence === "number"

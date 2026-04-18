@@ -800,6 +800,13 @@ export async function processMessageTaskIntelligence(
         createdBy: input.senderId,
         subTasks: [],
         dependencyIds: [],
+        progress: 0,
+        checkpoints: [],
+        executionHistory: {
+            attempts: 0,
+            failures: 0,
+            results: [],
+        },
     });
 
     await linkMessageToTask({
@@ -946,6 +953,23 @@ export async function processMessageTaskIntelligence(
                     dependencyIds: (task.dependencyIds ?? []).map((dependencyId) => dependencyId.toString()),
                     retryCount: typeof task.retryCount === "number" ? task.retryCount : 0,
                     maxRetries: typeof task.maxRetries === "number" ? task.maxRetries : 2,
+                    progress: typeof task.progress === "number" ? task.progress : 0,
+                    checkpoints: (task.checkpoints ?? []).map((checkpoint) => ({
+                        step: checkpoint.step,
+                        status: checkpoint.status,
+                        timestamp: new Date(checkpoint.timestamp).toISOString(),
+                    })),
+                    executionHistory: {
+                        attempts: typeof task.executionHistory?.attempts === "number" ? task.executionHistory.attempts : 0,
+                        failures: typeof task.executionHistory?.failures === "number" ? task.executionHistory.failures : 0,
+                        results: (task.executionHistory?.results ?? []).map((entry) => ({
+                            attempt: entry.attempt,
+                            success: entry.success,
+                            summary: entry.summary,
+                            ...(typeof entry.error === "string" && entry.error.length > 0 ? { error: entry.error } : {}),
+                            timestamp: new Date(entry.timestamp).toISOString(),
+                        })),
+                    },
                     result: {
                         success: Boolean(task.result?.success),
                         confidence: typeof task.result?.confidence === "number" ? task.result.confidence : 0,

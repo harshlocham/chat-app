@@ -1,4 +1,4 @@
-import type { TaskExecutionActionType, TaskResult, TaskUpdatedPayload } from "@chat/types";
+import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskResult, TaskUpdatedPayload } from "@chat/types";
 import { RetryManager } from "./retry-manager.js";
 import { TaskPlanner } from "../../../packages/services/task-planner.service";
 import * as taskRepo from "../../../packages/services/repositories/task.repo";
@@ -34,6 +34,9 @@ type TaskDocumentLike = {
     dependencyIds?: Array<{ toString(): string }>;
     retryCount?: number;
     maxRetries?: number;
+    progress?: number;
+    checkpoints?: TaskCheckpoint[];
+    executionHistory?: TaskExecutionHistory;
     result?: TaskResult;
     version: number;
     updatedBy: null | string;
@@ -70,10 +73,15 @@ type RunTaskOutcome = {
     verification: VerificationOutcome | null;
 };
 
-type ToolExecutionOutcome = {
-    result: ActionExecutionResult;
-    toolName: string;
-    capability: string;
+type ExecutionHistoryDelta = {
+    attempts?: number;
+    failures?: number;
+    appendResult?: {
+        attempt: number;
+        success: boolean;
+        summary: string;
+        error?: string;
+    };
 };
 
 function wait(ms: number) {
@@ -87,17 +95,6 @@ function asRecord(value: unknown): Record<string, unknown> {
         return value as Record<string, unknown>;
     }
     return {};
-}
-
-function stableStringify(value: unknown): string {
-    if (value === null || value === undefined) return String(value);
-    if (typeof value !== "object") return JSON.stringify(value);
-    if (Array.isArray(value)) {
-        return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
-    }
-
-    const keys = Object.keys(value as Record<string, unknown>).sort();
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify((value as Record<string, unknown>)[key])}`).join(",")}}`;
 }
 
 function resolveTaskModel(moduleNs: unknown): TaskModelLike {
@@ -147,6 +144,101 @@ export class AgentRunner {
         return registry;
     }
 
+    private trimCheckpoints(checkpoints: TaskCheckpoint[]) {
+        const cap = 200;
+        return checkpoints.length <= cap ? checkpoints : checkpoints.slice(checkpoints.length - cap);
+    }
+
+    private trimExecutionResults(results: TaskExecutionHistory["results"]) {
+        const cap = 100;
+        return results.length <= cap ? results : results.slice(results.length - cap);
+    }
+
+    private getExecutionHistory(task: TaskDocumentLike): TaskExecutionHistory {
+        return {
+            attempts: typeof task.executionHistory?.attempts === "number" ? task.executionHistory.attempts : 0,
+            failures: typeof task.executionHistory?.failures === "number" ? task.executionHistory.failures : 0,
+            results: Array.isArray(task.executionHistory?.results) ? task.executionHistory.results : [],
+        };
+    }
+
+    private resolveResumeStep(task: TaskDocumentLike): "execute" | "adjust" {
+        const checkpoints = task.checkpoints ?? [];
+        if (checkpoints.length === 0) {
+            return "execute";
+        }
+
+        const last = checkpoints[checkpoints.length - 1];
+        if (last.step === "verify" && last.status === "failed") {
+            return "adjust";
+        }
+        if (last.step === "adjust" && (last.status === "started" || last.status === "completed")) {
+            return "adjust";
+        }
+
+        return "execute";
+    }
+
+    private progressForStep(step: "execute" | "observe" | "verify" | "adjust" | "done" | "failed", status: "started" | "completed" | "failed") {
+        if (step === "done" || step === "failed") return 100;
+        if (step === "execute") return status === "completed" ? 35 : 15;
+        if (step === "observe") return status === "completed" ? 55 : 45;
+        if (step === "verify") return status === "completed" ? 75 : 70;
+        if (step === "adjust") return status === "completed" ? 85 : 80;
+        return 0;
+    }
+
+    private async appendCheckpoint(
+        task: TaskDocumentLike,
+        input: {
+            step: "execute" | "observe" | "verify" | "adjust" | "done" | "failed";
+            status: "started" | "completed" | "failed";
+            progress?: number;
+            historyDelta?: ExecutionHistoryDelta;
+        }
+    ) {
+        const nextCheckpoints = this.trimCheckpoints([
+            ...(task.checkpoints ?? []),
+            {
+                step: input.step,
+                status: input.status,
+                timestamp: new Date().toISOString(),
+            },
+        ]);
+
+        const history = this.getExecutionHistory(task);
+        const nextHistory: TaskExecutionHistory = {
+            attempts: history.attempts,
+            failures: history.failures,
+            results: [...history.results],
+        };
+
+        if (input.historyDelta?.attempts) {
+            nextHistory.attempts += input.historyDelta.attempts;
+        }
+        if (input.historyDelta?.failures) {
+            nextHistory.failures += input.historyDelta.failures;
+        }
+        if (input.historyDelta?.appendResult) {
+            nextHistory.results = this.trimExecutionResults([
+                ...nextHistory.results,
+                {
+                    attempt: input.historyDelta.appendResult.attempt,
+                    success: input.historyDelta.appendResult.success,
+                    summary: input.historyDelta.appendResult.summary,
+                    ...(input.historyDelta.appendResult.error ? { error: input.historyDelta.appendResult.error } : {}),
+                    timestamp: new Date().toISOString(),
+                },
+            ]);
+        }
+
+        await this.updateTask(task, {
+            progress: typeof input.progress === "number" ? input.progress : this.progressForStep(input.step, input.status),
+            checkpoints: nextCheckpoints,
+            executionHistory: nextHistory,
+        });
+    }
+
     async runTask(taskId: string): Promise<RunTaskOutcome> {
         const task = await this.taskModel.findById(taskId);
         if (!task) {
@@ -187,11 +279,14 @@ export class AgentRunner {
             verification: null,
         };
 
+        let resumeStep = this.resolveResumeStep(task);
+
         console.log("agent-runner lifecycle:start", {
             taskId,
             actionType: context.action.actionType,
             retryCount: context.retryCount,
             maxRetries: context.maxRetries,
+            resumeStep,
         });
 
         await this.updateTask(task, {
@@ -209,21 +304,106 @@ export class AgentRunner {
             });
 
             try {
+                if (resumeStep === "adjust") {
+                    await this.appendCheckpoint(task, {
+                        step: "adjust",
+                        status: "started",
+                    });
+
+                    const resumedAdjustment = await this.adjust(
+                        context,
+                        context.observed,
+                        context.verification ?? { success: false, confidence: 0 }
+                    );
+                    context.attemptPayload = resumedAdjustment;
+
+                    await this.appendCheckpoint(task, {
+                        step: "adjust",
+                        status: "completed",
+                    });
+
+                    resumeStep = "execute";
+                }
+
+                await this.appendCheckpoint(task, {
+                    step: "execute",
+                    status: "started",
+                    historyDelta: { attempts: 1 },
+                });
+
                 const executed = await this.execute(context.attemptPayload);
+
+                await this.appendCheckpoint(task, {
+                    step: "execute",
+                    status: "completed",
+                });
+
+                await this.appendCheckpoint(task, {
+                    step: "observe",
+                    status: "started",
+                });
+
                 context.observed = await this.observe(context, executed);
+
+                await this.appendCheckpoint(task, {
+                    step: "observe",
+                    status: "completed",
+                });
+
+                await this.appendCheckpoint(task, {
+                    step: "verify",
+                    status: "started",
+                });
+
                 context.verification = await this.verify(context.observed, context);
+
+                if (context.verification.success) {
+                    await this.appendCheckpoint(task, {
+                        step: "verify",
+                        status: "completed",
+                        historyDelta: {
+                            appendResult: {
+                                attempt: context.retryCount + 1,
+                                success: true,
+                                summary: context.observed.summary,
+                            },
+                        },
+                    });
+                } else {
+                    await this.appendCheckpoint(task, {
+                        step: "verify",
+                        status: "failed",
+                        historyDelta: {
+                            failures: 1,
+                            appendResult: {
+                                attempt: context.retryCount + 1,
+                                success: false,
+                                summary: context.observed.summary,
+                                error: context.observed.error ?? "Verification failed",
+                            },
+                        },
+                    });
+                }
 
                 if (context.verification.success) {
                     await this.updateTask(task, {
                         status: "completed",
                         retryCount: context.retryCount,
                         maxRetries: context.maxRetries,
+                        progress: 100,
                         result: {
                             success: true,
                             confidence: context.verification.confidence,
                             evidence: context.observed.evidence,
                         },
                     });
+
+                    await this.appendCheckpoint(task, {
+                        step: "done",
+                        status: "completed",
+                        progress: 100,
+                    });
+
                     console.log("agent-runner lifecycle:completed", {
                         taskId,
                         confidence: context.verification.confidence,
@@ -264,9 +444,21 @@ export class AgentRunner {
                     };
                 }
 
+                await this.appendCheckpoint(task, {
+                    step: "adjust",
+                    status: "started",
+                });
+
                 const adjusted = await this.adjust(context, context.observed, context.verification);
+
+                await this.appendCheckpoint(task, {
+                    step: "adjust",
+                    status: "completed",
+                });
+
                 context.attemptPayload = adjusted;
                 context.retryCount += 1;
+                resumeStep = "execute";
 
                 console.warn("agent-runner lifecycle:retry", {
                     taskId,
@@ -288,11 +480,26 @@ export class AgentRunner {
             } catch (error) {
                 const reason = error instanceof Error ? error.message : "unknown execution error";
 
+                await this.appendCheckpoint(task, {
+                    step: "execute",
+                    status: "failed",
+                    historyDelta: {
+                        failures: 1,
+                        appendResult: {
+                            attempt: context.retryCount + 1,
+                            success: false,
+                            summary: "Execution failed before verification",
+                            error: reason,
+                        },
+                    },
+                });
+
                 if (context.retryCount >= context.maxRetries - 1) {
                     await this.updateTask(task, {
                         status: "failed",
                         retryCount: context.retryCount + 1,
                         maxRetries: context.maxRetries,
+                        progress: 100,
                         result: {
                             success: false,
                             confidence: 0,
@@ -303,6 +510,13 @@ export class AgentRunner {
                             error: reason,
                         },
                     });
+
+                    await this.appendCheckpoint(task, {
+                        step: "failed",
+                        status: "completed",
+                        progress: 100,
+                    });
+
                     console.error("agent-runner lifecycle:terminal-failure", {
                         taskId,
                         reason,
@@ -312,9 +526,21 @@ export class AgentRunner {
                     throw error;
                 }
 
+                await this.appendCheckpoint(task, {
+                    step: "adjust",
+                    status: "started",
+                });
+
                 const adjusted = await this.adjust(context, context.observed, { success: false, confidence: 0 });
+
+                await this.appendCheckpoint(task, {
+                    step: "adjust",
+                    status: "completed",
+                });
+
                 context.attemptPayload = adjusted;
                 context.retryCount += 1;
+                resumeStep = "execute";
 
                 console.warn("agent-runner lifecycle:retry-after-error", {
                     taskId,
@@ -338,12 +564,19 @@ export class AgentRunner {
             status: "failed",
             retryCount: context.retryCount,
             maxRetries: context.maxRetries,
+            progress: 100,
             result: {
                 success: false,
                 confidence: context.verification?.confidence ?? 0,
                 evidence: context.observed?.evidence ?? null,
                 error: "Retries exhausted.",
             },
+        });
+
+        await this.appendCheckpoint(task, {
+            step: "failed",
+            status: "completed",
+            progress: 100,
         });
 
         console.log("agent-runner lifecycle:exhausted", {
@@ -391,6 +624,7 @@ export class AgentRunner {
                 if (allCompleted) {
                     await this.updateTask(rootTask, {
                         status: "completed",
+                        progress: 100,
                         result: {
                             success: true,
                             confidence: 1,
@@ -418,6 +652,7 @@ export class AgentRunner {
                 const nextStatus = anyChildSucceeded ? "partial" : "failed";
                 await this.updateTask(rootTask, {
                     status: nextStatus,
+                    progress: 100,
                     result: {
                         success: false,
                         confidence: anyChildSucceeded ? 0.5 : 0,
@@ -456,6 +691,7 @@ export class AgentRunner {
 
                     await this.updateTask(rootTask, {
                         status: nextStatus,
+                        progress: 100,
                         result: {
                             success: false,
                             confidence: childOutcome.verification?.confidence ?? 0,
@@ -741,6 +977,9 @@ export class AgentRunner {
         status?: string;
         retryCount?: number;
         maxRetries?: number;
+        progress?: number;
+        checkpoints?: TaskCheckpoint[];
+        executionHistory?: TaskExecutionHistory;
         result?: TaskResult;
     }) {
         const previousVersion = task.version;
@@ -756,6 +995,18 @@ export class AgentRunner {
         }
         if (patch.maxRetries !== undefined && task.maxRetries !== patch.maxRetries) {
             task.maxRetries = patch.maxRetries;
+            changed = true;
+        }
+        if (patch.progress !== undefined && task.progress !== patch.progress) {
+            task.progress = patch.progress;
+            changed = true;
+        }
+        if (patch.checkpoints !== undefined && JSON.stringify(task.checkpoints ?? []) !== JSON.stringify(patch.checkpoints)) {
+            task.checkpoints = patch.checkpoints;
+            changed = true;
+        }
+        if (patch.executionHistory !== undefined && JSON.stringify(task.executionHistory ?? null) !== JSON.stringify(patch.executionHistory)) {
+            task.executionHistory = patch.executionHistory;
             changed = true;
         }
         if (patch.result !== undefined && JSON.stringify(task.result ?? null) !== JSON.stringify(patch.result)) {
@@ -777,6 +1028,9 @@ export class AgentRunner {
                 ...(patch.status !== undefined ? { status: patch.status as any } : {}),
                 ...(patch.retryCount !== undefined ? { retryCount: patch.retryCount } : {}),
                 ...(patch.maxRetries !== undefined ? { maxRetries: patch.maxRetries } : {}),
+                ...(patch.progress !== undefined ? { progress: patch.progress } : {}),
+                ...(patch.checkpoints !== undefined ? { checkpoints: patch.checkpoints } : {}),
+                ...(patch.executionHistory !== undefined ? { executionHistory: patch.executionHistory } : {}),
                 ...(patch.result !== undefined ? { result: patch.result } : {}),
                 updatedBy: null,
             },

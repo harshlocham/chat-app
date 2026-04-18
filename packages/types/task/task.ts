@@ -32,6 +32,26 @@ export interface TaskResult {
     error?: string;
 }
 
+export interface TaskCheckpoint {
+    step: string;
+    status: string;
+    timestamp: string;
+}
+
+export interface TaskExecutionHistoryResult {
+    attempt: number;
+    success: boolean;
+    summary: string;
+    error?: string;
+    timestamp: string;
+}
+
+export interface TaskExecutionHistory {
+    attempts: number;
+    failures: number;
+    results: TaskExecutionHistoryResult[];
+}
+
 export interface MessageTaskMetadata {
     semanticType?: MessageSemanticType;
     semanticConfidence?: number;
@@ -65,6 +85,9 @@ export interface TaskRecord {
     dependencyIds: string[];
     retryCount: number;
     maxRetries: number;
+    progress: number;
+    checkpoints: TaskCheckpoint[];
+    executionHistory: TaskExecutionHistory;
     result: TaskResult;
     version: number;
     closedAt: string | null;

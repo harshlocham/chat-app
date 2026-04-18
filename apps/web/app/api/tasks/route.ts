@@ -62,6 +62,13 @@ export async function POST(req: NextRequest) {
             createdBy: guard.user.id,
             subTasks: [],
             dependencyIds: [],
+            progress: 0,
+            checkpoints: [],
+            executionHistory: {
+                attempts: 0,
+                failures: 0,
+                results: [],
+            },
         });
 
         const normalized = normalizeTask(task);

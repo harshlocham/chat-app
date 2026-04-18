@@ -25,6 +25,23 @@ export function normalizeTask(doc: ITask): TaskRecord {
         dependencyIds: (doc.dependencyIds ?? []).map((dependencyId) => dependencyId.toString()),
         retryCount: typeof doc.retryCount === "number" ? doc.retryCount : 0,
         maxRetries: typeof doc.maxRetries === "number" ? doc.maxRetries : 2,
+        progress: typeof doc.progress === "number" ? doc.progress : 0,
+        checkpoints: (doc.checkpoints ?? []).map((checkpoint) => ({
+            step: checkpoint.step,
+            status: checkpoint.status,
+            timestamp: new Date(checkpoint.timestamp).toISOString(),
+        })),
+        executionHistory: {
+            attempts: typeof doc.executionHistory?.attempts === "number" ? doc.executionHistory.attempts : 0,
+            failures: typeof doc.executionHistory?.failures === "number" ? doc.executionHistory.failures : 0,
+            results: (doc.executionHistory?.results ?? []).map((entry) => ({
+                attempt: entry.attempt,
+                success: entry.success,
+                summary: entry.summary,
+                ...(typeof entry.error === "string" && entry.error.length > 0 ? { error: entry.error } : {}),
+                timestamp: new Date(entry.timestamp).toISOString(),
+            })),
+        },
         result: {
             success: Boolean(doc.result?.success),
             confidence: typeof doc.result?.confidence === "number" ? doc.result.confidence : 0,
