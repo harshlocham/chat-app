@@ -1,9 +1,10 @@
-import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskResult, TaskUpdatedPayload } from "@chat/types";
+import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskResult, TaskUpdatedPayload, TaskValidationLog } from "@chat/types";
 import { RetryManager } from "./retry-manager.js";
 import { TaskPlanner } from "../../../packages/services/task-planner.service";
 import * as taskRepo from "../../../packages/services/repositories/task.repo";
 import * as taskModule from "../../../packages/db/models/Task";
 import ToolRegistry, { type ToolExecutionTask, type ToolResult } from "./tools/tool-registry.js";
+import TaskSuccessRegistry, { createDefaultTaskSuccessRegistry } from "./task-success-registry.js";
 import { CreateIssueTool } from "./tools/create-issue.tool.js";
 import { ScheduleMeetingTool } from "./tools/schedule-meeting.tool.js";
 import { SendEmailTool } from "./tools/send-email.tool.js";
@@ -53,6 +54,7 @@ type ActionExecutionResult = {
 type VerificationOutcome = {
     success: boolean;
     confidence: number;
+    validationLog?: TaskValidationLog;
 };
 
 type LoopContext = {
@@ -81,6 +83,7 @@ type ExecutionHistoryDelta = {
         success: boolean;
         summary: string;
         error?: string;
+        validationLog?: TaskValidationLog;
     };
 };
 
@@ -88,13 +91,6 @@ function wait(ms: number) {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-    if (value && typeof value === "object") {
-        return value as Record<string, unknown>;
-    }
-    return {};
 }
 
 function resolveTaskModel(moduleNs: unknown): TaskModelLike {
@@ -121,18 +117,21 @@ export class AgentRunner {
     private readonly taskModel: TaskModelLike;
     private readonly taskPlanner: TaskPlanner;
     private readonly toolRegistry: ToolRegistry;
+    private readonly taskSuccessRegistry: TaskSuccessRegistry;
     private readonly internalBaseUrl: string;
 
     constructor(options?: {
         retryManager?: RetryManager;
         taskModel?: TaskModelLike;
         toolRegistry?: ToolRegistry;
+        taskSuccessRegistry?: TaskSuccessRegistry;
         internalBaseUrl?: string;
     }) {
         this.retryManager = options?.retryManager ?? new RetryManager([1000, 2000, 5000]);
         this.taskModel = options?.taskModel ?? resolveTaskModel(taskModule);
         this.taskPlanner = new TaskPlanner();
         this.toolRegistry = options?.toolRegistry ?? this.createDefaultToolRegistry();
+        this.taskSuccessRegistry = options?.taskSuccessRegistry ?? createDefaultTaskSuccessRegistry();
         this.internalBaseUrl = options?.internalBaseUrl ?? process.env.SOCKET_SERVER_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
     }
 
@@ -227,6 +226,9 @@ export class AgentRunner {
                     success: input.historyDelta.appendResult.success,
                     summary: input.historyDelta.appendResult.summary,
                     ...(input.historyDelta.appendResult.error ? { error: input.historyDelta.appendResult.error } : {}),
+                    ...(input.historyDelta.appendResult.validationLog
+                        ? { validationLog: input.historyDelta.appendResult.validationLog }
+                        : {}),
                     timestamp: new Date().toISOString(),
                 },
             ]);
@@ -366,6 +368,7 @@ export class AgentRunner {
                                 attempt: context.retryCount + 1,
                                 success: true,
                                 summary: context.observed.summary,
+                                validationLog: context.verification.validationLog,
                             },
                         },
                     });
@@ -380,6 +383,7 @@ export class AgentRunner {
                                 success: false,
                                 summary: context.observed.summary,
                                 error: context.observed.error ?? "Verification failed",
+                                validationLog: context.verification.validationLog,
                             },
                         },
                     });
@@ -394,7 +398,10 @@ export class AgentRunner {
                         result: {
                             success: true,
                             confidence: context.verification.confidence,
-                            evidence: context.observed.evidence,
+                            evidence: {
+                                execution: context.observed.evidence,
+                                validationLog: context.verification.validationLog,
+                            },
                         },
                     });
 
@@ -425,7 +432,10 @@ export class AgentRunner {
                         result: {
                             success: false,
                             confidence: context.verification.confidence,
-                            evidence: context.observed.evidence,
+                            evidence: {
+                                execution: context.observed.evidence,
+                                validationLog: context.verification.validationLog,
+                            },
                             error: "Verification failed and retries exhausted.",
                         },
                     });
@@ -837,24 +847,24 @@ export class AgentRunner {
     }
 
     private async verify(result: ActionExecutionResult, context: LoopContext): Promise<VerificationOutcome> {
+        const validationLog = this.taskSuccessRegistry.validate(context.action.actionType, context.task, result);
+        const passedChecks = validationLog.checks.filter((check) => check.passed).length;
+        const totalChecks = validationLog.checks.length;
+        const confidence = totalChecks > 0 ? passedChecks / totalChecks : (validationLog.passed ? 1 : 0);
+
         console.log("agent-runner step:verify", {
             actionType: context.action.actionType,
             evidence: result.evidence,
+            validator: validationLog.validator,
+            passed: validationLog.passed,
+            checks: validationLog.checks,
         });
 
-        switch (context.action.actionType) {
-            case "send_email":
-                return this.verifyEmailSent(result);
-            case "schedule_meeting":
-                return this.verifyMeetingScheduled(result);
-            case "create_github_issue":
-                return this.verifyGithubIssueCreated(result);
-            default:
-                return {
-                    success: result.adapterSuccess,
-                    confidence: result.adapterSuccess ? 1 : 0,
-                };
-        }
+        return {
+            success: validationLog.passed,
+            confidence,
+            validationLog,
+        };
     }
 
     private async adjust(context: LoopContext, result: ActionExecutionResult | null, verification: VerificationOutcome): Promise<ExecutionActionRecord> {
@@ -911,61 +921,6 @@ export class AgentRunner {
         });
 
         return adjusted;
-    }
-
-    private verifyEmailSent(result: ActionExecutionResult): VerificationOutcome {
-        const evidence = asRecord(result.evidence);
-        const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
-        const responseBody = asRecord(evidence.responseBody);
-        const messageId = typeof responseBody.id === "string" ? responseBody.id : "";
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && messageId.length > 0) {
-            return { success: true, confidence: 0.96 };
-        }
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
-            return { success: true, confidence: 0.78 };
-        }
-
-        return { success: false, confidence: 0.28 };
-    }
-
-    private verifyMeetingScheduled(result: ActionExecutionResult): VerificationOutcome {
-        const evidence = asRecord(result.evidence);
-        const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
-        const responseBody = asRecord(evidence.responseBody);
-        const hasMeetingMarker =
-            typeof responseBody.meetingId === "string"
-            || typeof responseBody.eventId === "string"
-            || responseBody.scheduled === true;
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && hasMeetingMarker) {
-            return { success: true, confidence: 0.94 };
-        }
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
-            return { success: true, confidence: 0.72 };
-        }
-
-        return { success: false, confidence: 0.3 };
-    }
-
-    private verifyGithubIssueCreated(result: ActionExecutionResult): VerificationOutcome {
-        const evidence = asRecord(result.evidence);
-        const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
-        const issue = asRecord(evidence.issue);
-        const issueNumber = typeof issue.number === "number" ? issue.number : null;
-        const issueUrl = typeof issue.html_url === "string" ? issue.html_url : "";
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && issueNumber !== null && issueUrl.length > 0) {
-            return { success: true, confidence: 0.97 };
-        }
-
-        if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
-            return { success: true, confidence: 0.8 };
-        }
-
-        return { success: false, confidence: 0.24 };
     }
 
     private getBackoffDelay(retryCount: number) {

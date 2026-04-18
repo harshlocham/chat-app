@@ -33,6 +33,16 @@ export const CreateTaskSchema = z.object({
             success: z.boolean(),
             summary: z.string().min(1).max(1200),
             error: z.string().max(4000).optional(),
+            validationLog: z.object({
+                validator: z.string().min(1).max(120),
+                passed: z.boolean(),
+                checks: z.array(z.object({
+                    name: z.string().min(1).max(120),
+                    passed: z.boolean(),
+                    details: z.string().max(2000).optional(),
+                })).default([]),
+                evaluatedAt: z.coerce.date(),
+            }).optional(),
             timestamp: z.coerce.date(),
         })).default([]),
     }).optional().default({ attempts: 0, failures: 0, results: [] }),
@@ -74,6 +84,16 @@ export const UpdateTaskSchema = z.object({
             success: z.boolean(),
             summary: z.string().min(1).max(1200),
             error: z.string().max(4000).optional(),
+            validationLog: z.object({
+                validator: z.string().min(1).max(120),
+                passed: z.boolean(),
+                checks: z.array(z.object({
+                    name: z.string().min(1).max(120),
+                    passed: z.boolean(),
+                    details: z.string().max(2000).optional(),
+                })),
+                evaluatedAt: z.coerce.date(),
+            }).optional(),
             timestamp: z.coerce.date(),
         })),
     }).optional(),

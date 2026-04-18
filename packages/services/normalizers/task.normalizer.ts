@@ -39,6 +39,20 @@ export function normalizeTask(doc: ITask): TaskRecord {
                 success: entry.success,
                 summary: entry.summary,
                 ...(typeof entry.error === "string" && entry.error.length > 0 ? { error: entry.error } : {}),
+                ...(entry.validationLog
+                    ? {
+                        validationLog: {
+                            validator: entry.validationLog.validator,
+                            passed: Boolean(entry.validationLog.passed),
+                            checks: (entry.validationLog.checks ?? []).map((check) => ({
+                                name: check.name,
+                                passed: Boolean(check.passed),
+                                ...(typeof check.details === "string" && check.details.length > 0 ? { details: check.details } : {}),
+                            })),
+                            evaluatedAt: new Date(entry.validationLog.evaluatedAt).toISOString(),
+                        },
+                    }
+                    : {}),
                 timestamp: new Date(entry.timestamp).toISOString(),
             })),
         },

@@ -43,7 +43,21 @@ export interface TaskExecutionHistoryResult {
     success: boolean;
     summary: string;
     error?: string;
+    validationLog?: TaskValidationLog;
     timestamp: string;
+}
+
+export interface TaskValidationCheck {
+    name: string;
+    passed: boolean;
+    details?: string;
+}
+
+export interface TaskValidationLog {
+    validator: string;
+    passed: boolean;
+    checks: TaskValidationCheck[];
+    evaluatedAt: string;
 }
 
 export interface TaskExecutionHistory {

@@ -41,6 +41,16 @@ export interface ITask {
             success: boolean;
             summary: string;
             error?: string;
+            validationLog?: {
+                validator: string;
+                passed: boolean;
+                checks: Array<{
+                    name: string;
+                    passed: boolean;
+                    details?: string;
+                }>;
+                evaluatedAt: Date;
+            };
             timestamp: Date;
         }>;
     };
@@ -107,6 +117,19 @@ const TaskSchema = new Schema<ITask>(
                     success: { type: Boolean, required: true },
                     summary: { type: String, trim: true, maxlength: 1200, required: true },
                     error: { type: String, trim: true, maxlength: 4000, default: undefined },
+                    validationLog: {
+                        validator: { type: String, trim: true, maxlength: 120, required: false },
+                        passed: { type: Boolean, required: false },
+                        checks: {
+                            type: [{
+                                name: { type: String, trim: true, maxlength: 120, required: true },
+                                passed: { type: Boolean, required: true },
+                                details: { type: String, trim: true, maxlength: 2000, default: undefined },
+                            }],
+                            default: undefined,
+                        },
+                        evaluatedAt: { type: Date, required: false },
+                    },
                     timestamp: { type: Date, required: true, default: Date.now },
                 }],
                 default: [],
