@@ -938,6 +938,14 @@ export async function processMessageTaskIntelligence(
                     confidence: task.confidence,
                     tags: task.tags,
                     dedupeKey: task.dedupeKey,
+                    result: {
+                        success: Boolean(task.result?.success),
+                        confidence: typeof task.result?.confidence === "number" ? task.result.confidence : 0,
+                        evidence: task.result?.evidence ?? null,
+                        ...(typeof task.result?.error === "string" && task.result.error.length > 0
+                            ? { error: task.result.error }
+                            : {}),
+                    },
                     version: task.version,
                     closedAt: task.closedAt ? new Date(task.closedAt).toISOString() : null,
                     archivedAt: task.archivedAt ? new Date(task.archivedAt).toISOString() : null,
