@@ -155,6 +155,10 @@ function resolveGetLatestExecutionTaskAction(
     throw new Error(`Task repository exports are invalid. keys=${Object.keys(asRecord || {}).join(",")}`);
 }
 
+export const __testInternals = {
+    resolveGetLatestExecutionTaskAction,
+};
+
 export class AgentRunner {
     private readonly retryManager: RetryManager;
     private readonly taskModel: TaskModelLike;
