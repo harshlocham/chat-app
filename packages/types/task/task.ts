@@ -1,4 +1,4 @@
-export type TaskStatus = "open" | "in_progress" | "blocked" | "done" | "canceled";
+export type TaskStatus = "pending" | "executing" | "completed" | "failed" | "partial";
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
@@ -24,6 +24,13 @@ export type TaskActorType = "user" | "agent" | "system";
 export type TaskLinkType = "source" | "context" | "decision";
 
 export type TaskExecutionActionType = "create_github_issue" | "schedule_meeting" | "send_email" | "none";
+
+export interface TaskResult {
+    success: boolean;
+    confidence: number;
+    evidence: unknown;
+    error?: string;
+}
 
 export interface MessageTaskMetadata {
     semanticType?: MessageSemanticType;
@@ -53,6 +60,7 @@ export interface TaskRecord {
     confidence: number;
     tags: string[];
     dedupeKey: string;
+    result: TaskResult;
     version: number;
     closedAt: string | null;
     archivedAt: string | null;

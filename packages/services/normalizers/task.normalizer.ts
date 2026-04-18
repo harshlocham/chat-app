@@ -20,6 +20,14 @@ export function normalizeTask(doc: ITask): TaskRecord {
         confidence: doc.confidence,
         tags: doc.tags,
         dedupeKey: doc.dedupeKey,
+        result: {
+            success: Boolean(doc.result?.success),
+            confidence: typeof doc.result?.confidence === "number" ? doc.result.confidence : 0,
+            evidence: doc.result?.evidence ?? null,
+            ...(typeof doc.result?.error === "string" && doc.result.error.length > 0
+                ? { error: doc.result.error }
+                : {}),
+        },
         version: doc.version,
         closedAt: doc.closedAt ? new Date(doc.closedAt).toISOString() : null,
         archivedAt: doc.archivedAt ? new Date(doc.archivedAt).toISOString() : null,

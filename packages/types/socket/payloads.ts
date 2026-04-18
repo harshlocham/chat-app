@@ -243,7 +243,7 @@ export interface TaskCreatedPayload {
 export interface TaskUpdatedPayload {
     taskId: string;
     conversationId: string;
-    patch: Partial<Pick<TaskRecord, "title" | "description" | "status" | "priority" | "assignees" | "dueAt" | "tags" | "latestContextMessageId" | "updatedBy">>;
+    patch: Partial<Pick<TaskRecord, "title" | "description" | "status" | "priority" | "assignees" | "dueAt" | "tags" | "latestContextMessageId" | "updatedBy" | "result">>;
     previousVersion: number;
     newVersion: number;
     updatedByType: "user" | "agent" | "system";

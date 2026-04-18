@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const taskStatusSchema = z.enum(["open", "in_progress", "blocked", "done", "canceled"]);
+const taskStatusSchema = z.enum(["pending", "executing", "completed", "failed", "partial"]);
 const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 
 export const CreateTaskSchema = z.object({
@@ -29,6 +29,12 @@ export const UpdateTaskSchema = z.object({
     dueAt: z.coerce.date().nullable().optional(),
     tags: z.array(z.string().min(1).max(48)).optional(),
     latestContextMessageId: z.string().min(1).nullable().optional(),
+    result: z.object({
+        success: z.boolean(),
+        confidence: z.number().min(0).max(1),
+        evidence: z.unknown(),
+        error: z.string().max(4000).optional(),
+    }).optional(),
     updatedBy: z.string().min(1).nullable().optional(),
 });
 

@@ -1,6 +1,6 @@
 import mongoose, { Model, Schema } from "mongoose";
 
-export type TaskStatus = "open" | "in_progress" | "blocked" | "done" | "canceled";
+export type TaskStatus = "pending" | "executing" | "completed" | "failed" | "partial";
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
@@ -22,6 +22,12 @@ export interface ITask {
     confidence: number;
     tags: string[];
     dedupeKey: string;
+    result: {
+        success: boolean;
+        confidence: number;
+        evidence: unknown;
+        error?: string;
+    };
     closedAt?: Date | null;
     archivedAt?: Date | null;
     updatedBy?: mongoose.Types.ObjectId | null;
@@ -37,8 +43,8 @@ const TaskSchema = new Schema<ITask>(
         description: { type: String, trim: true, maxlength: 8000, default: "" },
         status: {
             type: String,
-            enum: ["open", "in_progress", "blocked", "done", "canceled"],
-            default: "open",
+            enum: ["pending", "executing", "completed", "failed", "partial"],
+            default: "pending",
             index: true,
         },
         priority: {
@@ -56,6 +62,12 @@ const TaskSchema = new Schema<ITask>(
         confidence: { type: Number, min: 0, max: 1, default: 1 },
         tags: [{ type: String, trim: true, maxlength: 48 }],
         dedupeKey: { type: String, required: true, maxlength: 160, unique: true },
+        result: {
+            success: { type: Boolean, default: false },
+            confidence: { type: Number, min: 0, max: 1, default: 0 },
+            evidence: { type: Schema.Types.Mixed, default: null },
+            error: { type: String, trim: true, maxlength: 4000, default: undefined },
+        },
         closedAt: { type: Date, default: null },
         archivedAt: { type: Date, default: null },
         updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
@@ -70,7 +82,7 @@ const TaskSchema = new Schema<ITask>(
 TaskSchema.path("assignees").validate((assignees: mongoose.Types.ObjectId[]) => assignees.length <= 32, "Too many assignees.");
 
 TaskSchema.pre("save", function (next) {
-    if (this.status === "done" || this.status === "canceled") {
+    if (this.status === "completed" || this.status === "failed") {
         if (!this.closedAt) this.closedAt = new Date();
     } else {
         this.closedAt = null;

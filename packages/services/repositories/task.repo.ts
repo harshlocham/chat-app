@@ -28,7 +28,7 @@ export async function createTask(input: CreateTaskInput): Promise<ITask> {
         conversationId: toObjectId(input.conversationId),
         title: input.title,
         description: input.description ?? "",
-        status: "open",
+        status: "pending",
         priority: input.priority ?? "medium",
         assignees: input.assignees.map(toObjectId),
         dueAt: input.dueAt ?? null,
@@ -39,6 +39,11 @@ export async function createTask(input: CreateTaskInput): Promise<ITask> {
         confidence: input.confidence ?? 1,
         tags: input.tags ?? [],
         dedupeKey: input.dedupeKey,
+        result: {
+            success: false,
+            confidence: 0,
+            evidence: null,
+        },
     });
 
     await task.save();
@@ -55,7 +60,7 @@ export async function upsertTaskByDedupeKey(input: CreateTaskInput): Promise<ITa
                 conversationId: toObjectId(input.conversationId),
                 title: input.title,
                 description: input.description ?? "",
-                status: "open",
+                status: "pending",
                 priority: input.priority ?? "medium",
                 assignees: input.assignees.map(toObjectId),
                 dueAt: input.dueAt ?? null,
@@ -66,6 +71,11 @@ export async function upsertTaskByDedupeKey(input: CreateTaskInput): Promise<ITa
                 confidence: input.confidence ?? 1,
                 tags: input.tags ?? [],
                 dedupeKey: input.dedupeKey,
+                result: {
+                    success: false,
+                    confidence: 0,
+                    evidence: null,
+                },
             },
         },
         { new: true, upsert: true, setDefaultsOnInsert: true }
@@ -94,6 +104,7 @@ export async function updateTask(update: UpdateTaskInput): Promise<ITask | null>
             ...(update.latestContextMessageId !== undefined
                 ? { latestContextMessageId: update.latestContextMessageId ? toObjectId(update.latestContextMessageId) : null }
                 : {}),
+            ...(update.result !== undefined ? { result: update.result } : {}),
             ...(update.updatedBy !== undefined
                 ? { updatedBy: update.updatedBy ? toObjectId(update.updatedBy) : null }
                 : {}),

@@ -12,7 +12,7 @@ interface TaskPanelProps {
     conversationId: string;
 }
 
-const TASK_STATUSES: TaskStatus[] = ["open", "in_progress", "blocked", "done", "canceled"];
+const TASK_STATUSES: TaskStatus[] = ["pending", "executing", "completed", "failed", "partial"];
 const EMPTY_TASK_IDS: string[] = [];
 const EMPTY_STEPS: ExecutionStep[] = [];
 
@@ -39,7 +39,7 @@ function formatDueDate(value: string | null) {
 
 function getExecutionSteps(task: TaskRecord): ExecutionStep[] {
     switch (task.status) {
-        case "open":
+        case "pending":
             return [
                 {
                     id: "understand",
@@ -60,7 +60,7 @@ function getExecutionSteps(task: TaskRecord): ExecutionStep[] {
                     status: "pending",
                 },
             ];
-        case "in_progress":
+        case "executing":
             return [
                 {
                     id: "understand",
@@ -81,7 +81,7 @@ function getExecutionSteps(task: TaskRecord): ExecutionStep[] {
                     status: "pending",
                 },
             ];
-        case "blocked":
+        case "partial":
             return [
                 {
                     id: "understand",
@@ -102,8 +102,8 @@ function getExecutionSteps(task: TaskRecord): ExecutionStep[] {
                     status: "running",
                 },
             ];
-        case "done":
-        case "canceled":
+        case "completed":
+        case "failed":
             return [
                 {
                     id: "understand",
@@ -119,8 +119,8 @@ function getExecutionSteps(task: TaskRecord): ExecutionStep[] {
                 },
                 {
                     id: "complete",
-                    label: task.status === "done" ? "Execution complete" : "Execution stopped",
-                    detail: task.status === "done" ? "The task finished cleanly." : "The task was stopped before completion.",
+                    label: task.status === "completed" ? "Execution complete" : "Execution failed",
+                    detail: task.status === "completed" ? "The task finished cleanly." : "The task did not pass verification.",
                     status: "completed",
                 },
             ];

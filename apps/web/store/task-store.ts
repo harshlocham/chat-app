@@ -51,7 +51,7 @@ function buildPlaceholderTask(payload: TaskUpdatedPayload): TaskRecord {
         conversationId: payload.conversationId,
         title: typeof patch.title === "string" ? patch.title : "Task",
         description: typeof patch.description === "string" ? patch.description : "",
-        status: (patch.status as TaskRecord["status"]) ?? "open",
+        status: (patch.status as TaskRecord["status"]) ?? "pending",
         priority: (patch.priority as TaskRecord["priority"]) ?? "medium",
         assignees: Array.isArray(patch.assignees) ? patch.assignees : [],
         dueAt: typeof patch.dueAt === "string" || patch.dueAt === null ? patch.dueAt : null,
@@ -65,6 +65,16 @@ function buildPlaceholderTask(payload: TaskUpdatedPayload): TaskRecord {
         confidence: typeof patch.confidence === "number" ? patch.confidence : 0,
         tags: Array.isArray(patch.tags) ? patch.tags : [],
         dedupeKey: typeof patch.dedupeKey === "string" ? patch.dedupeKey : `${payload.conversationId}::${payload.taskId}`,
+        result: {
+            success: Boolean((patch.result as TaskRecord["result"] | undefined)?.success),
+            confidence: typeof (patch.result as TaskRecord["result"] | undefined)?.confidence === "number"
+                ? ((patch.result as TaskRecord["result"]).confidence)
+                : 0,
+            evidence: (patch.result as TaskRecord["result"] | undefined)?.evidence ?? null,
+            ...((patch.result as TaskRecord["result"] | undefined)?.error
+                ? { error: (patch.result as TaskRecord["result"]).error }
+                : {}),
+        },
         version: payload.newVersion,
         closedAt: typeof patch.closedAt === "string" || patch.closedAt === null ? patch.closedAt : null,
         archivedAt: typeof patch.archivedAt === "string" || patch.archivedAt === null ? patch.archivedAt : null,
@@ -198,9 +208,11 @@ const useTaskStore = create<TaskStore>((set, get) => ({
                     [payload.taskId]: {
                         ...state.tasksById[payload.taskId],
                         status: payload.state === "running"
-                            ? "in_progress"
+                            ? "executing"
                             : payload.state === "succeeded"
-                                ? "done"
+                                ? "completed"
+                                : payload.state === "failed"
+                                    ? "failed"
                                 : state.tasksById[payload.taskId].status,
                         updatedAt: typeof payload.updatedAt === "string"
                             ? payload.updatedAt
