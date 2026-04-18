@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { TaskExecutionActionType, TaskExecutionUpdatedPayload, TaskUpdatedPayload } from "@chat/types";
+import type { TaskExecutionActionType, TaskExecutionUpdatedPayload, TaskResult, TaskUpdatedPayload } from "@chat/types";
 import * as outboxModule from "../../packages/services/outbox.service";
 import * as intelligenceModule from "../../packages/services/task-intelligence.service";
 import * as taskModule from "../../packages/db/models/Task";
@@ -82,6 +82,7 @@ type TaskModelLike = {
         _id: { toString(): string };
         version: number;
         status: string;
+        result?: TaskResult;
         updatedBy: null | string;
         save: () => Promise<void>;
     } | null>;
@@ -141,6 +142,37 @@ type NormalizedTaskExecutionRequestedPayload = Omit<TaskExecutionRequestedPayloa
 
 type ActionExecutionResult = {
     summary: string;
+    adapterSuccess: boolean;
+    evidence: unknown;
+    error?: string;
+};
+
+type VerificationOutcome = {
+    success: boolean;
+    confidence: number;
+};
+
+type ExecutionPhase = "plan" | "act" | "verify";
+
+type ExecutionContext = {
+    payload: NormalizedTaskExecutionRequestedPayload;
+    currentTask: {
+        status: string;
+    } | null;
+    result: ActionExecutionResult | null;
+    verification: VerificationOutcome | null;
+};
+
+type ExecutionStep = {
+    name: string;
+    phase: ExecutionPhase;
+    retryable?: boolean;
+    maxAttempts?: number;
+    run: (context: ExecutionContext) => Promise<void>;
+};
+
+type ExecutionPlan = {
+    steps: ExecutionStep[];
 };
 
 function wait(ms: number) {
@@ -242,18 +274,31 @@ async function emitTaskExecutionUpdate(payload: TaskExecutionUpdatedPayload) {
     await emitInternal("/internal/task-execution-updated", payload.conversationId, payload);
 }
 
-async function applyTaskStatus(taskId: string, conversationId: string, nextStatus: "in_progress" | "done" | "blocked") {
+function clampConfidence(value: number) {
+    return Math.max(0, Math.min(1, value));
+}
+
+async function updateTaskLifecycle(input: {
+    taskId: string;
+    conversationId: string;
+    status: "pending" | "executing" | "completed" | "failed" | "partial";
+    result?: TaskResult;
+}) {
+    const { taskId, conversationId, status, result } = input;
     const task = await TaskModel.findById(taskId);
     if (!task) {
         throw new Error(`Task not found: ${taskId}`);
     }
 
-    if (task.status === nextStatus) {
+    if (task.status === status && (result === undefined || JSON.stringify(task.result ?? null) === JSON.stringify(result))) {
         return task;
     }
 
     const previousVersion = task.version;
-    task.status = nextStatus;
+    task.status = status;
+    if (result !== undefined) {
+        task.result = result;
+    }
     task.updatedBy = null;
     await task.save();
 
@@ -261,7 +306,8 @@ async function applyTaskStatus(taskId: string, conversationId: string, nextStatu
         taskId: task._id.toString(),
         conversationId,
         patch: {
-            status: nextStatus,
+            status,
+            ...(result !== undefined ? { result } : {}),
             updatedBy: null,
         },
         previousVersion,
@@ -272,6 +318,85 @@ async function applyTaskStatus(taskId: string, conversationId: string, nextStatu
 
     await emitInternal("/internal/task-updated", conversationId, taskUpdatedPayload);
     return task;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    if (value && typeof value === "object") {
+        return value as Record<string, unknown>;
+    }
+    return {};
+}
+
+function verifyEmailSent(result: ActionExecutionResult): VerificationOutcome {
+    const evidence = asRecord(result.evidence);
+    const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
+    const responseBody = asRecord(evidence.responseBody);
+    const messageId = typeof responseBody.id === "string" ? responseBody.id : "";
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && messageId.length > 0) {
+        return { success: true, confidence: 0.96 };
+    }
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
+        return { success: true, confidence: 0.78 };
+    }
+
+    return { success: false, confidence: 0.28 };
+}
+
+function verifyMeetingScheduled(result: ActionExecutionResult): VerificationOutcome {
+    const evidence = asRecord(result.evidence);
+    const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
+    const responseBody = asRecord(evidence.responseBody);
+    const hasMeetingMarker =
+        typeof responseBody.meetingId === "string"
+        || typeof responseBody.eventId === "string"
+        || responseBody.scheduled === true;
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && hasMeetingMarker) {
+        return { success: true, confidence: 0.94 };
+    }
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
+        return { success: true, confidence: 0.72 };
+    }
+
+    return { success: false, confidence: 0.3 };
+}
+
+function verifyGithubIssueCreated(result: ActionExecutionResult): VerificationOutcome {
+    const evidence = asRecord(result.evidence);
+    const responseStatus = typeof evidence.responseStatus === "number" ? evidence.responseStatus : 0;
+    const issue = asRecord(evidence.issue);
+    const issueNumber = typeof issue.number === "number" ? issue.number : null;
+    const issueUrl = typeof issue.html_url === "string" ? issue.html_url : "";
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300 && issueNumber !== null && issueUrl.length > 0) {
+        return { success: true, confidence: 0.97 };
+    }
+
+    if (result.adapterSuccess && responseStatus >= 200 && responseStatus < 300) {
+        return { success: true, confidence: 0.8 };
+    }
+
+    return { success: false, confidence: 0.24 };
+}
+
+function verifyActionResult(actionType: TaskExecutionActionType, result: ActionExecutionResult): VerificationOutcome {
+    switch (actionType) {
+        case "send_email":
+            return verifyEmailSent(result);
+        case "schedule_meeting":
+            return verifyMeetingScheduled(result);
+        case "create_github_issue":
+            return verifyGithubIssueCreated(result);
+        case "none":
+        default:
+            return {
+                success: result.adapterSuccess,
+                confidence: result.adapterSuccess ? 1 : 0,
+            };
+    }
 }
 
 async function executeCreateGithubIssueAction(payload: TaskExecutionRequestedPayload): Promise<ActionExecutionResult> {
@@ -300,14 +425,27 @@ async function executeCreateGithubIssueAction(payload: TaskExecutionRequestedPay
         body: JSON.stringify({ title, body }),
     });
 
+    const issue = (await response.json()) as { html_url?: string; number?: number; message?: string };
+
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`GitHub issue creation failed (${response.status}): ${errorText.slice(0, 500)}`);
+        return {
+            summary: `GitHub issue creation failed with status ${response.status}.`,
+            adapterSuccess: false,
+            evidence: {
+                responseStatus: response.status,
+                issue,
+            },
+            error: typeof issue.message === "string" ? issue.message : undefined,
+        };
     }
 
-    const issue = (await response.json()) as { html_url?: string; number?: number };
     return {
         summary: `Created GitHub issue #${issue.number ?? "?"}${issue.html_url ? ` (${issue.html_url})` : ""}`,
+        adapterSuccess: true,
+        evidence: {
+            responseStatus: response.status,
+            issue,
+        },
     };
 }
 
@@ -330,13 +468,33 @@ async function executeScheduleMeetingAction(payload: TaskExecutionRequestedPaylo
         }),
     });
 
+    const responseText = await response.text();
+    let responseBody: unknown = responseText;
+    try {
+        responseBody = responseText.length > 0 ? JSON.parse(responseText) : null;
+    } catch {
+        responseBody = responseText;
+    }
+
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Meeting scheduling failed (${response.status}): ${errorText.slice(0, 500)}`);
+        return {
+            summary: `Meeting scheduling failed with status ${response.status}.`,
+            adapterSuccess: false,
+            evidence: {
+                responseStatus: response.status,
+                responseBody,
+            },
+            error: typeof responseBody === "string" ? responseBody.slice(0, 500) : undefined,
+        };
     }
 
     return {
         summary: "Scheduled meeting via external adapter.",
+        adapterSuccess: true,
+        evidence: {
+            responseStatus: response.status,
+            responseBody,
+        },
     };
 }
 
@@ -380,13 +538,35 @@ async function executeSendEmailAction(payload: TaskExecutionRequestedPayload): P
         }),
     });
 
+    const responseText = await response.text();
+    let responseBody: unknown = responseText;
+    try {
+        responseBody = responseText.length > 0 ? JSON.parse(responseText) : null;
+    } catch {
+        responseBody = responseText;
+    }
+
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Email sending failed (${response.status}): ${errorText.slice(0, 500)}`);
+        return {
+            summary: `Email sending failed with status ${response.status}.`,
+            adapterSuccess: false,
+            evidence: {
+                responseStatus: response.status,
+                responseBody,
+                to,
+            },
+            error: typeof responseBody === "string" ? responseBody.slice(0, 500) : undefined,
+        };
     }
 
     return {
         summary: `Sent email to ${to.join(", ")}.`,
+        adapterSuccess: true,
+        evidence: {
+            responseStatus: response.status,
+            responseBody,
+            to,
+        },
     };
 }
 
@@ -402,8 +582,159 @@ async function executeActionAdapter(payload: TaskExecutionRequestedPayload): Pro
         default:
             return {
                 summary: "No executable action selected.",
+                adapterSuccess: true,
+                evidence: { actionType: "none" },
             };
     }
+}
+
+function buildExecutionPlan(payload: NormalizedTaskExecutionRequestedPayload): ExecutionPlan {
+    return {
+        steps: [
+            {
+                name: "validate-request",
+                phase: "plan",
+                run: async () => {
+                    if (!payload.taskId || !payload.conversationId) {
+                        throw new Error("Task execution payload is missing identifiers.");
+                    }
+                },
+            },
+            {
+                name: "load-task-and-transition",
+                phase: "act",
+                run: async (context) => {
+                    const currentTask = await TaskModel.findById(payload.taskId);
+                    if (!currentTask) {
+                        throw new Error(`Task not found: ${payload.taskId}`);
+                    }
+
+                    context.currentTask = {
+                        status: currentTask.status,
+                    };
+
+                    if (currentTask.status === "pending") {
+                        await updateTaskLifecycle({
+                            taskId: payload.taskId,
+                            conversationId: payload.conversationId,
+                            status: "executing",
+                        });
+                        context.currentTask.status = "executing";
+                    }
+                },
+            },
+            {
+                name: "execute-action-adapter",
+                phase: "act",
+                retryable: true,
+                maxAttempts: 2,
+                run: async (context) => {
+                    context.result = await executeActionAdapter(payload);
+                },
+            },
+            {
+                name: "verify-execution-result",
+                phase: "verify",
+                run: async (context) => {
+                    if (!context.result || typeof context.result.summary !== "string" || context.result.summary.trim().length === 0) {
+                        throw new Error("Execution result verification failed: missing summary.");
+                    }
+
+                    context.verification = verifyActionResult(payload.actionType, context.result);
+                },
+            },
+            {
+                name: "finalize-task-status",
+                phase: "verify",
+                run: async (context) => {
+                    if (!context.result || !context.verification) {
+                        throw new Error("Execution finalization failed: missing verification context.");
+                    }
+
+                    const finalStatus = context.verification.success
+                        ? "completed"
+                        : (context.verification.confidence >= 0.5 ? "partial" : "failed");
+
+                    const taskResult: TaskResult = {
+                        success: context.verification.success,
+                        confidence: clampConfidence(context.verification.confidence),
+                        evidence: context.result.evidence,
+                        ...(context.verification.success
+                            ? {}
+                            : { error: context.result.error ?? "Verification did not pass." }),
+                    };
+
+                    await updateTaskLifecycle({
+                        taskId: payload.taskId,
+                        conversationId: payload.conversationId,
+                        status: finalStatus,
+                        result: taskResult,
+                    });
+                },
+            },
+        ],
+    };
+}
+
+async function emitExecutionStepProgress(input: {
+    payload: NormalizedTaskExecutionRequestedPayload;
+    step: ExecutionStep;
+    stepIndex: number;
+    totalSteps: number;
+    attempt: number;
+}) {
+    const { payload, step, stepIndex, totalSteps, attempt } = input;
+    await emitTaskExecutionUpdate({
+        taskId: payload.taskId,
+        conversationId: payload.conversationId,
+        state: "running",
+        actionType: payload.actionType,
+        summary: `phase=${step.phase} step=${step.name} progress=${stepIndex + 1}/${totalSteps} attempt=${attempt}`,
+        error: null,
+        updatedAt: new Date().toISOString(),
+    });
+}
+
+async function runExecutionPlan(payload: NormalizedTaskExecutionRequestedPayload, plan: ExecutionPlan) {
+    const context: ExecutionContext = {
+        payload,
+        currentTask: null,
+        result: null,
+        verification: null,
+    };
+
+    const totalSteps = plan.steps.length;
+
+    for (let stepIndex = 0; stepIndex < totalSteps; stepIndex += 1) {
+        const step = plan.steps[stepIndex];
+        const maxAttempts = Math.max(step.maxAttempts ?? 1, 1);
+        let attempt = 0;
+
+        while (attempt < maxAttempts) {
+            attempt += 1;
+            await emitExecutionStepProgress({
+                payload,
+                step,
+                stepIndex,
+                totalSteps,
+                attempt,
+            });
+
+            try {
+                await step.run(context);
+                break;
+            } catch (error) {
+                const canRetry = Boolean(step.retryable) && attempt < maxAttempts;
+                if (!canRetry) {
+                    const message = error instanceof Error ? error.message : "Unknown execution step failure";
+                    throw new Error(`Execution step '${step.name}' failed: ${message}`);
+                }
+                await wait(250 * attempt);
+            }
+        }
+    }
+
+    return context.result;
 }
 
 async function processTaskExecutionRequested(payload: NormalizedTaskExecutionRequestedPayload) {
@@ -423,7 +754,20 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
     const requiresApproval = Boolean(payload.needsApproval) || confidence < 0.7;
 
     if (requiresApproval) {
-        await applyTaskStatus(payload.taskId, payload.conversationId, "blocked");
+        await updateTaskLifecycle({
+            taskId: payload.taskId,
+            conversationId: payload.conversationId,
+            status: "partial",
+            result: {
+                success: false,
+                confidence: clampConfidence(confidence),
+                evidence: {
+                    reason: "approval_required",
+                    requestedConfidence: confidence,
+                },
+                error: "Approval required before executing this action.",
+            },
+        });
         await emitTaskExecutionUpdate({
             taskId: payload.taskId,
             conversationId: payload.conversationId,
@@ -437,31 +781,50 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
     }
 
     const runningAt = new Date().toISOString();
+    const plan = buildExecutionPlan(payload);
 
     await emitTaskExecutionUpdate({
         taskId: payload.taskId,
         conversationId: payload.conversationId,
         state: "running",
         actionType: payload.actionType,
-        summary: null,
+        summary: `Execution plan initialized with ${plan.steps.length} steps.`,
         error: null,
         updatedAt: runningAt,
     });
 
-    const currentTask = await TaskModel.findById(payload.taskId);
-    if (!currentTask) {
-        throw new Error(`Task not found: ${payload.taskId}`);
-    }
+    let execution: ActionExecutionResult | null = null;
+    try {
+        execution = await runExecutionPlan(payload, plan);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Task execution failed";
 
-    if (currentTask.status === "open") {
-        await applyTaskStatus(payload.taskId, payload.conversationId, "in_progress");
-    }
+        await updateTaskLifecycle({
+            taskId: payload.taskId,
+            conversationId: payload.conversationId,
+            status: "failed",
+            result: {
+                success: false,
+                confidence: 0,
+                evidence: {
+                    phase: "execution",
+                    actionType: payload.actionType,
+                },
+                error: message,
+            },
+        });
 
-    const execution = await executeActionAdapter(payload);
+        await emitTaskExecutionUpdate({
+            taskId: payload.taskId,
+            conversationId: payload.conversationId,
+            state: "failed",
+            actionType: payload.actionType,
+            summary: null,
+            error: message,
+            updatedAt: new Date().toISOString(),
+        });
 
-    const latestTask = await TaskModel.findById(payload.taskId);
-    if (latestTask && latestTask.status !== "done" && latestTask.status !== "canceled") {
-        await applyTaskStatus(payload.taskId, payload.conversationId, "done");
+        throw error;
     }
 
     await emitTaskExecutionUpdate({
@@ -469,7 +832,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
         conversationId: payload.conversationId,
         state: "succeeded",
         actionType: payload.actionType,
-        summary: execution.summary,
+        summary: execution?.summary ?? "Execution plan completed.",
         error: null,
         updatedAt: new Date().toISOString(),
     });
@@ -574,18 +937,6 @@ async function processOneEvent(event: {
             try {
                 await processTaskExecutionRequested(normalizeTaskExecutionRequestedPayload(event.payload));
             } catch (error) {
-                const message = error instanceof Error ? error.message : "Task execution failed";
-                await emitTaskExecutionUpdate({
-                    taskId: String(event.payload.taskId),
-                    conversationId: String(event.payload.conversationId),
-                    state: "failed",
-                    actionType: ["create_github_issue", "schedule_meeting", "send_email"].includes(String(event.payload.actionType))
-                        ? (event.payload.actionType as TaskExecutionActionType)
-                        : "none",
-                    summary: null,
-                    error: message,
-                    updatedAt: new Date().toISOString(),
-                });
                 throw error;
             }
 
