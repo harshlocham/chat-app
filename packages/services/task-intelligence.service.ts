@@ -90,6 +90,37 @@ function normalizeContent(content: string) {
     return content.trim().replace(/\s+/g, " ");
 }
 
+function extractAfterPhrase(content: string, phrase: string) {
+    const lowerContent = content.toLowerCase();
+    const lowerPhrase = phrase.toLowerCase();
+    const index = lowerContent.indexOf(lowerPhrase);
+    if (index === -1) {
+        return null;
+    }
+
+    const extracted = content.slice(index + phrase.length).trim();
+    return extracted.length > 0 ? extracted : null;
+}
+
+function trimTrailingSentenceSeparators(value: string) {
+    let end = value.length;
+    while (end > 0) {
+        const char = value[end - 1];
+        if (char === "." || char === " " || char === "\t" || char === "\n" || char === "\r") {
+            end -= 1;
+            continue;
+        }
+        break;
+    }
+
+    return value.slice(0, end);
+}
+
+function capitalizeFirst(value: string) {
+    if (!value) return value;
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 function classifyMessage(content: string): ClassificationResult {
     const normalized = normalizeContent(content).toLowerCase();
     if (!normalized) {
@@ -150,13 +181,24 @@ function buildTaskDescription(content: string) {
         return "No additional context was provided.";
     }
 
-    const stripped = normalized
-        .replace(/^send an email to\s+[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\s+saying\s+/i, "")
-        .replace(/^please\s+/i, "")
-        .trim();
+    let stripped = normalized;
+    const lower = normalized.toLowerCase();
+
+    if (lower.startsWith("send an email to ")) {
+        const sayingIndex = lower.indexOf(" saying ");
+        if (sayingIndex !== -1) {
+            stripped = normalized.slice(sayingIndex + " saying ".length);
+        }
+    }
+
+    if (stripped.toLowerCase().startsWith("please ")) {
+        stripped = stripped.slice("please ".length);
+    }
+
+    stripped = stripped.trim();
 
     return stripped.length > 0
-        ? `Requested outcome: ${stripped.charAt(0).toUpperCase()}${stripped.slice(1)}`
+        ? `Requested outcome: ${capitalizeFirst(stripped)}`
         : `Requested outcome: ${normalized}`;
 }
 
@@ -175,9 +217,8 @@ function normalizeTaskDraft(content: string, draft: Partial<TaskDraft> | null | 
 
 function buildEmailCopy(content: string, baseTitle: string) {
     const normalized = normalizeContent(content);
-    const sayingMatch = normalized.match(/\bsaying\s+(.+)/i);
-    const requestedMessage = sayingMatch?.[1]?.trim() ?? normalized;
-    const sentence = requestedMessage.charAt(0).toUpperCase() + requestedMessage.slice(1);
+    const requestedMessage = extractAfterPhrase(normalized, "saying ") ?? normalized;
+    const sentence = capitalizeFirst(requestedMessage);
 
     return {
         subject: `Update: ${baseTitle}`.slice(0, 160),
@@ -200,10 +241,10 @@ function buildImpactfulEmailSubject(content: string, baseTitle: string) {
 
 function buildStrictEmailTemplate(content: string, baseTitle: string, recipients: string[]) {
     const normalized = normalizeContent(content);
-    const updateFromReport = normalized.match(/\bto report\s+(.+)/i)?.[1]?.trim();
-    const updateFromSaying = normalized.match(/\bsaying\s+(.+)/i)?.[1]?.trim();
+    const updateFromReport = extractAfterPhrase(normalized, "to report ");
+    const updateFromSaying = extractAfterPhrase(normalized, "saying ");
     const requestedUpdate = updateFromReport || updateFromSaying || "The requested task update is complete";
-    const cleanUpdate = requestedUpdate.charAt(0).toUpperCase() + requestedUpdate.slice(1).replace(/[.\s]+$/g, "");
+    const cleanUpdate = capitalizeFirst(trimTrailingSentenceSeparators(requestedUpdate));
 
     const recipientLabel = recipients.length > 0 ? recipients[0] : "there";
     const impactfulSubject = buildImpactfulEmailSubject(content, baseTitle);
@@ -259,7 +300,7 @@ function buildStrictGithubIssueTemplate(content: string, baseTitle: string) {
         .trim();
 
     const problemStatement = stripped.length > 0 ? stripped : normalized;
-    const cleanProblem = `${problemStatement.charAt(0).toUpperCase()}${problemStatement.slice(1).replace(/[.\s]+$/g, "")}.`;
+    const cleanProblem = `${capitalizeFirst(trimTrailingSentenceSeparators(problemStatement))}.`;
 
     return {
         title: `Bug Report: ${baseTitle}`.slice(0, 200),
@@ -281,9 +322,90 @@ function buildStrictGithubIssueTemplate(content: string, baseTitle: string) {
     };
 }
 
+function isAsciiAlphaNumeric(char: string) {
+    const code = char.charCodeAt(0);
+    return (code >= 48 && code <= 57)
+        || (code >= 65 && code <= 90)
+        || (code >= 97 && code <= 122);
+}
+
+function isValidLocalPart(local: string) {
+    if (!local || local.startsWith(".") || local.endsWith(".")) return false;
+
+    for (let i = 0; i < local.length; i += 1) {
+        const char = local[i];
+        if (isAsciiAlphaNumeric(char)) continue;
+        if (char === "." || char === "_" || char === "%" || char === "+" || char === "-") continue;
+        return false;
+    }
+
+    return !local.includes("..");
+}
+
+function isValidDomainPart(domain: string) {
+    if (!domain || domain.startsWith(".") || domain.endsWith(".")) return false;
+    if (!domain.includes(".")) return false;
+
+    const labels = domain.split(".");
+    if (labels.some((label) => label.length === 0)) return false;
+
+    for (const label of labels) {
+        if (label.startsWith("-") || label.endsWith("-")) return false;
+        for (let i = 0; i < label.length; i += 1) {
+            const char = label[i];
+            if (isAsciiAlphaNumeric(char) || char === "-") continue;
+            return false;
+        }
+    }
+
+    return labels[labels.length - 1].length >= 2;
+}
+
+function stripEmailToken(token: string) {
+    let start = 0;
+    let end = token.length;
+    const trimChars = new Set(["<", ">", "(", ")", "[", "]", "{", "}", "\"", "'", ",", ";", ":", ".", "!", "?"]);
+
+    while (start < end && trimChars.has(token[start])) {
+        start += 1;
+    }
+    while (end > start && trimChars.has(token[end - 1])) {
+        end -= 1;
+    }
+
+    return token.slice(start, end);
+}
+
+function isLikelyEmail(value: string) {
+    const atIndex = value.indexOf("@");
+    if (atIndex <= 0) return false;
+    if (atIndex !== value.lastIndexOf("@")) return false;
+
+    const local = value.slice(0, atIndex);
+    const domain = value.slice(atIndex + 1);
+    return isValidLocalPart(local) && isValidDomainPart(domain);
+}
+
 function extractEmailRecipients(content: string) {
-    const matches = content.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
-    return [...new Set(matches.map((email) => email.toLowerCase()))];
+    const recipients = new Set<string>();
+    const tokens = content.split(/[\s<>()\[\]{}"',;]+/);
+
+    for (const rawToken of tokens) {
+        if (!rawToken || !rawToken.includes("@")) {
+            continue;
+        }
+
+        const token = stripEmailToken(rawToken);
+        if (!token) {
+            continue;
+        }
+
+        if (isLikelyEmail(token)) {
+            recipients.add(token.toLowerCase());
+        }
+    }
+
+    return [...recipients];
 }
 
 function extractMeetingHints(content: string) {
