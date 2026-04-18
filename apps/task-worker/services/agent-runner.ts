@@ -136,6 +136,25 @@ function resolveTaskPlannerConstructor(moduleNs: unknown): new () => TaskPlanner
     throw new Error(`Task planner exports are invalid. keys=${Object.keys(asRecord || {}).join(",")}`);
 }
 
+function resolveGetLatestExecutionTaskAction(
+    moduleNs: unknown
+): (taskId: string) => Promise<{ taskId: { toString(): string }; conversationId: { toString(): string }; actionType: string; parameters?: Record<string, unknown> | null; messageId?: { toString(): string } | null; executionState?: string | null } | null> {
+    const asRecord = moduleNs as Record<string, unknown>;
+    const defaultExport = asRecord?.default as Record<string, unknown> | undefined;
+    const candidates: unknown[] = [
+        asRecord?.getLatestExecutionTaskAction,
+        defaultExport?.getLatestExecutionTaskAction,
+    ];
+
+    for (const candidate of candidates) {
+        if (typeof candidate === "function") {
+            return candidate as (taskId: string) => Promise<{ taskId: { toString(): string }; conversationId: { toString(): string }; actionType: string; parameters?: Record<string, unknown> | null; messageId?: { toString(): string } | null; executionState?: string | null } | null>;
+        }
+    }
+
+    throw new Error(`Task repository exports are invalid. keys=${Object.keys(asRecord || {}).join(",")}`);
+}
+
 export class AgentRunner {
     private readonly retryManager: RetryManager;
     private readonly taskModel: TaskModelLike;
@@ -277,7 +296,8 @@ export class AgentRunner {
             return this.runPlannedTask(taskId);
         }
 
-        const action = await taskRepo.getLatestExecutionTaskAction(taskId);
+        const getLatestExecutionTaskAction = resolveGetLatestExecutionTaskAction(taskRepo);
+        const action = await getLatestExecutionTaskAction(taskId);
         if (!action) {
             throw new Error(`No execution action found for task: ${taskId}`);
         }

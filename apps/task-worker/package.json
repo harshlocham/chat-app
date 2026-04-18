@@ -7,7 +7,8 @@
         "dev": "tsx index.ts",
         "build": "tsc --noEmit false --outDir dist",
         "start": "node dist/apps/task-worker/index.js",
-        "typecheck": "tsc --noEmit -p tsconfig.json"
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "test": "tsx --test tests/**/*.test.ts"
     },
     "dependencies": {
         "@chat/types": "*",
