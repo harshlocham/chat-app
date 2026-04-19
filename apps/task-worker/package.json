@@ -11,6 +11,8 @@
         "test": "tsx --test tests/**/*.test.ts"
     },
     "dependencies": {
+        "@chat/db": "^1.2.0",
+        "@chat/services": "^1.1.0",
         "@chat/types": "*",
         "dotenv": "^17.2.3",
         "ioredis": "^5.10.0",
