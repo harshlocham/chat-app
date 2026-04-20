@@ -46,6 +46,7 @@ export type TaskApprovalRecord = {
     actorId: string | null;
     actionType: string;
     messageId: string | null;
+    parameters: Record<string, unknown>;
     executionState: string | null;
     summary: string | null;
     error: string | null;
@@ -224,6 +225,8 @@ export async function decideTaskApproval(input: {
     taskActionId: string;
     decision: "approve" | "reject";
     reason?: string;
+    reviewerComment?: string;
+    parameters?: Record<string, unknown>;
 }): Promise<{ approval: TaskApprovalRecord | null }> {
     return request<{ approval: TaskApprovalRecord | null }>("/api/task-approvals", {
         method: "POST",

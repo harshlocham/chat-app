@@ -35,6 +35,8 @@ export default function AdminTaskApprovalsPage() {
     const [loading, setLoading] = useState(false);
     const [actingId, setActingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [commentsById, setCommentsById] = useState<Record<string, string>>({});
+    const [paramsById, setParamsById] = useState<Record<string, string>>({});
 
     async function loadApprovals() {
         setLoading(true);
@@ -42,6 +44,24 @@ export default function AdminTaskApprovalsPage() {
         try {
             const response = await getTaskApprovals(conversationId.trim() || undefined);
             setApprovals(response.approvals);
+            setCommentsById((current) => {
+                const next = { ...current };
+                for (const approval of response.approvals) {
+                    if (next[approval._id] === undefined) {
+                        next[approval._id] = "";
+                    }
+                }
+                return next;
+            });
+            setParamsById((current) => {
+                const next = { ...current };
+                for (const approval of response.approvals) {
+                    if (next[approval._id] === undefined) {
+                        next[approval._id] = JSON.stringify(approval.parameters ?? {}, null, 2);
+                    }
+                }
+                return next;
+            });
         } catch (loadError) {
             setError(loadError instanceof Error ? loadError.message : "Failed to load approvals");
         } finally {
@@ -57,9 +77,30 @@ export default function AdminTaskApprovalsPage() {
         setActingId(item._id);
         setError(null);
         try {
+            let parsedParameters: Record<string, unknown> | undefined;
+            const parameterText = paramsById[item._id] ?? "";
+
+            if (parameterText.trim().length > 0) {
+                try {
+                    const parsed = JSON.parse(parameterText) as unknown;
+                    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                        setError("Parameters override must be a JSON object.");
+                        setActingId(null);
+                        return;
+                    }
+                    parsedParameters = parsed as Record<string, unknown>;
+                } catch {
+                    setError("Parameters override contains invalid JSON.");
+                    setActingId(null);
+                    return;
+                }
+            }
+
             await decideTaskApproval({
                 taskActionId: item._id,
                 decision,
+                reviewerComment: commentsById[item._id] || undefined,
+                parameters: parsedParameters,
             });
             await loadApprovals();
         } catch (decisionError) {
@@ -139,6 +180,35 @@ export default function AdminTaskApprovalsPage() {
                                 </div>
                                 <p className="mt-3 text-sm text-muted-foreground">{item.summary || "No summary"}</p>
                                 <p className="mt-2 text-xs text-amber-600">{getPolicySummary(item)}</p>
+                                <div className="mt-3 grid gap-3">
+                                    <label className="flex flex-col gap-1 text-xs">
+                                        Reviewer comment
+                                        <Input
+                                            value={commentsById[item._id] ?? ""}
+                                            onChange={(event) =>
+                                                setCommentsById((current) => ({
+                                                    ...current,
+                                                    [item._id]: event.target.value,
+                                                }))
+                                            }
+                                            placeholder="Add context for this decision"
+                                        />
+                                    </label>
+
+                                    <label className="flex flex-col gap-1 text-xs">
+                                        Parameters override (JSON object)
+                                        <textarea
+                                            className="min-h-[120px] w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
+                                            value={paramsById[item._id] ?? "{}"}
+                                            onChange={(event) =>
+                                                setParamsById((current) => ({
+                                                    ...current,
+                                                    [item._id]: event.target.value,
+                                                }))
+                                            }
+                                        />
+                                    </label>
+                                </div>
                             </div>
                         ))
                     )}

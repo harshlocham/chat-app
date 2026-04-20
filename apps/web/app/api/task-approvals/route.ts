@@ -8,6 +8,8 @@ const decisionSchema = z.object({
     taskActionId: z.string().min(1),
     decision: z.enum(["approve", "reject"]),
     reason: z.string().max(2000).optional(),
+    reviewerComment: z.string().max(2000).optional(),
+    parameters: z.record(z.string(), z.unknown()).optional(),
 });
 
 function serializeTaskAction(action: Awaited<ReturnType<typeof getPendingApprovalTaskActions>>[number]) {
@@ -19,6 +21,7 @@ function serializeTaskAction(action: Awaited<ReturnType<typeof getPendingApprova
         actorId: action.actorId ? action.actorId.toString() : null,
         actionType: action.actionType,
         messageId: action.messageId ? action.messageId.toString() : null,
+        parameters: action.parameters ?? {},
         executionState: action.executionState ?? null,
         summary: action.summary ?? null,
         error: action.error ?? null,
@@ -27,6 +30,14 @@ function serializeTaskAction(action: Awaited<ReturnType<typeof getPendingApprova
         idempotencyKey: action.idempotencyKey,
         createdAt: action.createdAt.toISOString(),
     };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        return value as Record<string, unknown>;
+    }
+
+    return {};
 }
 
 export async function GET(req: NextRequest) {
@@ -61,21 +72,37 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.decision === "reject") {
+        const rejectNote = body.reason ?? body.reviewerComment ?? "Rejected by reviewer.";
         const updated = await updateTaskActionExecutionState({
             taskActionId: body.taskActionId,
             executionState: "rejected",
             summary: action.summary ?? null,
-            error: body.reason ?? "Rejected by reviewer.",
+            error: rejectNote,
+            reason: `${action.reason}${rejectNote ? ` | reviewer: ${rejectNote}` : ""}`,
         });
 
         return NextResponse.json({ approval: updated ? serializeTaskAction(updated) : null }, { status: 200 });
     }
+
+    const approvedParameters = body.parameters ?? action.parameters ?? {};
+    const reviewerComment = body.reviewerComment ?? body.reason ?? "Approved by reviewer.";
 
     const updated = await updateTaskActionExecutionState({
         taskActionId: body.taskActionId,
         executionState: "approved",
         summary: action.summary ?? null,
         error: null,
+        parameters: approvedParameters,
+        reason: `${action.reason}${reviewerComment ? ` | reviewer: ${reviewerComment}` : ""}`,
+        patch: {
+            before: action.patch?.before ?? null,
+            after: {
+                ...asRecord(action.patch?.after),
+                approvedParameters,
+                reviewerComment,
+                approvedAt: new Date().toISOString(),
+            },
+        },
     });
 
     await enqueueOutboxEvent({
@@ -87,7 +114,7 @@ export async function POST(req: NextRequest) {
             taskActionId: body.taskActionId,
             approvedByType: guard.user.role === "admin" ? "system" : "user",
             approvedById: guard.user.id,
-            reason: body.reason ?? "",
+            reason: reviewerComment,
         },
     });
 

@@ -211,6 +211,12 @@ export async function updateTaskActionExecutionState(input: {
     executionState: ITaskAction["executionState"];
     summary?: string | null;
     error?: string | null;
+    parameters?: Record<string, unknown>;
+    reason?: string;
+    patch?: {
+        before: unknown | null;
+        after: unknown | null;
+    };
 }): Promise<ITaskAction | null> {
     await connectToDatabase();
 
@@ -220,6 +226,9 @@ export async function updateTaskActionExecutionState(input: {
             executionState: input.executionState,
             ...(input.summary !== undefined ? { summary: input.summary } : {}),
             ...(input.error !== undefined ? { error: input.error } : {}),
+            ...(input.parameters !== undefined ? { parameters: input.parameters } : {}),
+            ...(input.reason !== undefined ? { reason: input.reason } : {}),
+            ...(input.patch !== undefined ? { patch: input.patch } : {}),
         },
         { new: true }
     ).exec();
