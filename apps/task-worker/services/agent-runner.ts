@@ -1,6 +1,5 @@
 import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskResult, TaskUpdatedPayload, TaskValidationLog } from "@chat/types";
 import { RetryManager } from "./retry-manager.js";
-import * as taskPlannerModule from "@chat/services/task-planner.service";
 import * as taskRepo from "@chat/services/repositories/task.repo";
 import * as taskModule from "@chat/db/models/Task";
 import ToolRegistry from "./tools/tool-registry.js";
@@ -13,12 +12,6 @@ const INTERNAL_SECRET_HEADER = "x-internal-secret";
 
 type TaskModelLike = {
     findById: (id: string) => Promise<TaskDocumentLike | null>;
-};
-
-type TaskPlannerLike = {
-    planTask: (taskId: string) => Promise<{ parentTaskId: string; subTaskIds: string[]; planned: boolean }>;
-    getSubTasks: (parentTaskId: string) => Promise<Array<{ _id: { toString(): string }; status: string }>>;
-    getNextExecutableTasks: (parentTaskId: string) => Promise<Array<{ _id: { toString(): string }; status: string }>>;
 };
 
 type ExecutionActionRecord = {
@@ -74,6 +67,24 @@ type NextActionDecision = {
     toolInput: Record<string, unknown>;
     reasoning?: string;
     goalAchieved?: boolean;
+    noAction?: boolean;
+    needsClarification?: boolean;
+    clarificationQuestion?: string;
+};
+
+type IterationContextEntry = {
+    iteration: number;
+    decision: {
+        toolName: string | null;
+        reasoning?: string;
+        noAction?: boolean;
+        needsClarification?: boolean;
+    };
+    result?: {
+        summary: string;
+        adapterSuccess: boolean;
+        error?: string;
+    };
 };
 
 type LoopContext = {
@@ -131,24 +142,6 @@ function resolveTaskModel(moduleNs: unknown): TaskModelLike {
     throw new Error(`Task model exports are invalid. keys=${Object.keys(asRecord || {}).join(",")}`);
 }
 
-function resolveTaskPlannerConstructor(moduleNs: unknown): new () => TaskPlannerLike {
-    const asRecord = moduleNs as Record<string, unknown>;
-    const defaultExport = asRecord?.default as Record<string, unknown> | undefined;
-    const candidates: unknown[] = [
-        asRecord?.TaskPlanner,
-        defaultExport?.TaskPlanner,
-        defaultExport,
-    ];
-
-    for (const candidate of candidates) {
-        if (typeof candidate === "function") {
-            return candidate as new () => TaskPlannerLike;
-        }
-    }
-
-    throw new Error(`Task planner exports are invalid. keys=${Object.keys(asRecord || {}).join(",")}`);
-}
-
 function resolveGetLatestExecutionTaskAction(
     moduleNs: unknown
 ): (taskId: string) => Promise<{ taskId: { toString(): string }; conversationId: { toString(): string }; actionType: string; toolName?: string | null; parameters?: Record<string, unknown> | null; messageId?: { toString(): string } | null; executionState?: string | null } | null> {
@@ -175,7 +168,6 @@ export const __testInternals = {
 export class AgentRunner {
     private readonly retryManager: RetryManager;
     private readonly taskModel: TaskModelLike;
-    private readonly taskPlanner: TaskPlannerLike;
     private readonly toolRegistry: ToolRegistry;
     private readonly taskSuccessRegistry: TaskSuccessRegistry;
     private readonly internalBaseUrl: string;
@@ -189,8 +181,6 @@ export class AgentRunner {
     }) {
         this.retryManager = options?.retryManager ?? new RetryManager([1000, 2000, 5000]);
         this.taskModel = options?.taskModel ?? resolveTaskModel(taskModule);
-        const TaskPlannerCtor = resolveTaskPlannerConstructor(taskPlannerModule);
-        this.taskPlanner = new TaskPlannerCtor();
         this.toolRegistry = options?.toolRegistry ?? this.createDefaultToolRegistry();
         this.taskSuccessRegistry = options?.taskSuccessRegistry ?? createDefaultTaskSuccessRegistry();
         this.internalBaseUrl = options?.internalBaseUrl ?? process.env.SOCKET_SERVER_URL ?? process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001";
@@ -225,7 +215,8 @@ export class AgentRunner {
     private async decideNextAction(
         task: TaskDocumentLike,
         executionHistory: TaskExecutionHistory,
-        availableTools: AvailableToolForDecision[]
+        availableTools: AvailableToolForDecision[],
+        iterationContext: IterationContextEntry[]
     ): Promise<NextActionDecision> {
         const apiKey = process.env.OPENAI_API_KEY;
         const fallbackTool = availableTools.find((tool) => tool.name === "send_email") ?? availableTools[0];
@@ -251,7 +242,17 @@ export class AgentRunner {
         const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
         const model = process.env.TASK_AGENT_MODEL || "gpt-4.1-mini";
 
-        const response = await fetch(`${baseUrl.replace(/\/$/, "")}/responses`, {
+        const openAiTools = this.toolRegistry.listOpenAITools();
+
+        const systemPrompt = [
+            "You are an execution-first autonomous task agent.",
+            "Decide the next best step using function/tool calling when action is needed.",
+            "If no action is needed, respond with JSON in plain text with: noAction, goalAchieved, reasoning.",
+            "If user input/state is insufficient, respond with JSON: needsClarification, clarificationQuestion, reasoning.",
+            "When calling a tool, choose exactly one tool call with valid JSON arguments.",
+        ].join(" ");
+
+        const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -259,18 +260,13 @@ export class AgentRunner {
             },
             body: JSON.stringify({
                 model,
-                input: [
+                messages: [
                     {
-                        role: "system",
-                        content: [
-                            "You are an execution-first task agent.",
-                            "Given task state and available tools, decide the single best next tool call.",
-                            "Return strict JSON with: toolName, toolInput, reasoning, goalAchieved.",
-                            "Set goalAchieved=true only when no further action is required.",
-                        ].join(" "),
+                        role: "system" as const,
+                        content: systemPrompt,
                     },
                     {
-                        role: "user",
+                        role: "user" as const,
                         content: JSON.stringify({
                             task: {
                                 id: task._id.toString(),
@@ -282,26 +278,12 @@ export class AgentRunner {
                             },
                             executionHistory,
                             availableTools,
+                            iterationContext,
                         }),
                     },
                 ],
-                text: {
-                    format: {
-                        type: "json_schema",
-                        name: "next_action_decision",
-                        schema: {
-                            type: "object",
-                            properties: {
-                                toolName: { type: "string" },
-                                toolInput: { type: "object", additionalProperties: true },
-                                reasoning: { type: "string" },
-                                goalAchieved: { type: "boolean" },
-                            },
-                            required: ["toolName", "toolInput", "goalAchieved"],
-                            additionalProperties: false,
-                        },
-                    },
-                },
+                tools: openAiTools,
+                tool_choice: "auto",
             }),
         });
 
@@ -316,17 +298,72 @@ export class AgentRunner {
 
         try {
             const payload = await response.json();
-            const jsonText = payload?.output_text ?? payload?.output?.[0]?.content?.[0]?.text ?? "{}";
-            const parsed = JSON.parse(jsonText) as Partial<NextActionDecision>;
+            const message = payload?.choices?.[0]?.message;
+            const toolCall = Array.isArray(message?.tool_calls) ? message.tool_calls[0] : null;
 
-            const requestedTool = typeof parsed.toolName === "string" ? parsed.toolName : fallbackTool.name;
-            const selectedTool = availableTools.find((tool) => tool.name === requestedTool) ?? fallbackTool;
+            if (toolCall?.function?.name) {
+                const requestedTool = toolCall.function.name;
+                const selectedTool = availableTools.find((tool) => tool.name === requestedTool) ?? fallbackTool;
+                let parsedArguments: Record<string, unknown> = {};
+
+                if (typeof toolCall.function.arguments === "string" && toolCall.function.arguments.trim().length > 0) {
+                    try {
+                        const raw = JSON.parse(toolCall.function.arguments) as unknown;
+                        if (raw && typeof raw === "object") {
+                            parsedArguments = raw as Record<string, unknown>;
+                        }
+                    } catch {
+                        parsedArguments = {};
+                    }
+                }
+
+                return {
+                    toolName: selectedTool.name,
+                    toolInput: parsedArguments,
+                    reasoning: typeof message?.content === "string" ? message.content : undefined,
+                    goalAchieved: false,
+                };
+            }
+
+            const messageContent = typeof message?.content === "string"
+                ? message.content
+                : Array.isArray(message?.content)
+                    ? message.content.map((entry: { text?: string }) => entry?.text ?? "").join("\n")
+                    : "";
+
+            if (messageContent.trim().length > 0) {
+                try {
+                    const parsedText = JSON.parse(messageContent) as Partial<NextActionDecision>;
+                    return {
+                        toolName: fallbackTool.name,
+                        toolInput: {},
+                        reasoning: typeof parsedText.reasoning === "string" ? parsedText.reasoning : messageContent,
+                        goalAchieved: Boolean(parsedText.goalAchieved),
+                        noAction: Boolean(parsedText.noAction),
+                        needsClarification: Boolean(parsedText.needsClarification),
+                        clarificationQuestion: typeof parsedText.clarificationQuestion === "string" ? parsedText.clarificationQuestion : undefined,
+                    };
+                } catch {
+                    const lowered = messageContent.toLowerCase();
+                    const needsClarification = lowered.includes("clarif") || lowered.includes("more information");
+                    const noAction = lowered.includes("no action");
+                    return {
+                        toolName: fallbackTool.name,
+                        toolInput: {},
+                        reasoning: messageContent,
+                        goalAchieved: noAction,
+                        noAction,
+                        needsClarification,
+                        clarificationQuestion: needsClarification ? messageContent : undefined,
+                    };
+                }
+            }
 
             return {
-                toolName: selectedTool.name,
-                toolInput: parsed.toolInput && typeof parsed.toolInput === "object" ? parsed.toolInput : {},
-                reasoning: typeof parsed.reasoning === "string" ? parsed.reasoning : undefined,
-                goalAchieved: Boolean(parsed.goalAchieved),
+                toolName: fallbackTool.name,
+                toolInput: {},
+                reasoning: "LLM returned no tool call or structured instruction; using fallback tool.",
+                goalAchieved: false,
             };
         } catch {
             return {
@@ -407,11 +444,6 @@ export class AgentRunner {
             throw new Error(`Task not found: ${taskId}`);
         }
 
-        const plan = await this.taskPlanner.planTask(taskId);
-        if (plan.planned || (task.subTasks?.length ?? 0) > 0) {
-            return this.runPlannedTask(taskId);
-        }
-
         const getLatestExecutionTaskAction = resolveGetLatestExecutionTaskAction(taskRepo);
         const action = await getLatestExecutionTaskAction(taskId);
         if (!action) {
@@ -443,6 +475,9 @@ export class AgentRunner {
         };
         const availableTools = this.toolRegistry.listForLLM();
         const maxIterations = Math.max(1, Number(process.env.TASK_AGENT_MAX_ITERATIONS || 5));
+        let iteration = 0;
+        let goalAchieved = false;
+        const iterationContext: IterationContextEntry[] = [];
 
         console.log("agent-runner lifecycle:start", {
             taskId,
@@ -458,16 +493,48 @@ export class AgentRunner {
             maxRetries: context.maxRetries,
         });
 
-        for (let iteration = 0; iteration < maxIterations && task.status !== "completed"; iteration += 1) {
+        while (!goalAchieved && iteration < maxIterations && task.status !== "completed") {
+            iteration += 1;
             console.log("agent-runner lifecycle:loop", {
                 taskId,
-                iteration: iteration + 1,
+                iteration,
                 maxIterations,
             });
 
             try {
-                const decision = await this.decideNextAction(task, this.getExecutionHistory(task), availableTools);
-                if (decision.goalAchieved) {
+                const decision = await this.decideNextAction(task, this.getExecutionHistory(task), availableTools, iterationContext);
+                if (decision.needsClarification) {
+                    await this.updateTask(task, {
+                        status: "partial",
+                        progress: 100,
+                        result: {
+                            success: false,
+                            confidence: 0,
+                            evidence: {
+                                needsClarification: true,
+                                clarificationQuestion: decision.clarificationQuestion ?? null,
+                            },
+                            error: decision.reasoning ?? "Execution paused: clarification required.",
+                        },
+                    });
+
+                    await this.appendCheckpoint(task, {
+                        step: "failed",
+                        status: "completed",
+                        progress: 100,
+                    });
+
+                    return {
+                        completed: false,
+                        retryCount: context.retryCount,
+                        maxRetries: context.maxRetries,
+                        result: context.observed,
+                        verification: context.verification,
+                    };
+                }
+
+                if (decision.noAction || decision.goalAchieved) {
+                    goalAchieved = true;
                     await this.updateTask(task, {
                         status: "completed",
                         progress: 100,
@@ -511,6 +578,16 @@ export class AgentRunner {
                     });
                 }
 
+                iterationContext.push({
+                    iteration,
+                    decision: {
+                        toolName: decision.toolName,
+                        reasoning: decision.reasoning,
+                        noAction: decision.noAction,
+                        needsClarification: decision.needsClarification,
+                    },
+                });
+
                 await this.appendCheckpoint(task, {
                     step: "execute",
                     status: "started",
@@ -530,6 +607,15 @@ export class AgentRunner {
                 });
 
                 context.observed = await this.observe(context, executed);
+
+                const currentContext = iterationContext[iterationContext.length - 1];
+                if (currentContext) {
+                    currentContext.result = {
+                        summary: context.observed.summary,
+                        adapterSuccess: context.observed.adapterSuccess,
+                        error: context.observed.error,
+                    };
+                }
 
                 await this.appendCheckpoint(task, {
                     step: "observe",
@@ -612,7 +698,7 @@ export class AgentRunner {
 
                 console.warn("agent-runner lifecycle:continue", {
                     taskId,
-                    iteration: iteration + 1,
+                    iteration,
                     reason: context.observed.error ?? "verification failed",
                 });
 
@@ -637,6 +723,16 @@ export class AgentRunner {
                         },
                     },
                 });
+
+                context.observed = {
+                    summary: "Execution failed before verification",
+                    adapterSuccess: false,
+                    evidence: {
+                        reason,
+                        iteration,
+                    },
+                    error: reason,
+                };
 
                 context.retryCount += 1;
 
@@ -688,137 +784,6 @@ export class AgentRunner {
             result: context.observed,
             verification: context.verification,
         };
-    }
-
-    private async runPlannedTask(taskId: string): Promise<RunTaskOutcome> {
-        const rootTask = await this.taskModel.findById(taskId);
-        if (!rootTask) {
-            throw new Error(`Task not found: ${taskId}`);
-        }
-
-        const subTaskIds = await this.taskPlanner.getSubTasks(taskId);
-        console.log("agent-runner lifecycle:planned", {
-            taskId,
-            subTaskCount: subTaskIds.length,
-        });
-
-        await this.updateTask(rootTask, {
-            status: "executing",
-            retryCount: typeof rootTask.retryCount === "number" ? rootTask.retryCount : 0,
-            maxRetries: typeof rootTask.maxRetries === "number" ? rootTask.maxRetries : 2,
-        });
-
-        let anyChildSucceeded = false;
-
-        while (true) {
-            const nextExecutableTasks = await this.taskPlanner.getNextExecutableTasks(taskId);
-
-            if (nextExecutableTasks.length === 0) {
-                const allChildren = await this.taskPlanner.getSubTasks(taskId);
-                const allCompleted = allChildren.length > 0 && allChildren.every((child) => child.status === "completed");
-
-                if (allCompleted) {
-                    await this.updateTask(rootTask, {
-                        status: "completed",
-                        progress: 100,
-                        result: {
-                            success: true,
-                            confidence: 1,
-                            evidence: {
-                                parentTaskId: taskId,
-                                subTaskIds: allChildren.map((child) => child._id.toString()),
-                            },
-                        },
-                    });
-
-                    console.log("agent-runner lifecycle:parent-completed", {
-                        taskId,
-                        subTaskCount: allChildren.length,
-                    });
-
-                    return {
-                        completed: true,
-                        retryCount: typeof rootTask.retryCount === "number" ? rootTask.retryCount : 0,
-                        maxRetries: typeof rootTask.maxRetries === "number" ? rootTask.maxRetries : 2,
-                        result: null,
-                        verification: { success: true, confidence: 1 },
-                    };
-                }
-
-                const nextStatus = anyChildSucceeded ? "partial" : "failed";
-                await this.updateTask(rootTask, {
-                    status: nextStatus,
-                    progress: 100,
-                    result: {
-                        success: false,
-                        confidence: anyChildSucceeded ? 0.5 : 0,
-                        evidence: {
-                            parentTaskId: taskId,
-                            subTaskIds: allChildren.map((child) => ({
-                                taskId: child._id.toString(),
-                                status: child.status,
-                            })),
-                        },
-                        error: "Planned task chain did not complete successfully.",
-                    },
-                });
-
-                console.warn("agent-runner lifecycle:parent-incomplete", {
-                    taskId,
-                    nextStatus,
-                });
-
-                return {
-                    completed: false,
-                    retryCount: typeof rootTask.retryCount === "number" ? rootTask.retryCount : 0,
-                    maxRetries: typeof rootTask.maxRetries === "number" ? rootTask.maxRetries : 2,
-                    result: null,
-                    verification: { success: false, confidence: anyChildSucceeded ? 0.5 : 0 },
-                };
-            }
-
-            for (const readyTask of nextExecutableTasks) {
-                const childOutcome = await this.runTask(readyTask._id.toString());
-                anyChildSucceeded = anyChildSucceeded || Boolean(childOutcome.completed);
-
-                if (!childOutcome.completed) {
-                    const updatedChildren = await this.taskPlanner.getSubTasks(taskId);
-                    const nextStatus = anyChildSucceeded ? "partial" : "failed";
-
-                    await this.updateTask(rootTask, {
-                        status: nextStatus,
-                        progress: 100,
-                        result: {
-                            success: false,
-                            confidence: childOutcome.verification?.confidence ?? 0,
-                            evidence: {
-                                parentTaskId: taskId,
-                                failedSubTaskId: readyTask._id.toString(),
-                                subTaskStates: updatedChildren.map((child) => ({
-                                    taskId: child._id.toString(),
-                                    status: child.status,
-                                })),
-                            },
-                            error: "A subtask failed before the parent task completed.",
-                        },
-                    });
-
-                    console.log("agent-runner lifecycle:parent-stopped", {
-                        taskId,
-                        failedSubTaskId: readyTask._id.toString(),
-                        nextStatus,
-                    });
-
-                    return {
-                        completed: false,
-                        retryCount: typeof rootTask.retryCount === "number" ? rootTask.retryCount : 0,
-                        maxRetries: typeof rootTask.maxRetries === "number" ? rootTask.maxRetries : 2,
-                        result: null,
-                        verification: { success: false, confidence: childOutcome.verification?.confidence ?? 0 },
-                    };
-                }
-            }
-        }
     }
 
     private async observe(_context: LoopContext, result: ActionExecutionResult): Promise<ActionExecutionResult> {

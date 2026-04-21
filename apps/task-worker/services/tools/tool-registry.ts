@@ -47,6 +47,22 @@ export class ToolRegistry {
             inputSchema: (tool.inputSchema as unknown as { _def?: unknown })._def ?? null,
         }));
     }
+
+    listOpenAITools() {
+        return [...this.toolsByName.values()].map((tool) => ({
+            type: "function" as const,
+            function: {
+                name: tool.name,
+                description: tool.description,
+                // We intentionally keep parameters permissive because zod internals
+                // are not guaranteed to map 1:1 to JSON schema without an adapter.
+                parameters: {
+                    type: "object",
+                    additionalProperties: true,
+                },
+            },
+        }));
+    }
 }
 
 export default ToolRegistry;
