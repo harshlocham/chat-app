@@ -1159,10 +1159,19 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
 
     const confidence = payload.confidence ?? 0.5;
     const policyDecision = evaluateExecutionPolicy(payload);
-    const requiresApproval = policyDecision.outcome === "approval_required";
+    const lowConfidence = confidence < 0.7;
+    const unsafe = policyDecision.riskLevel === "high"
+        && policyDecision.reasons.some((reason) =>
+            reason.includes("outside allowed domains")
+            || reason.includes("no valid recipients")
+            || reason.includes("No executable action")
+        );
+    const requiresApproval = policyDecision.outcome === "approval_required" || lowConfidence;
 
-    if (policyDecision.outcome === "blocked") {
-        const blockedReason = policyDecision.reasons.join(" ") || "Execution blocked by policy.";
+    if (policyDecision.outcome === "blocked" || unsafe) {
+        const blockedReason = unsafe
+            ? "Execution blocked by policy: action marked unsafe."
+            : (policyDecision.reasons.join(" ") || "Execution blocked by policy.");
 
         await updateTaskLifecycle({
             taskId: payload.taskId,
@@ -1216,7 +1225,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                         policyDecision,
                     },
                 },
-                reason: `Action requires human approval before execution. ${policyDecision.reasons.join(" ")}`,
+                reason: `Action requires human approval before execution. ${[...policyDecision.reasons, ...(lowConfidence ? [`Low confidence (${confidence.toFixed(2)}).`] : [])].join(" ")}`,
                 idempotencyKey: `${payload.taskId}:${payload.actionType}:${payload.triggerMessageId}:approval_pending`,
             });
         } catch (error) {
@@ -1237,6 +1246,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                     reason: "approval_required",
                     requestedConfidence: confidence,
                     policyDecision,
+                    lowConfidence,
                 },
                 error: "Approval required before executing this action.",
             },
@@ -1247,46 +1257,35 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
             state: "approval_pending",
             actionType: payload.actionType,
             summary: "Awaiting human approval before execution.",
-            error: policyDecision.reasons.join(" ") || "Approval required before executing this action.",
+            error: [...policyDecision.reasons, ...(lowConfidence ? [`Low confidence (${confidence.toFixed(2)}).`] : [])].join(" ") || "Approval required before executing this action.",
             updatedAt: new Date().toISOString(),
         });
         return;
     }
-
-    const runningAt = new Date().toISOString();
-    const plan = buildExecutionPlan(payload);
 
     await emitTaskExecutionUpdate({
         taskId: payload.taskId,
         conversationId: payload.conversationId,
         state: "running",
         actionType: payload.actionType,
-        summary: `Execution plan initialized with ${plan.steps.length} steps.`,
+        summary: "Execution approved by policy. Starting autonomous runner.",
         error: null,
-        updatedAt: runningAt,
+        updatedAt: new Date().toISOString(),
     });
 
-    let execution: ActionExecutionResult | null = null;
     try {
-        execution = await runExecutionPlan(payload, plan);
-    } catch (error) {
-        const message = error instanceof Error ? error.message : "Task execution failed";
-
-        await updateTaskLifecycle({
+        const outcome = await agentRunner.runTask(payload.taskId);
+        await emitTaskExecutionUpdate({
             taskId: payload.taskId,
             conversationId: payload.conversationId,
-            status: "failed",
-            result: {
-                success: false,
-                confidence: 0,
-                evidence: {
-                    phase: "execution",
-                    actionType: payload.actionType,
-                },
-                error: message,
-            },
+            state: outcome.completed ? "succeeded" : "failed",
+            actionType: payload.actionType,
+            summary: outcome.result?.summary ?? (outcome.completed ? "Task completed." : "Task failed."),
+            error: outcome.completed ? null : (outcome.result?.error ?? "Execution failed."),
+            updatedAt: new Date().toISOString(),
         });
-
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Task execution failed";
         await emitTaskExecutionUpdate({
             taskId: payload.taskId,
             conversationId: payload.conversationId,
@@ -1296,19 +1295,43 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
             error: message,
             updatedAt: new Date().toISOString(),
         });
-
         throw error;
     }
+}
 
-    await emitTaskExecutionUpdate({
+async function processTaskExecutionApproved(payload: TaskExecutionApprovedPayload) {
+    const taskAction = await taskRepo.getTaskActionById(payload.taskActionId);
+    if (!taskAction) {
+        throw new Error(`Task action not found: ${payload.taskActionId}`);
+    }
+
+    await taskRepo.updateTaskActionExecutionState({
+        taskActionId: payload.taskActionId,
+        executionState: "approved",
+        summary: taskAction.summary ?? "Approved by human reviewer.",
+        error: null,
+    });
+
+    const patchAfter = (taskAction.patch?.after && typeof taskAction.patch.after === "object")
+        ? (taskAction.patch.after as Record<string, unknown>)
+        : {};
+
+    const normalizedPayload: NormalizedTaskExecutionRequestedPayload = {
         taskId: payload.taskId,
         conversationId: payload.conversationId,
-        state: "succeeded",
-        actionType: payload.actionType,
-        summary: execution?.summary ?? "Execution plan completed.",
-        error: null,
-        updatedAt: new Date().toISOString(),
-    });
+        triggerMessageId: taskAction.messageId ? taskAction.messageId.toString() : payload.taskActionId,
+        requestedByType: payload.approvedByType ?? "user",
+        requestedById: payload.approvedById ?? null,
+        actionType: taskAction.actionType as TaskExecutionActionType,
+        parameters: (taskAction.parameters ?? {}) as Record<string, unknown>,
+        confidence: typeof patchAfter.confidence === "number"
+            ? Math.max(patchAfter.confidence, 0.7)
+            : 1,
+        // Human approval satisfies the approval requirement gate, but policy is still evaluated before execution.
+        needsApproval: false,
+    };
+
+    await processTaskExecutionRequested(normalizedPayload);
 }
 
 async function ensureDatabaseConnection() {
@@ -1407,11 +1430,8 @@ async function processOneEvent(event: {
                 throw new Error("Invalid task.execution.requested payload shape");
             }
 
-            try {
-                await agentRunner.runTask(String(event.payload.taskId));
-            } catch (error) {
-                throw error;
-            }
+            const normalizedRequestedPayload = normalizeTaskExecutionRequestedPayload(event.payload);
+            await processTaskExecutionRequested(normalizedRequestedPayload);
 
             await complete(eventId);
             return;
@@ -1422,17 +1442,7 @@ async function processOneEvent(event: {
                 throw new Error("Invalid task.execution.approved payload shape");
             }
 
-            const taskAction = await taskRepo.getTaskActionById(event.payload.taskActionId);
-            if (taskAction) {
-                await taskRepo.updateTaskActionExecutionState({
-                    taskActionId: event.payload.taskActionId,
-                    executionState: "approved",
-                    summary: taskAction.summary ?? "Approved by human reviewer.",
-                    error: null,
-                });
-            }
-
-            await agentRunner.runTask(String(event.payload.taskId));
+            await processTaskExecutionApproved(event.payload);
 
             await complete(eventId);
             return;
