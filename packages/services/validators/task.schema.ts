@@ -1,6 +1,17 @@
 import { z } from "zod";
 
 const taskStatusSchema = z.enum(["pending", "executing", "completed", "failed", "partial"]);
+const taskLifecycleStateSchema = z.enum([
+    "planning",
+    "ready",
+    "executing",
+    "waiting_for_approval",
+    "blocked",
+    "retry_scheduled",
+    "paused",
+    "completed",
+    "failed",
+]);
 const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 
 export const CreateTaskSchema = z.object({
@@ -46,6 +57,16 @@ export const CreateTaskSchema = z.object({
             timestamp: z.coerce.date(),
         })).default([]),
     }).optional().default({ attempts: 0, failures: 0, results: [] }),
+    lifecycleState: taskLifecycleStateSchema.optional().default("ready"),
+    iterationCount: z.number().int().min(0).optional().default(0),
+    currentRunId: z.string().min(1).nullable().optional().default(null),
+    currentStepId: z.string().min(1).nullable().optional().default(null),
+    leaseOwner: z.string().min(1).nullable().optional().default(null),
+    leaseExpiresAt: z.coerce.date().nullable().optional().default(null),
+    lastHeartbeatAt: z.coerce.date().nullable().optional().default(null),
+    nextRetryAt: z.coerce.date().nullable().optional().default(null),
+    blockedReason: z.string().max(2000).nullable().optional().default(null),
+    pausedReason: z.string().max(2000).nullable().optional().default(null),
     createdBy: z.string().min(1),
 });
 
@@ -54,6 +75,7 @@ export const UpdateTaskSchema = z.object({
     title: z.string().min(3).max(200).optional(),
     description: z.string().max(8000).optional(),
     status: taskStatusSchema.optional(),
+    lifecycleState: taskLifecycleStateSchema.optional(),
     priority: taskPrioritySchema.optional(),
     assignees: z.array(z.string().min(1)).max(32).optional(),
     dueAt: z.coerce.date().nullable().optional(),
@@ -70,6 +92,15 @@ export const UpdateTaskSchema = z.object({
     }).optional(),
     retryCount: z.number().int().min(0).optional(),
     maxRetries: z.number().int().min(0).optional(),
+    iterationCount: z.number().int().min(0).optional(),
+    currentRunId: z.string().min(1).nullable().optional(),
+    currentStepId: z.string().min(1).nullable().optional(),
+    leaseOwner: z.string().min(1).nullable().optional(),
+    leaseExpiresAt: z.coerce.date().nullable().optional(),
+    lastHeartbeatAt: z.coerce.date().nullable().optional(),
+    nextRetryAt: z.coerce.date().nullable().optional(),
+    blockedReason: z.string().max(2000).nullable().optional(),
+    pausedReason: z.string().max(2000).nullable().optional(),
     progress: z.number().min(0).max(100).optional(),
     checkpoints: z.array(z.object({
         step: z.string().min(1).max(120),

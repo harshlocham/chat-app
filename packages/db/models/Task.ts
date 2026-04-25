@@ -2,6 +2,17 @@ import mongoose, { Model, Schema } from "mongoose";
 
 export type TaskStatus = "pending" | "executing" | "completed" | "failed" | "partial";
 
+export type TaskLifecycleState =
+    | "planning"
+    | "ready"
+    | "executing"
+    | "waiting_for_approval"
+    | "blocked"
+    | "retry_scheduled"
+    | "paused"
+    | "completed"
+    | "failed";
+
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export type TaskSource = "ai" | "manual" | "imported";
@@ -13,6 +24,7 @@ export interface ITask {
     title: string;
     description: string;
     status: TaskStatus;
+    lifecycleState: TaskLifecycleState;
     priority: TaskPriority;
     assignees: mongoose.Types.ObjectId[];
     dueAt?: Date | null;
@@ -27,6 +39,15 @@ export interface ITask {
     dependencyIds: mongoose.Types.ObjectId[];
     retryCount: number;
     maxRetries: number;
+    iterationCount: number;
+    currentRunId?: mongoose.Types.ObjectId | null;
+    currentStepId?: string | null;
+    leaseOwner?: string | null;
+    leaseExpiresAt?: Date | null;
+    lastHeartbeatAt?: Date | null;
+    nextRetryAt?: Date | null;
+    blockedReason?: string | null;
+    pausedReason?: string | null;
     progress: number;
     checkpoints: Array<{
         step: string;
@@ -79,6 +100,22 @@ const TaskSchema = new Schema<ITask>(
             default: "pending",
             index: true,
         },
+        lifecycleState: {
+            type: String,
+            enum: [
+                "planning",
+                "ready",
+                "executing",
+                "waiting_for_approval",
+                "blocked",
+                "retry_scheduled",
+                "paused",
+                "completed",
+                "failed",
+            ],
+            default: "ready",
+            index: true,
+        },
         priority: {
             type: String,
             enum: ["low", "medium", "high", "urgent"],
@@ -99,6 +136,15 @@ const TaskSchema = new Schema<ITask>(
         dependencyIds: { type: [{ type: Schema.Types.ObjectId, ref: "Task" }], default: [] },
         retryCount: { type: Number, min: 0, default: 0 },
         maxRetries: { type: Number, min: 0, default: 2 },
+        iterationCount: { type: Number, min: 0, default: 0 },
+        currentRunId: { type: Schema.Types.ObjectId, default: null, index: true },
+        currentStepId: { type: String, trim: true, maxlength: 80, default: null, index: true },
+        leaseOwner: { type: String, trim: true, maxlength: 120, default: null, index: true },
+        leaseExpiresAt: { type: Date, default: null, index: true },
+        lastHeartbeatAt: { type: Date, default: null, index: true },
+        nextRetryAt: { type: Date, default: null, index: true },
+        blockedReason: { type: String, trim: true, maxlength: 2000, default: null },
+        pausedReason: { type: String, trim: true, maxlength: 2000, default: null },
         progress: { type: Number, min: 0, max: 100, default: 0 },
         checkpoints: {
             type: [{
@@ -155,7 +201,12 @@ const TaskSchema = new Schema<ITask>(
 TaskSchema.path("assignees").validate((assignees: mongoose.Types.ObjectId[]) => assignees.length <= 32, "Too many assignees.");
 
 TaskSchema.pre("save", function (next) {
-    if (this.status === "completed" || this.status === "failed") {
+    const terminal = this.status === "completed"
+        || this.status === "failed"
+        || this.lifecycleState === "completed"
+        || this.lifecycleState === "failed";
+
+    if (terminal) {
         if (!this.closedAt) this.closedAt = new Date();
     } else {
         this.closedAt = null;
@@ -170,6 +221,8 @@ TaskSchema.index({ assignees: 1, status: 1, dueAt: 1 });
 TaskSchema.index({ parentTaskId: 1, status: 1, updatedAt: -1 });
 TaskSchema.index({ parentTaskId: 1, dependencyIds: 1 });
 TaskSchema.index({ status: 1, progress: 1, updatedAt: -1 });
+TaskSchema.index({ lifecycleState: 1, updatedAt: -1 });
+TaskSchema.index({ lifecycleState: 1, leaseExpiresAt: 1 });
 TaskSchema.index({ sourceMessageIds: 1 });
 TaskSchema.index({ updatedAt: -1 });
 
