@@ -20,6 +20,8 @@ export interface ITaskStep {
     kind: "tool_call" | "decision" | "approval" | "notification" | "validation";
     order: number;
     dependencies: string[];
+    fallbackPolicy: "dependency_preserving" | "immediate_execution";
+    overrideDependencies: boolean;
     fallback: Array<{
         stepId: string;
         reason: string;
@@ -70,6 +72,13 @@ const TaskStepSchema = new Schema<ITaskStep>(
         },
         order: { type: Number, required: true, min: 0 },
         dependencies: { type: [String], default: [] },
+        fallbackPolicy: {
+            type: String,
+            enum: ["dependency_preserving", "immediate_execution"],
+            required: true,
+            default: "dependency_preserving",
+        },
+        overrideDependencies: { type: Boolean, required: true, default: false },
         fallback: {
             type: [{
                 stepId: { type: String, required: true, trim: true, maxlength: 80 },

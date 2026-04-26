@@ -15,6 +15,8 @@ export type TaskStepKind = "tool_call" | "decision" | "approval" | "notification
 
 export type TaskStepRiskLevel = "low" | "medium" | "high";
 
+export type TaskStepFallbackPolicy = "dependency_preserving" | "immediate_execution";
+
 export interface TaskStepFallback {
     stepId: string;
     reason: string;
@@ -33,6 +35,8 @@ export interface TaskStep {
     kind: TaskStepKind;
     order: number;
     dependencies: string[];
+    fallbackPolicy: TaskStepFallbackPolicy;
+    overrideDependencies: boolean;
     fallback: TaskStepFallback[];
     successCriteria: string[];
     toolCandidates: TaskStepToolCandidate[];

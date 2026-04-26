@@ -128,6 +128,8 @@ type PlanStepLike = {
     state: "ready" | "running" | "waiting_for_dependency" | "waiting_for_approval" | "retry_scheduled" | "blocked" | "completed" | "failed" | "skipped";
     order: number;
     dependencies: string[];
+    fallbackPolicy: "dependency_preserving" | "immediate_execution";
+    overrideDependencies: boolean;
     fallback: Array<{ stepId: string; reason: string }>;
     successCriteria: string[];
     toolCandidates: Array<{ toolName: string; confidence: number; riskLevel: "low" | "medium" | "high" }>;
@@ -1041,7 +1043,24 @@ Reply to confirm receipt or contact support if you have questions.
 
         const runnable = plan.steps
             .filter((step) => step.state === "ready" || step.state === "retry_scheduled")
-            .filter((step) => step.dependencies.every((dependencyId) => byId.get(dependencyId)?.state === "completed"))
+            .filter((step) => {
+                if (step.overrideDependencies) {
+                    return true;
+                }
+
+                if (!step.dependencies || step.dependencies.length === 0) {
+                    return true;
+                }
+
+                if (step.fallbackPolicy === "immediate_execution") {
+                    return step.dependencies.every((dependencyId) => {
+                        const state = byId.get(dependencyId)?.state;
+                        return state === "completed" || state === "failed" || state === "skipped";
+                    });
+                }
+
+                return step.dependencies.every((dependencyId) => byId.get(dependencyId)?.state === "completed");
+            })
             .sort((left, right) => left.order - right.order);
 
         return runnable[0] ?? null;
@@ -1381,9 +1400,28 @@ Reply to confirm receipt or contact support if you have questions.
                         selectedToolName: decision.toolName,
                         lastError: lastResult.error ?? "Verification failed",
                     });
-                    await this.updatePlanStepState(taskId, fallbackStepId, {
-                        state: "ready",
-                    });
+
+                    const fallbackStep = plan.steps.find((entry) => entry.stepId === fallbackStepId) ?? null;
+                    if (fallbackStep) {
+                        await this.appendCheckpoint(latestTask, {
+                            step: "adjust",
+                            status: "started",
+                        });
+
+                        await this.updatePlanStepState(taskId, fallbackStepId, {
+                            state: "ready",
+                            // Immediate fallback ignores failed dependency constraints by design.
+                            overrideDependencies: fallbackStep.fallbackPolicy === "immediate_execution"
+                                ? true
+                                : fallbackStep.overrideDependencies,
+                        });
+
+                        await this.appendCheckpoint(latestTask, {
+                            step: "adjust",
+                            status: "completed",
+                        });
+                    }
+
                     await this.transitionLifecycle(latestTask, "ready");
                     continue;
                 }
@@ -1400,6 +1438,10 @@ Reply to confirm receipt or contact support if you have questions.
                 });
 
                 await this.transitionLifecycle(latestTask, "failed");
+                await this.appendCheckpoint(latestTask, {
+                    step: "adjust",
+                    status: "failed",
+                });
                 break;
             }
 

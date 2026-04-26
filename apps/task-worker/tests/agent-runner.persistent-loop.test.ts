@@ -40,6 +40,8 @@ type PlanStep = {
     state: "ready" | "running" | "waiting_for_dependency" | "waiting_for_approval" | "retry_scheduled" | "blocked" | "completed" | "failed" | "skipped";
     order: number;
     dependencies: string[];
+    fallbackPolicy: "dependency_preserving" | "immediate_execution";
+    overrideDependencies: boolean;
     fallback: Array<{ stepId: string; reason: string }>;
     successCriteria: string[];
     toolCandidates: Array<{ toolName: string; confidence: number; riskLevel: "low" | "medium" | "high" }>;
@@ -116,7 +118,7 @@ function createMockTask(): MockTask {
     return task;
 }
 
-function createPlan(withFallback: boolean): PlanDoc {
+function createPlan(withFallback: boolean, fallbackPolicy: "dependency_preserving" | "immediate_execution" = "dependency_preserving"): PlanDoc {
     const steps: PlanStep[] = [
         {
             stepId: "step-1",
@@ -126,6 +128,8 @@ function createPlan(withFallback: boolean): PlanDoc {
             state: "ready",
             order: 1,
             dependencies: [],
+            fallbackPolicy: "dependency_preserving",
+            overrideDependencies: false,
             fallback: withFallback ? [{ stepId: "step-2", reason: "Primary failed" }] : [],
             successCriteria: ["tool succeeds"],
             toolCandidates: [{ toolName: "send_email", confidence: 0.9, riskLevel: "low" }],
@@ -149,6 +153,8 @@ function createPlan(withFallback: boolean): PlanDoc {
             state: "waiting_for_dependency",
             order: 2,
             dependencies: ["step-1"],
+            fallbackPolicy,
+            overrideDependencies: false,
             fallback: [],
             successCriteria: ["fallback succeeds"],
             toolCandidates: [{ toolName: "create_github_issue", confidence: 0.8, riskLevel: "medium" }],
@@ -173,11 +179,12 @@ function createPlan(withFallback: boolean): PlanDoc {
 
 function createRunnerHarness(options?: {
     withFallbackPlan?: boolean;
+    fallbackPolicy?: "dependency_preserving" | "immediate_execution";
     sendEmailOutputs?: Array<{ summary: string; adapterSuccess: boolean; evidence: unknown; error?: string }>;
     createIssueOutputs?: Array<{ summary: string; adapterSuccess: boolean; evidence: unknown; error?: string }>;
 }) {
     const task = createMockTask();
-    const plan = createPlan(Boolean(options?.withFallbackPlan));
+    const plan = createPlan(Boolean(options?.withFallbackPlan), options?.fallbackPolicy ?? "dependency_preserving");
     const stepPatches: Array<{ stepId: string; patch: Record<string, unknown> }> = [];
     let reflectionCalls = 0;
     let memoryCalls = 0;
@@ -361,6 +368,7 @@ test("persistent loop: uses memory + ranked tool decision", async () => {
 test("persistent loop: step-level failure triggers fallback step", async () => {
     const harness = createRunnerHarness({
         withFallbackPlan: true,
+        fallbackPolicy: "dependency_preserving",
         sendEmailOutputs: [
             { summary: "permanent fail", adapterSuccess: false, evidence: { responseStatus: 400 }, error: "invalid recipient" },
         ],
@@ -382,9 +390,39 @@ test("persistent loop: step-level failure triggers fallback step", async () => {
 
     const failedPrimary = harness.stepPatches.some((entry) => entry.stepId === "step-1" && entry.patch.state === "failed");
     const promotedFallback = harness.plan.steps.some((entry) => entry.stepId === "step-2" && entry.state === "ready");
+    const fallbackNotExecuted = harness.createIssueTool.calls.length === 0;
 
     assert.equal(failedPrimary, true);
     assert.equal(promotedFallback, true);
+    assert.equal(fallbackNotExecuted, true);
+});
+
+test("persistent loop: immediate fallback executes despite failed dependency", async () => {
+    const harness = createRunnerHarness({
+        withFallbackPlan: true,
+        fallbackPolicy: "immediate_execution",
+        sendEmailOutputs: [
+            { summary: "permanent fail", adapterSuccess: false, evidence: { responseStatus: 400 }, error: "invalid recipient" },
+        ],
+        createIssueOutputs: [
+            { summary: "fallback ok", adapterSuccess: true, evidence: { issue: { html_url: "http://x", number: 1 }, responseStatus: 201 } },
+        ],
+    });
+
+    await withMockedFetch(
+        [
+            { toolName: "send_email", arguments: { to: ["team@example.com"] } },
+            { toolName: "create_github_issue", arguments: { title: "fallback" } },
+        ],
+        async () => {
+            const result = await harness.runner.runTask("task-1");
+            assert.equal(result.completed, false);
+        }
+    );
+
+    const completedFallback = harness.stepPatches.some((entry) => entry.stepId === "step-2" && entry.patch.state === "completed");
+    assert.equal(completedFallback, true);
+    assert.equal(harness.createIssueTool.calls.length >= 1, true);
 });
 
 test("persistent loop: writes reflection on terminal state", async () => {
