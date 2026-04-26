@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import TaskModel from "@/models/Task";
+import { connectToDatabase } from "@/lib/Db/db";
 import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { getInternalSocketServerUrl } from "@/lib/socket/socketConfig";
 import { createInternalRequestHeaders } from "@chat/types/utils/internal-bridge-auth";
@@ -23,6 +24,8 @@ export async function GET(req: NextRequest) {
     const guard = await requireAuthUser();
     if (guard.response) return guard.response;
 
+    await connectToDatabase();
+
     const { searchParams } = new URL(req.url);
     const conversationId = searchParams.get("conversationId");
     if (!conversationId) {
@@ -37,6 +40,8 @@ export async function POST(req: NextRequest) {
     try {
         const guard = await requireAuthUser();
         if (guard.response) return guard.response;
+
+        await connectToDatabase();
 
         const body = createTaskBodySchema.parse(await req.json());
         const dedupeKey = deriveTaskDedupeKey({

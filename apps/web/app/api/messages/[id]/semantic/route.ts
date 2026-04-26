@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { connectToDatabase } from "@/lib/Db/db";
 import Message from "@/models/Message";
 import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { updateMessageSemanticState } from "@/lib/repositories/task.repo";
@@ -17,6 +18,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const { id } = await params;
         const guard = await requireAuthUser();
         if (guard.response) return guard.response;
+
+        await connectToDatabase();
 
         const body = semanticOverrideSchema.parse(await req.json());
         const message = await Message.findById(id).select("conversationId").lean();

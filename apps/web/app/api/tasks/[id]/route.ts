@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { connectToDatabase } from "@/lib/Db/db";
 import { requireAuthUser } from "@/lib/utils/auth/requireAuthUser";
 import { updateTask } from "@/lib/repositories/task.repo";
 import TaskModel from "@/models/Task";
@@ -22,6 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const { id } = await params;
         const guard = await requireAuthUser();
         if (guard.response) return guard.response;
+
+        await connectToDatabase();
 
         const body = updateTaskBodySchema.parse(await req.json());
         const before = await TaskModel.findById(id).lean();
