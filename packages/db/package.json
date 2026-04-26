@@ -7,23 +7,28 @@
     "exports": {
         ".": {
             "import": "./dist/db.js",
-            "types": "./dist/db.d.ts"
+            "types": "./dist/db.d.ts",
+            "default": "./dist/db.js"
         },
         "./db": {
             "import": "./dist/db.js",
-            "types": "./dist/db.d.ts"
+            "types": "./dist/db.d.ts",
+            "default": "./dist/db.js"
         },
         "./mongo": {
             "import": "./dist/mongo.js",
-            "types": "./dist/mongo.d.ts"
+            "types": "./dist/mongo.d.ts",
+            "default": "./dist/mongo.js"
         },
         "./offlineMessages": {
             "import": "./dist/offlineMessages.js",
-            "types": "./dist/offlineMessages.d.ts"
+            "types": "./dist/offlineMessages.d.ts",
+            "default": "./dist/offlineMessages.js"
         },
         "./models/*": {
             "import": "./dist/models/*.js",
-            "types": "./dist/models/*.d.ts"
+            "types": "./dist/models/*.d.ts",
+            "default": "./dist/models/*.js"
         }
     },
     "scripts": {

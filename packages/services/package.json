@@ -6,31 +6,38 @@
     "exports": {
         ".": {
             "import": "./dist/index.js",
-            "types": "./dist/index.d.ts"
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
         },
         "./outbox.service": {
             "import": "./dist/outbox.service.js",
-            "types": "./dist/outbox.service.d.ts"
+            "types": "./dist/outbox.service.d.ts",
+            "default": "./dist/outbox.service.js"
         },
         "./task-intelligence.service": {
             "import": "./dist/task-intelligence.service.js",
-            "types": "./dist/task-intelligence.service.d.ts"
+            "types": "./dist/task-intelligence.service.d.ts",
+            "default": "./dist/task-intelligence.service.js"
         },
         "./repositories/task.repo": {
             "import": "./dist/repositories/task.repo.js",
-            "types": "./dist/repositories/task.repo.d.ts"
+            "types": "./dist/repositories/task.repo.d.ts",
+            "default": "./dist/repositories/task.repo.js"
         },
         "./validators/*": {
             "import": "./dist/validators/*.js",
-            "types": "./dist/validators/*.d.ts"
+            "types": "./dist/validators/*.d.ts",
+            "default": "./dist/validators/*.js"
         },
         "./*": {
             "import": "./dist/*.js",
-            "types": "./dist/*.d.ts"
+            "types": "./dist/*.d.ts",
+            "default": "./dist/*.js"
         },
         "./repositories/*": {
             "import": "./dist/repositories/*.js",
-            "types": "./dist/repositories/*.d.ts"
+            "types": "./dist/repositories/*.d.ts",
+            "default": "./dist/repositories/*.js"
         }
     },
     "scripts": {
