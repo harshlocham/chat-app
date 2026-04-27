@@ -7,7 +7,7 @@ export type OutboxTopic =
     | "task.execution.requested"
     | "task.execution.approved";
 
-export type OutboxStatus = "pending" | "processing" | "completed" | "failed";
+export type OutboxStatus = "pending" | "processing" | "completed" | "failed" | "dead_letter";
 
 export interface IOutboxEvent {
     _id: mongoose.Types.ObjectId;
@@ -20,6 +20,7 @@ export interface IOutboxEvent {
     lockedBy?: string | null;
     lockedAt?: Date | null;
     processedAt?: Date | null;
+    deadLetteredAt?: Date | null;
     lastError?: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -37,7 +38,7 @@ const OutboxEventSchema = new Schema<IOutboxEvent>(
         payload: { type: Schema.Types.Mixed, required: true },
         status: {
             type: String,
-            enum: ["pending", "processing", "completed", "failed"],
+            enum: ["pending", "processing", "completed", "failed", "dead_letter"],
             default: "pending",
             index: true,
         },
@@ -46,6 +47,7 @@ const OutboxEventSchema = new Schema<IOutboxEvent>(
         lockedBy: { type: String, default: null },
         lockedAt: { type: Date, default: null },
         processedAt: { type: Date, default: null },
+        deadLetteredAt: { type: Date, default: null },
         lastError: { type: String, default: null, maxlength: 4000 },
     },
     {

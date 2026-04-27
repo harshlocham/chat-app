@@ -75,6 +75,7 @@ export async function markOutboxEventCompleted(id: string) {
             $set: {
                 status: "completed",
                 processedAt: new Date(),
+                deadLetteredAt: null,
                 lockedBy: null,
                 lockedAt: null,
                 lastError: null,
@@ -91,6 +92,23 @@ export async function markOutboxEventFailed(id: string, errorMessage: string, re
             $set: {
                 status: "failed",
                 availableAt: new Date(Date.now() + retryDelayMs),
+                deadLetteredAt: null,
+                lockedBy: null,
+                lockedAt: null,
+                lastError: errorMessage.slice(0, 4000),
+            },
+        }
+    );
+}
+
+export async function markOutboxEventDeadLetter(id: string, errorMessage: string) {
+    await connectToDatabase();
+    await OutboxEventModel.updateOne(
+        { _id: id },
+        {
+            $set: {
+                status: "dead_letter",
+                deadLetteredAt: new Date(),
                 lockedBy: null,
                 lockedAt: null,
                 lastError: errorMessage.slice(0, 4000),

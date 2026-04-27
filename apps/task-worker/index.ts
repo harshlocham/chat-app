@@ -40,6 +40,8 @@ for (let depth = 0; depth < 8; depth += 1) {
 const WORKER_ID = `${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
 const BATCH_SIZE = Number(process.env.TASK_WORKER_BATCH_SIZE || 10);
 const POLL_INTERVAL_MS = Number(process.env.TASK_WORKER_POLL_MS || 800);
+const OUTBOX_MAX_ATTEMPTS = Number(process.env.OUTBOX_MAX_ATTEMPTS || 12);
+const OUTBOX_RETRY_JITTER_PCT = Number(process.env.OUTBOX_RETRY_JITTER_PCT || 0.2);
 
 const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
 const redis = redisUrl
@@ -62,6 +64,7 @@ const outboxApi = ((outboxModule as unknown as { default?: unknown }).default ||
     }>>;
     markOutboxEventCompleted?: (id: string) => Promise<void>;
     markOutboxEventFailed?: (id: string, errorMessage: string, retryDelayMs?: number) => Promise<void>;
+    markOutboxEventDeadLetter?: (id: string, errorMessage: string) => Promise<void>;
 };
 
 const processMessageTaskIntelligence = (
@@ -292,19 +295,26 @@ async function emitInternal(path: string, conversationId: string, payload: unkno
 function computeRetryDelay(attempts: number) {
     const base = 1000;
     const capped = Math.min(attempts, 8);
-    return base * (2 ** capped);
+    const rawDelay = base * (2 ** capped);
+
+    const jitterPercent = Math.max(0, Math.min(1, OUTBOX_RETRY_JITTER_PCT));
+    const jitterSpan = rawDelay * jitterPercent;
+    const jitter = jitterSpan > 0 ? (Math.random() * jitterSpan * 2) - jitterSpan : 0;
+
+    return Math.max(250, Math.round(rawDelay + jitter));
 }
 
 function getOutboxFns() {
     const claim = outboxApi.claimOutboxEvents;
     const complete = outboxApi.markOutboxEventCompleted;
     const fail = outboxApi.markOutboxEventFailed;
+    const deadLetter = outboxApi.markOutboxEventDeadLetter;
 
-    if (typeof claim !== "function" || typeof complete !== "function" || typeof fail !== "function") {
+    if (typeof claim !== "function" || typeof complete !== "function" || typeof fail !== "function" || typeof deadLetter !== "function") {
         throw new Error(`Outbox module exports are invalid. keys=${Object.keys(outboxModule).join(",")}`);
     }
 
-    return { claim, complete, fail };
+    return { claim, complete, fail, deadLetter };
 }
 
 function getIntelligenceFn() {
@@ -1493,7 +1503,7 @@ async function processOneEvent(event: {
 }
 
 async function run() {
-    const { claim, fail } = getOutboxFns();
+    const { claim, fail, deadLetter } = getOutboxFns();
 
     if (!process.env.MONGODB_URI) {
         console.warn("task-worker disabled: MONGODB_URI is not set. Set MONGODB_URI to enable task processing.");
@@ -1524,12 +1534,20 @@ async function run() {
                 await processOneEvent(event);
             } catch (error) {
                 const message = error instanceof Error ? error.message : "Outbox worker failure";
-                await fail(event._id.toString(), message, computeRetryDelay(event.attempts));
+                const eventId = event._id.toString();
+                if (event.attempts >= OUTBOX_MAX_ATTEMPTS) {
+                    await deadLetter(eventId, message);
+                } else {
+                    await fail(eventId, message, computeRetryDelay(event.attempts));
+                }
+
                 console.error("task-worker event processing failed", {
                     workerId: WORKER_ID,
-                    eventId: event._id.toString(),
+                    eventId,
                     topic: event.topic,
                     attempts: event.attempts,
+                    maxAttempts: OUTBOX_MAX_ATTEMPTS,
+                    terminal: event.attempts >= OUTBOX_MAX_ATTEMPTS,
                     error: message,
                 });
             }
