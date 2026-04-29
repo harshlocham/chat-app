@@ -75,8 +75,24 @@ jobs:
 
           echo "Creating tag: $TAG"
 
-          git tag "$TAG"
-          git push origin "$TAG"
+          # Ensure tags are up to date
+          git fetch --force --tags
+
+          # Determine current commit (checkout set to the release commit)
+          RELEASE_SHA="$(git rev-parse HEAD)"
+
+          if git rev-parse --verify "$TAG" >/dev/null 2>&1; then
+            EXISTING_TAG_SHA="$(git rev-parse "$TAG")"
+            if [ "$EXISTING_TAG_SHA" = "$RELEASE_SHA" ]; then
+              echo "Tag $TAG already exists on this commit; skipping tag creation"
+            else
+              echo "::error::Tag $TAG already exists and points to $EXISTING_TAG_SHA (expected $RELEASE_SHA)"
+              exit 1
+            fi
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       
