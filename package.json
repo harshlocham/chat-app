@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
+    ".",
     "apps/mobile",
     "apps/web",
     "apps/socket",
