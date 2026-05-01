@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/Db/db";
+import { sendOtpEmail } from "@/lib/utils/sendOtp";
+import { authRateLimiter } from "@/lib/utils/rateLimiter";
 import {
     authConfig,
-    buildAccessTokenCookie,
-    buildRefreshTokenCookie,
-    completePasswordStepUpChallenge,
     logAuthEventBestEffort,
+    requestOtpStepUpChallenge,
 } from "@chat/auth";
 
-type ChallengePasswordBody = {
+type ChallengeOtpSendBody = {
     challengeId?: unknown;
-    password?: unknown;
     refreshToken?: unknown;
 };
 
@@ -21,13 +21,13 @@ function safeIpAddress(req: NextRequest): string {
         .find(Boolean) || "unknown";
 }
 
-async function parseBody(req: NextRequest): Promise<ChallengePasswordBody> {
+async function parseBody(req: NextRequest): Promise<ChallengeOtpSendBody> {
     try {
         const body = (await req.json()) as unknown;
         if (!body || typeof body !== "object") {
             return {};
         }
-        return body as ChallengePasswordBody;
+        return body as ChallengeOtpSendBody;
     } catch {
         return {};
     }
@@ -39,53 +39,58 @@ export async function POST(req: NextRequest) {
 
     const body = await parseBody(req);
     const challengeId = typeof body.challengeId === "string" ? body.challengeId.trim() : "";
-    const password = typeof body.password === "string" ? body.password : "";
     const bodyRefreshToken = typeof body.refreshToken === "string" ? body.refreshToken.trim() : "";
     const cookieRefreshToken = req.cookies.get(authConfig.cookie.refreshToken)?.value || "";
     const refreshToken = bodyRefreshToken || cookieRefreshToken;
 
-    if (!challengeId || !password || !refreshToken) {
+    if (!challengeId || !refreshToken) {
         await logAuthEventBestEffort({
             eventType: "step_up_failed",
             outcome: "failure",
             ipAddress,
             userAgent,
             reason: "missing_required_fields",
-            metadata: { challengeId: challengeId || undefined },
+            metadata: { challengeId: challengeId || undefined, method: "otp" },
         });
 
         return NextResponse.json(
-            { success: false, error: "challengeId, password and refresh token are required" },
+            { success: false, error: "challengeId and refresh token are required" },
             { status: 400 }
         );
     }
 
+    const rateLimitKey = `${ipAddress}:${challengeId}`;
+    const { success } = await authRateLimiter.limit(rateLimitKey);
+    if (!success) {
+        return NextResponse.json(
+            { success: false, error: "Too many attempts. Try again later." },
+            { status: 429 }
+        );
+    }
+
     try {
-        const tokens = await completePasswordStepUpChallenge({
-            challengeId,
-            password,
-            refreshToken,
-        });
+        await connectToDatabase();
+
+        const challenge = await requestOtpStepUpChallenge({ challengeId, refreshToken });
+        await sendOtpEmail(challenge.email, challenge.otp);
 
         await logAuthEventBestEffort({
-            eventType: "step_up_success",
+            eventType: "step_up_triggered",
             outcome: "success",
-            userId: tokens.userId,
             ipAddress,
             userAgent,
+            userId: challenge.userId,
             metadata: {
-                challengeId: tokens.challengeId,
-                sessionId: tokens.sessionId,
+                challengeId: challenge.challengeId,
+                method: "otp",
             },
         });
 
-        const response = NextResponse.json({
+        return NextResponse.json({
             success: true,
-            challengeId: tokens.challengeId,
+            challengeId: challenge.challengeId,
+            expiresAt: challenge.expiresAt.toISOString(),
         });
-        response.headers.append("Set-Cookie", buildAccessTokenCookie(tokens.accessToken));
-        response.headers.append("Set-Cookie", buildRefreshTokenCookie(tokens.refreshToken));
-        return response;
     } catch (error) {
         const reason = error instanceof Error ? error.message : "unknown_error";
         const status =
@@ -95,10 +100,9 @@ export async function POST(req: NextRequest) {
                     reason === "Challenge is not pending" ||
                     reason === "Challenge is no longer valid"
                     ? 409
-                    : reason === "Password authentication not available for this account"
-                        ? 422
-                        : reason === "Invalid password" ||
-                            reason === "Invalid session" ||
+                    : reason === "Please wait before requesting another OTP"
+                        ? 429
+                        : reason === "Invalid session" ||
                             reason === "Session revoked" ||
                             reason === "Session expired" ||
                             reason === "Invalid session token" ||
@@ -113,13 +117,13 @@ export async function POST(req: NextRequest) {
             ipAddress,
             userAgent,
             reason,
-            metadata: { challengeId },
+            metadata: { challengeId, method: "otp" },
         });
 
         return NextResponse.json(
             {
                 success: false,
-                error: "STEP_UP_VERIFICATION_FAILED",
+                error: "STEP_UP_OTP_SEND_FAILED",
                 reason,
             },
             { status }
