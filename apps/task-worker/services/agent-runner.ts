@@ -1,4 +1,4 @@
-import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskResult, TaskUpdatedPayload, TaskValidationLog } from "@chat/types";
+import type { TaskCheckpoint, TaskExecutionActionType, TaskExecutionHistory, TaskExecutionUpdatedPayload, TaskResult, TaskUpdatedPayload, TaskValidationLog } from "@chat/types";
 import { RetryManager } from "./retry-manager.js";
 import OpenAI from "openai";
 import * as taskRepo from "@chat/services/repositories/task.repo";
@@ -122,6 +122,8 @@ type RunTaskOutcome = {
     result: ActionExecutionResult | null;
     verification: VerificationOutcome | null;
 };
+
+type ExecutionUpdateEmitter = (payload: TaskExecutionUpdatedPayload) => Promise<void> | void;
 
 type PlanStepLike = {
     stepId: string;
@@ -256,6 +258,7 @@ export class AgentRunner {
     private readonly assertTransitionFn: AssertTransitionFn;
     private readonly updatePlanStepStateFn?: UpdatePlanStepStateFn;
     private readonly llmRequestFn?: LlmRequestFn;
+    private readonly onExecutionUpdate?: ExecutionUpdateEmitter;
 
     constructor(options?: {
         retryManager?: RetryManager;
@@ -276,6 +279,7 @@ export class AgentRunner {
         assertTransitionFn?: AssertTransitionFn;
         updatePlanStepStateFn?: UpdatePlanStepStateFn;
         llmRequestFn?: LlmRequestFn;
+        onExecutionUpdate?: ExecutionUpdateEmitter;
     }) {
         this.retryManager = options?.retryManager ?? new RetryManager([1000, 2000, 5000]);
         this.taskModel = options?.taskModel ?? resolveTaskModel(taskModule);
@@ -295,6 +299,7 @@ export class AgentRunner {
         this.assertTransitionFn = options?.assertTransitionFn ?? assertTransition;
         this.updatePlanStepStateFn = options?.updatePlanStepStateFn;
         this.llmRequestFn = options?.llmRequestFn;
+        this.onExecutionUpdate = options?.onExecutionUpdate;
     }
 
     private createDefaultToolRegistry() {
@@ -631,6 +636,32 @@ Reply to confirm receipt or contact support if you have questions.
         });
     }
 
+    private async emitExecutionUpdate(task: TaskDocumentLike, input: {
+        state: TaskExecutionUpdatedPayload["state"];
+        summary: string | null;
+        error?: string | null;
+        phase?: TaskExecutionUpdatedPayload["phase"];
+        step?: string | null;
+        progress?: number;
+        details?: TaskExecutionUpdatedPayload["details"];
+    }) {
+        if (!this.onExecutionUpdate) return;
+
+        await this.onExecutionUpdate({
+            taskId: task._id.toString(),
+            conversationId: task.conversationId.toString(),
+            state: input.state,
+            actionType: (input.details?.toolName || "none") as TaskExecutionActionType,
+            summary: input.summary,
+            error: input.error ?? null,
+            updatedAt: new Date().toISOString(),
+            phase: input.phase,
+            step: input.step ?? null,
+            progress: input.progress,
+            details: input.details ?? null,
+        });
+    }
+
     async runTask(taskId: string): Promise<RunTaskOutcome> {
         if (this.persistentLoopEnabled) {
             return this.runTaskPersistent(taskId);
@@ -687,6 +718,16 @@ Reply to confirm receipt or contact support if you have questions.
             status: "executing",
             retryCount: context.retryCount,
             maxRetries: context.maxRetries,
+        });
+        await this.emitExecutionUpdate(task, {
+            state: "running",
+            summary: "Agent runner started.",
+            phase: "reason",
+            step: "run_task",
+            progress: 10,
+            details: {
+                toolName: context.action.toolName,
+            },
         });
 
         while (!goalAchieved && iteration < maxIterations && task.status !== "completed") {
@@ -763,6 +804,18 @@ Reply to confirm receipt or contact support if you have questions.
 
                     throw err;
                 }
+                await this.emitExecutionUpdate(task, {
+                    state: "running",
+                    summary: decision.reasoning ?? "Selected next action.",
+                    phase: "reason",
+                    step: "decide_next_action",
+                    progress: 20,
+                    details: {
+                        reasoning: decision.reasoning ?? null,
+                        toolName: decision.toolName ?? undefined,
+                        toolInput: decision.toolInput,
+                    },
+                });
                 if (decision.needsClarification) {
                     await this.updateTask(task, {
                         status: "waiting_for_input",
@@ -785,6 +838,19 @@ Reply to confirm receipt or contact support if you have questions.
                         step: "failed",
                         status: "completed",
                         progress: 100,
+                    });
+                    await this.emitExecutionUpdate(task, {
+                        state: "failed",
+                        summary: "Execution paused; clarification required.",
+                        error: decision.clarificationQuestion ?? decision.reasoning ?? "Clarification required.",
+                        phase: "finalize",
+                        step: "needs_clarification",
+                        progress: 100,
+                        details: {
+                            reasoning: decision.reasoning ?? null,
+                            toolName: decision.toolName,
+                            toolInput: decision.toolInput,
+                        },
                     });
 
                     return {
@@ -815,6 +881,24 @@ Reply to confirm receipt or contact support if you have questions.
                         step: "done",
                         status: "completed",
                         progress: 100,
+                    });
+                    await this.emitExecutionUpdate(task, {
+                        state: "succeeded",
+                        summary: decision.reasoning ?? "Goal achieved without additional tool execution.",
+                        phase: "finalize",
+                        step: "goal_achieved",
+                        progress: 100,
+                        details: {
+                            reasoning: decision.reasoning ?? null,
+                            toolName: decision.toolName,
+                            toolInput: decision.toolInput,
+                            verification: context.verification
+                                ? {
+                                    success: context.verification.success,
+                                    confidence: context.verification.confidence,
+                                }
+                                : null,
+                        },
                     });
 
                     return {
@@ -858,6 +942,18 @@ Reply to confirm receipt or contact support if you have questions.
                     status: "started",
                     historyDelta: { attempts: 1 },
                 });
+                await this.emitExecutionUpdate(task, {
+                    state: "running",
+                    summary: `Executing tool '${context.attemptPayload.toolName}'.`,
+                    phase: "tool_execute",
+                    step: "execute_tool",
+                    progress: 35,
+                    details: {
+                        reasoning: decision.reasoning ?? null,
+                        toolName: context.attemptPayload.toolName,
+                        toolInput: context.attemptPayload.parameters,
+                    },
+                });
 
                 const executed = await this.execute(context.attemptPayload);
 
@@ -869,6 +965,17 @@ Reply to confirm receipt or contact support if you have questions.
                 await this.appendCheckpoint(task, {
                     step: "observe",
                     status: "started",
+                });
+                await this.emitExecutionUpdate(task, {
+                    state: "running",
+                    summary: "Observing tool execution output.",
+                    phase: "observe",
+                    step: "observe_result",
+                    progress: 55,
+                    details: {
+                        toolName: context.attemptPayload.toolName,
+                        toolOutput: executed.evidence,
+                    },
                 });
 
                 context.observed = await this.observe(context, executed);
@@ -891,8 +998,35 @@ Reply to confirm receipt or contact support if you have questions.
                     step: "verify",
                     status: "started",
                 });
+                await this.emitExecutionUpdate(task, {
+                    state: "running",
+                    summary: "Verifying execution outcome.",
+                    phase: "verify",
+                    step: "verify_result",
+                    progress: 75,
+                    details: {
+                        toolName: context.attemptPayload.toolName,
+                        toolOutput: context.observed?.evidence,
+                    },
+                });
 
                 context.verification = await this.verify(context.observed, context);
+                await this.emitExecutionUpdate(task, {
+                    state: context.verification.success ? "running" : "failed",
+                    summary: context.verification.success ? "Verification passed." : "Verification failed.",
+                    error: context.verification.success ? null : (context.observed?.error ?? "Verification failed"),
+                    phase: "verify",
+                    step: "verification_completed",
+                    progress: context.verification.success ? 85 : 80,
+                    details: {
+                        toolName: context.attemptPayload.toolName,
+                        toolOutput: context.observed?.evidence,
+                        verification: {
+                            success: context.verification.success,
+                            confidence: context.verification.confidence,
+                        },
+                    },
+                });
 
                 if (context.verification.success) {
                     await this.appendCheckpoint(task, {
@@ -945,6 +1079,22 @@ Reply to confirm receipt or contact support if you have questions.
                         status: "completed",
                         progress: 100,
                     });
+                    await this.emitExecutionUpdate(task, {
+                        state: "succeeded",
+                        summary: context.observed.summary,
+                        phase: "finalize",
+                        step: "task_completed",
+                        progress: 100,
+                        details: {
+                            toolName: context.attemptPayload.toolName,
+                            toolInput: context.attemptPayload.parameters,
+                            toolOutput: context.observed.evidence,
+                            verification: {
+                                success: context.verification.success,
+                                confidence: context.verification.confidence,
+                            },
+                        },
+                    });
 
                     console.log("agent-runner lifecycle:completed", {
                         taskId,
@@ -971,6 +1121,18 @@ Reply to confirm receipt or contact support if you have questions.
                     status: "executing",
                     retryCount: context.retryCount,
                     maxRetries: context.maxRetries,
+                });
+                await this.emitExecutionUpdate(task, {
+                    state: "running",
+                    summary: "Verification failed; preparing next iteration.",
+                    error: context.observed.error ?? "verification failed",
+                    phase: "reason",
+                    step: "retry_iteration",
+                    progress: 60,
+                    details: {
+                        toolName: context.attemptPayload.toolName,
+                        toolOutput: context.observed.evidence,
+                    },
                 });
             } catch (error) {
                 const reason = error instanceof Error ? error.message : "unknown execution error";
@@ -1014,6 +1176,18 @@ Reply to confirm receipt or contact support if you have questions.
                     retryCount: context.retryCount,
                     maxRetries: context.maxRetries,
                 });
+                await this.emitExecutionUpdate(task, {
+                    state: "failed",
+                    summary: "Execution iteration failed.",
+                    error: reason,
+                    phase: "tool_execute",
+                    step: "iteration_exception",
+                    progress: 50,
+                    details: {
+                        toolName: context.attemptPayload.toolName,
+                        toolInput: context.attemptPayload.parameters,
+                    },
+                });
             }
         }
 
@@ -1034,6 +1208,25 @@ Reply to confirm receipt or contact support if you have questions.
             step: "failed",
             status: "completed",
             progress: 100,
+        });
+        await this.emitExecutionUpdate(task, {
+            state: "failed",
+            summary: "Max iterations reached before goal achievement.",
+            error: "Max iterations reached before goal achievement.",
+            phase: "finalize",
+            step: "max_iterations_reached",
+            progress: 100,
+            details: {
+                toolName: context.attemptPayload.toolName,
+                toolInput: context.attemptPayload.parameters,
+                toolOutput: context.observed?.evidence,
+                verification: context.verification
+                    ? {
+                        success: context.verification.success,
+                        confidence: context.verification.confidence,
+                    }
+                    : null,
+            },
         });
 
         console.log("agent-runner lifecycle:exhausted", {
