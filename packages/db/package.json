@@ -1,6 +1,6 @@
 {
     "name": "@chat/db",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "type": "module",
     "main": "./dist/db.js",
     "types": "./dist/db.d.ts",

@@ -1,5 +1,11 @@
 # @chat/types
 
+## 1.3.1
+
+### Patch Changes
+
+- e3ad385: The system has been fully implemented to support multi-step execution with strict safety and hallucination prevention.d it can self-heal a failed tool execution by asking the LLM for a corrected decision before falling back to normal retry behavior. The planner now preserves step input/output from LLM plans and explicitly asks for template-ready step context
+
 ## 1.3.0
 
 ### Minor Changes
