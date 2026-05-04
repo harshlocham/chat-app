@@ -3,7 +3,7 @@ import { RetryManager } from "./retry-manager.js";
 import OpenAI from "openai";
 import * as taskRepo from "@chat/services/repositories/task.repo";
 import * as taskModule from "@chat/db/models/Task";
-import TaskPlanModel from "@/lib/Db/dist/models/TaskPlan.js";
+import TaskPlanModel from "@chat/db/models/TaskPlan";
 import ToolRegistry from "./tools/tool-registry.js";
 import TaskSuccessRegistry, { createDefaultTaskSuccessRegistry } from "./task-success-registry.js";
 import { CreateIssueTool } from "./tools/create-issue.tool.js";
