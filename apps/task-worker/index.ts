@@ -1196,6 +1196,11 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
 
     const confidence = payload.confidence ?? 0.5;
     const policyDecision = evaluateExecutionPolicy(payload);
+    const safePolicyDecision = {
+        outcome: policyDecision.outcome,
+        riskLevel: policyDecision.riskLevel,
+        reasons: Array.isArray(policyDecision.reasons) ? policyDecision.reasons.slice(0, 3) : [],
+    };
     const lowConfidence = confidence < 0.7;
     const unsafe = policyDecision.riskLevel === "high"
         && policyDecision.reasons.some((reason) =>
@@ -1210,6 +1215,8 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
             ? "Execution blocked by policy: action marked unsafe."
             : (policyDecision.reasons.join(" ") || "Execution blocked by policy.");
 
+        // reuse hoisted safePolicyDecision
+
         await updateTaskLifecycle({
             taskId: payload.taskId,
             conversationId: payload.conversationId,
@@ -1219,7 +1226,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                 confidence: clampConfidence(confidence),
                 evidence: {
                     reason: "policy_blocked",
-                    policyDecision,
+                    policyDecision: safePolicyDecision,
                 },
                 error: blockedReason,
             },
@@ -1243,7 +1250,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                 summary: "Execution blocked by policy.",
                 error: blockedReason,
                 evidence: {
-                    policyDecision,
+                    policyDecision: safePolicyDecision,
                 },
             },
         });
@@ -1272,7 +1279,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                         confidence,
                         needsApproval: true,
                         status: "approval_pending",
-                        policyDecision,
+                        policyDecision: safePolicyDecision,
                     },
                 },
                 reason: `Action requires human approval before execution. ${[...policyDecision.reasons, ...(lowConfidence ? [`Low confidence (${confidence.toFixed(2)}).`] : [])].join(" ")}`,
@@ -1295,7 +1302,7 @@ async function processTaskExecutionRequested(payload: NormalizedTaskExecutionReq
                 evidence: {
                     reason: "approval_required",
                     requestedConfidence: confidence,
-                    policyDecision,
+                    policyDecision: safePolicyDecision,
                     lowConfidence,
                 },
                 error: "Approval required before executing this action.",

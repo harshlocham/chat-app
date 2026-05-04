@@ -644,14 +644,15 @@ Reply to confirm receipt or contact support if you have questions.
         step?: string | null;
         progress?: number;
         details?: TaskExecutionUpdatedPayload["details"];
+        runId?: string | null;
+        attempt?: number | null;
     }) {
         if (!this.onExecutionUpdate) return;
-
         await this.onExecutionUpdate({
             taskId: task._id.toString(),
             conversationId: task.conversationId.toString(),
             state: input.state,
-            actionType: (input.details?.toolName || "none") as TaskExecutionActionType,
+            actionType: this.mapToolNameToActionType(input.details?.toolName ?? null),
             summary: input.summary,
             error: input.error ?? null,
             updatedAt: new Date().toISOString(),
@@ -659,6 +660,8 @@ Reply to confirm receipt or contact support if you have questions.
             step: input.step ?? null,
             progress: input.progress,
             details: input.details ?? null,
+            ...(input.runId ? { runId: input.runId } : {}),
+            ...(typeof input.attempt === "number" ? { attempt: input.attempt } : {}),
         });
     }
 
@@ -840,16 +843,16 @@ Reply to confirm receipt or contact support if you have questions.
                         progress: 100,
                     });
                     await this.emitExecutionUpdate(task, {
-                        state: "failed",
+                        state: "blocked",
                         summary: "Execution paused; clarification required.",
-                        error: decision.clarificationQuestion ?? decision.reasoning ?? "Clarification required.",
-                        phase: "finalize",
+                        error: null,
+                        phase: "reason",
                         step: "needs_clarification",
-                        progress: 100,
+                        progress: typeof task.progress === "number" ? task.progress : 0,
                         details: {
                             reasoning: decision.reasoning ?? null,
                             toolName: decision.toolName,
-                            toolInput: decision.toolInput,
+                            toolInput: Object.assign({}, decision.toolInput ?? {}, { _clarificationQuestion: decision.clarificationQuestion ?? null }),
                         },
                     });
 
@@ -974,7 +977,7 @@ Reply to confirm receipt or contact support if you have questions.
                     progress: 55,
                     details: {
                         toolName: context.attemptPayload.toolName,
-                        toolOutput: executed.evidence,
+                        toolOutput: this.summarizeEvidence(executed.evidence),
                     },
                 });
 
@@ -1006,7 +1009,7 @@ Reply to confirm receipt or contact support if you have questions.
                     progress: 75,
                     details: {
                         toolName: context.attemptPayload.toolName,
-                        toolOutput: context.observed?.evidence,
+                        toolOutput: this.summarizeEvidence(context.observed?.evidence),
                     },
                 });
 
@@ -1020,7 +1023,7 @@ Reply to confirm receipt or contact support if you have questions.
                     progress: context.verification.success ? 85 : 80,
                     details: {
                         toolName: context.attemptPayload.toolName,
-                        toolOutput: context.observed?.evidence,
+                        toolOutput: this.summarizeEvidence(context.observed?.evidence),
                         verification: {
                             success: context.verification.success,
                             confidence: context.verification.confidence,
@@ -1088,7 +1091,7 @@ Reply to confirm receipt or contact support if you have questions.
                         details: {
                             toolName: context.attemptPayload.toolName,
                             toolInput: context.attemptPayload.parameters,
-                            toolOutput: context.observed.evidence,
+                            toolOutput: this.summarizeEvidence(context.observed.evidence),
                             verification: {
                                 success: context.verification.success,
                                 confidence: context.verification.confidence,
@@ -1219,7 +1222,7 @@ Reply to confirm receipt or contact support if you have questions.
             details: {
                 toolName: context.attemptPayload.toolName,
                 toolInput: context.attemptPayload.parameters,
-                toolOutput: context.observed?.evidence,
+                toolOutput: this.summarizeEvidence(context.observed?.evidence),
                 verification: context.verification
                     ? {
                         success: context.verification.success,
@@ -2071,6 +2074,42 @@ Reply to confirm receipt or contact support if you have questions.
     private getBackoffDelay(retryCount: number) {
         const schedule = [1000, 2000, 5000] as const;
         return schedule[Math.min(Math.max(retryCount - 1, 0), schedule.length - 1)] ?? 0;
+    }
+
+    private mapToolNameToActionType(toolName?: string | null): TaskExecutionActionType {
+        if (!toolName) return "none";
+        try {
+            const tool = this.toolRegistry.get(toolName);
+            if (tool) return toolName as TaskExecutionActionType;
+        } catch {
+            // ignore
+        }
+        return "none";
+    }
+
+    private summarizeEvidence(evidence: unknown): unknown {
+        if (evidence === null || evidence === undefined) return null;
+        if (typeof evidence === "string") return evidence.length > 1000 ? `${evidence.slice(0, 1000)}...` : evidence;
+        if (Array.isArray(evidence)) {
+            return {
+                type: "array",
+                length: evidence.length,
+                sample: evidence.length > 0 ? evidence[0] : null,
+            };
+        }
+        if (typeof evidence === "object") {
+            try {
+                const asRecord = evidence as Record<string, unknown>;
+                const keys = Object.keys(asRecord).slice(0, 5);
+                const summary: Record<string, unknown> = {};
+                for (const k of keys) summary[k] = asRecord[k];
+                summary._keys = Object.keys(asRecord).length;
+                return summary;
+            } catch {
+                return "[evidence]";
+            }
+        }
+        return String(evidence).slice(0, 1000);
     }
 
     private async updateTask(task: TaskDocumentLike, patch: {
