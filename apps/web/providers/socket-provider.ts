@@ -17,7 +17,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (!user?._id) return;
 
-        socket.auth = { userId: user._id };
+        socket.auth = {};
         socket.connect();
 
         registerGlobalSocketListeners();
