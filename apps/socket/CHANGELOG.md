@@ -1,5 +1,11 @@
 # @chat/socket
 
+## 3.0.1
+
+### Patch Changes
+
+- 5fb4167: fix socket production connection issue
+
 ## 3.0.0
 
 ### Major Changes
