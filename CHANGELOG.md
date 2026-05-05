@@ -1,5 +1,11 @@
 # chat-app
 
+## 2.0.4
+
+### Patch Changes
+
+- 5fb4167: fix socket production connection issue
+
 ## 2.0.3
 
 ### Patch Changes
