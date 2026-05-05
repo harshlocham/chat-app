@@ -1,5 +1,11 @@
 # chat-app
 
+## 2.0.5
+
+### Patch Changes
+
+- 6c57198: Fix socket auth and deployment flow for production by normalizing origins, enabling cross-subdomain auth cookies, and binding the socket server to the Render-injected port.
+
 ## 2.0.4
 
 ### Patch Changes
