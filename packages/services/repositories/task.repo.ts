@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { createHash } from "node:crypto";
 import { connectToDatabase } from "@chat/db";
 import TaskModel, { ITask } from "@chat/db/models/Task";
 import TaskActionModel, { ITaskAction } from "@chat/db/models/TaskAction";
@@ -7,18 +8,51 @@ import type { CreateTaskActionInput, CreateTaskInput, LinkMessageToTaskInput, Up
 
 const toObjectId = (value: string) => new Types.ObjectId(value);
 
-export function buildTaskDedupeKey(conversationId: string, normalizedTitle: string, sourceMessageId?: string | null) {
-    const titlePart = normalizedTitle.trim().toLowerCase().replace(/\s+/g, " ");
-    return [conversationId, titlePart, sourceMessageId ?? ""].join("::");
+function stableStringify(value: unknown): string {
+    if (value === null || value === undefined) return String(value);
+    if (typeof value !== "object") return JSON.stringify(value);
+    if (Array.isArray(value)) {
+        return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+    }
+
+    const objectValue = value as Record<string, unknown>;
+    const keys = Object.keys(objectValue).sort();
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`).join(",")}}`;
+}
+
+export function buildTaskDedupeKey(
+    conversationId: string,
+    toolName: string,
+    parameters: Record<string, unknown> = {},
+    sourceMessageId?: string | null
+) {
+    const normalizedToolName = toolName.trim().toLowerCase();
+    const hashInput = stableStringify({
+        toolName: normalizedToolName,
+        parameters,
+    });
+
+    const digest = createHash("sha256").update(hashInput).digest("hex");
+    return [conversationId, digest, sourceMessageId ?? ""].join("::");
 }
 
 export function buildTaskActionIdempotencyKey(taskId: string, actionType: string, sourceId?: string | null) {
     return [taskId, actionType, sourceId ?? ""].join("::");
 }
 
-export function deriveTaskDedupeKey(input: { conversationId: string; title: string; sourceMessageId?: string | null }) {
-    const normalizedTitle = input.title.trim().toLowerCase().replace(/\s+/g, " ");
-    return buildTaskDedupeKey(input.conversationId, normalizedTitle, input.sourceMessageId ?? null);
+export function deriveTaskDedupeKey(input: {
+    conversationId: string;
+    title?: string;
+    sourceMessageId?: string | null;
+    toolName?: string;
+    parameters?: Record<string, unknown>;
+}) {
+    const toolName = input.toolName ?? "manual";
+    const parameters = input.parameters ?? (input.title
+        ? { title: input.title.trim().toLowerCase().replace(/\s+/g, " ") }
+        : {});
+
+    return buildTaskDedupeKey(input.conversationId, toolName, parameters, input.sourceMessageId ?? null);
 }
 
 export async function createTask(input: CreateTaskInput): Promise<ITask> {

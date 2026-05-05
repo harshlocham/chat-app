@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeToolParams } from "../../../packages/services/tool-normalizers.js";
 
 const TEMPLATE_PATTERN = /{{\s*([^}]+)\s*}}/g;
 const EMAIL_PLACEHOLDER_PATTERN = /\[[^\]]+\]/;
@@ -110,22 +111,11 @@ export function collectPreviousStepOutputs(steps: Array<{ stepId: string; state:
 }
 
 export function normalizeParams(toolName: string, params: Record<string, unknown>): Record<string, unknown> {
-    const normalized = { ...params };
-
     if (toolName === "send_email") {
-        if (normalized.recipient !== undefined && normalized.to === undefined) {
-            normalized.to = normalized.recipient;
-            delete normalized.recipient;
-        }
-
-        if (typeof normalized.to === "string") {
-            normalized.to = [normalized.to];
-        }
-
-        if (Array.isArray(normalized.to)) {
-            normalized.to = normalized.to.filter((entry) => typeof entry === "string").map((entry) => entry.trim()).filter(Boolean);
-        }
+        return normalizeToolParams(toolName, params);
     }
+
+    const normalized = { ...params };
 
     if (toolName === "schedule_meeting") {
         if (normalized.attendee !== undefined && normalized.attendees === undefined) {
