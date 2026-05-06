@@ -8,16 +8,77 @@ import type { CreateTaskActionInput, CreateTaskInput, LinkMessageToTaskInput, Up
 
 const toObjectId = (value: string) => new Types.ObjectId(value);
 
-function stableStringify(value: unknown): string {
-    if (value === null || value === undefined) return String(value);
-    if (typeof value !== "object") return JSON.stringify(value);
-    if (Array.isArray(value)) {
-        return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+function normalizeForStableHash(value: unknown, seen: WeakSet<object>): unknown {
+    if (value === null) return null;
+
+    const valueType = typeof value;
+    if (valueType === "string" || valueType === "number" || valueType === "boolean") {
+        return value;
     }
 
-    const objectValue = value as Record<string, unknown>;
-    const keys = Object.keys(objectValue).sort();
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`).join(",")}}`;
+    if (valueType === "undefined") {
+        return "[Undefined]";
+    }
+
+    if (valueType === "bigint") {
+        return (value as bigint).toString();
+    }
+
+    if (valueType === "symbol") {
+        return (value as symbol).toString();
+    }
+
+    if (valueType === "function") {
+        return "[Function]";
+    }
+
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? "[Invalid Date]" : value.toISOString();
+    }
+
+    if (value instanceof Types.ObjectId) {
+        return value.toHexString();
+    }
+
+    if (valueType !== "object") {
+        return String(value);
+    }
+
+    const objectValue = value as object;
+    if (seen.has(objectValue)) {
+        return "[Circular]";
+    }
+    seen.add(objectValue);
+
+    try {
+        const maybeToJSON = (value as { toJSON?: () => unknown }).toJSON;
+        if (typeof maybeToJSON === "function") {
+            try {
+                return normalizeForStableHash(maybeToJSON.call(value), seen);
+            } catch {
+                return "[toJSON-error]";
+            }
+        }
+
+        if (Array.isArray(value)) {
+            return value.map((entry) => normalizeForStableHash(entry, seen));
+        }
+
+        const output: Record<string, unknown> = {};
+        const keys = Object.keys(value as Record<string, unknown>).sort();
+        for (const key of keys) {
+            output[key] = normalizeForStableHash((value as Record<string, unknown>)[key], seen);
+        }
+
+        return output;
+    } finally {
+        seen.delete(objectValue);
+    }
+}
+
+function stableStringify(value: unknown): string {
+    const normalized = normalizeForStableHash(value, new WeakSet<object>());
+    return JSON.stringify(normalized);
 }
 
 export function buildTaskDedupeKey(

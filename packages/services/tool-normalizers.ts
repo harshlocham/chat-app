@@ -7,7 +7,10 @@ export type NormalizedSendEmailParams = {
 function isValidEmail(email: string): boolean {
     if (typeof email !== "string") return false;
     if (email.length === 0) return false;
-    if (email.includes(" ")) return false;
+
+    for (const char of email) {
+        if (char.trim().length === 0) return false;
+    }
 
     const atIndex = email.indexOf("@");
     if (atIndex <= 0) return false; // must have local part
@@ -16,7 +19,7 @@ function isValidEmail(email: string): boolean {
     const domain = email.slice(atIndex + 1);
     if (domain.length < 3) return false; // a.b at minimum
     if (domain.startsWith(".") || domain.endsWith(".")) return false;
-    if (domain.indexOf('.') === -1) return false; // must contain a dot
+    if (domain.indexOf(".") === -1) return false; // must contain a dot
 
     const local = email.slice(0, atIndex);
     if (local.length === 0) return false;

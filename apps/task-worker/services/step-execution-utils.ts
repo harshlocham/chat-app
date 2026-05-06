@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { normalizeToolParams } from "../../../packages/services/tool-normalizers.js";
+import { normalizeToolParams } from "@chat/services/tool-normalizers.js";
 
 const TEMPLATE_PATTERN = /{{\s*([^}]+)\s*}}/g;
 const EMAIL_PLACEHOLDER_PATTERN = /\[[^\]]+\]/;
@@ -112,7 +112,16 @@ export function collectPreviousStepOutputs(steps: Array<{ stepId: string; state:
 
 export function normalizeParams(toolName: string, params: Record<string, unknown>): Record<string, unknown> {
     if (toolName === "send_email") {
-        return normalizeToolParams(toolName, params);
+        try {
+            return normalizeToolParams(toolName, params);
+        } catch (error) {
+            console.warn("Tool parameter normalization failed", {
+                error,
+                toolName,
+                params,
+            });
+            return { ...params };
+        }
     }
 
     const normalized = { ...params };
