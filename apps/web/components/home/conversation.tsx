@@ -24,7 +24,9 @@ const Conversation = ({ conversation }: ConversationProps) => {
     const { user } = useUser();
     const currentUserEmail = user?.email;
 
-    const { setSelectedConversation, selectedConversationId, onlineUsers } = useChatStore();
+    const setSelectedConversation = useChatStore((s) => s.setSelectedConversation);
+    const selectedConversationId = useChatStore((s) => s.selectedConversationId);
+    const onlineUsers = useChatStore((s) => s.onlineUsers);
 
     const otherUser = conversation.participants.find(
         (p): p is ClientUser =>
