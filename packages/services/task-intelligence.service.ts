@@ -13,7 +13,7 @@ import {
     linkMessageToTask,
     upsertTaskByDedupeKey,
     updateMessageSemanticState,
-} from "@chat/services/repositories/task.repo";
+} from "./repositories/task.repo";
 import { connectToDatabase } from "@chat/db";
 import { enqueueOutboxEvent } from "@chat/services/outbox.service";
 
@@ -209,6 +209,13 @@ export async function processMessageTaskIntelligence(
         conversationId: input.conversationId,
         title: preprocessed.title,
         sourceMessageId: input.messageId,
+        toolName: "none",
+        parameters: {
+            messageId: input.messageId,
+            content: preprocessed.normalized,
+            titleHint: preprocessed.title,
+            descriptionHint: preprocessed.description,
+        },
     });
 
     const preExistingTask = await TaskModel.findOne({ dedupeKey }).select("_id version").lean();

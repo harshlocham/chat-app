@@ -42,7 +42,7 @@
         }
     },
     "scripts": {
-        "build": "tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.build.json && node ./scripts/postbuild-fix.cjs && node ./scripts/postbuild-resolve-imports.cjs",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
