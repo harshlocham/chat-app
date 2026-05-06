@@ -24,7 +24,7 @@ export function ensureAuthReady(): Promise<void> {
         const startedAt = now();
 
         try {
-            // First, try a cheap /api/me check to see if access token is already present
+            // Check if access token is already present
             try {
                 const resp = await fetch("/api/me", { cache: "no-store", credentials: "include" });
                 if (resp.ok) {
@@ -33,25 +33,13 @@ export function ensureAuthReady(): Promise<void> {
                     return;
                 }
             } catch {
-                // ignore network errors here; we'll attempt refresh below
+                // network error - can't determine auth status, will be handled by API layer
             }
 
-            // If access token missing (likely 401), attempt a single-flight refresh
-            const refreshed = await refreshSession();
-
-            if (refreshed.ok) {
-                // Validate /api/me after refresh
-                try {
-                    const verify = await fetch("/api/me", { cache: "no-store", credentials: "include" });
-                    isAuthenticated = verify.ok;
-                } catch {
-                    isAuthenticated = false;
-                }
-            } else {
-                isAuthenticated = false;
-            }
-
+            // Cannot determine auth status - mark as ready but not authenticated
+            // The API layer will handle refresh on 401
             authReady = true;
+            isAuthenticated = false;
         } finally {
             authLoading = false;
             const duration = Math.round((now() - startedAt));
