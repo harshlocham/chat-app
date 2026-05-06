@@ -4,7 +4,25 @@ export type NormalizedSendEmailParams = {
     body: string;
 };
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidEmail(email: string): boolean {
+    if (typeof email !== "string") return false;
+    if (email.length === 0) return false;
+    if (email.includes(" ")) return false;
+
+    const atIndex = email.indexOf("@");
+    if (atIndex <= 0) return false; // must have local part
+    if (email.indexOf("@", atIndex + 1) !== -1) return false; // only one @
+
+    const domain = email.slice(atIndex + 1);
+    if (domain.length < 3) return false; // a.b at minimum
+    if (domain.startsWith(".") || domain.endsWith(".")) return false;
+    if (domain.indexOf('.') === -1) return false; // must contain a dot
+
+    const local = email.slice(0, atIndex);
+    if (local.length === 0) return false;
+
+    return true;
+}
 
 function coerceString(value: unknown): string | null {
     if (typeof value !== "string") return null;
@@ -133,7 +151,7 @@ export function normalizeEmailParams(params: Record<string, unknown>): Normalize
     }
 
     for (const recipient of to) {
-        if (!EMAIL_REGEX.test(recipient)) {
+        if (!isValidEmail(recipient)) {
             throw new Error(`send_email contains invalid recipient email: ${recipient}`);
         }
     }
