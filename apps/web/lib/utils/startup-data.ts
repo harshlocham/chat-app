@@ -3,18 +3,9 @@
  * Handles parallel fetching of critical startup data
  */
 
-import { ClientUser } from "@chat/types";
+import { ClientUser, ClientConversation } from "@chat/types";
 import { recordApiTiming } from "./performance";
 import { getMe, getConversations } from "@/lib/utils/api";
-
-type MeErrorPayload = {
-    error?: string;
-    code?: string;
-    requiresReauth?: boolean;
-    challengeId?: string;
-};
-
-type ConversationResponse = any; // Import your actual type
 
 /**
  * Fetch current user with retry logic and timeout
@@ -34,7 +25,7 @@ async function fetchUser(): Promise<ClientUser | null> {
 /**
  * Fetch conversations list
  */
-async function fetchConversationsList(): Promise<ConversationResponse[]> {
+async function fetchConversationsList(): Promise<ClientConversation[]> {
     const startTime = performance.now();
     try {
         const list = await getConversations();
@@ -51,7 +42,7 @@ async function fetchConversationsList(): Promise<ConversationResponse[]> {
  */
 export interface StartupData {
     user: ClientUser | null;
-    conversations: ConversationResponse[];
+    conversations: ClientConversation[];
 }
 
 /**
@@ -109,7 +100,7 @@ export function deferredFetch(
  * Check if this is a duplicate request that can be skipped
  * Prevents StrictMode double-fetch issues
  */
-const pendingRequests = new Map<string, Promise<any>>();
+const pendingRequests = new Map<string, Promise<unknown>>();
 
 export function fetchWithDedup<T>(
     key: string,
@@ -117,7 +108,7 @@ export function fetchWithDedup<T>(
 ): Promise<T> {
     // If request is already in flight, return the same promise
     if (pendingRequests.has(key)) {
-        return pendingRequests.get(key)!;
+        return pendingRequests.get(key)! as Promise<T>;
     }
 
     // Start new request

@@ -32,7 +32,7 @@ export function ensureAuthReady(): Promise<void> {
                     isAuthenticated = true;
                     return;
                 }
-            } catch (err) {
+            } catch {
                 // ignore network errors here; we'll attempt refresh below
             }
 

@@ -7,7 +7,7 @@ import ThemeSwitch from "./theme-switch";
 import UserListDialog from "./dialogs/user-list-dialog";
 import UserProfile from "./userProfile";
 import useChatStore from "@/store/chat-store";
-import { ClientUser } from "@chat/types";
+import { ClientUser, ClientConversation } from "@chat/types";
 import VirtualConversationList from "../sidebar/VirtualConversationList";
 import { socket } from "@/lib/socket/socketClient";
 import { useRouter } from "next/navigation";
@@ -21,13 +21,12 @@ function isUser(p: unknown): p is ClientUser {
 interface SidebarProps {
     isMobileOpen?: boolean;
     onMobileClose?: () => void;
-    initialConversations?: any[];
+    initialConversations?: ClientConversation[];
 }
 
 const Sidebar = ({
     isMobileOpen = false,
     onMobileClose,
-    initialConversations = [],
 }: SidebarProps) => {
     const conversations = useChatStore((s) => s.conversations);
     const setConversations = useChatStore((s) => s.setConversations);

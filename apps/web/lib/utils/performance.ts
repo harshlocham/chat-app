@@ -131,7 +131,7 @@ async function sendMetricToMonitoring(name: string, duration: number): Promise<v
             body: JSON.stringify({ name, duration, timestamp: Date.now() }),
             headers: { 'Content-Type': 'application/json' },
         });
-    } catch (e) {
+    } catch {
         // Silently fail - don't disrupt the app
     }
 }

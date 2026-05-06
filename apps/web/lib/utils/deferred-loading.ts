@@ -3,6 +3,8 @@
  * Use requestIdleCallback to load features when browser is idle
  */
 
+import { useEffect } from 'react';
+
 type DeferredCallback = () => void | Promise<void>;
 
 interface DeferrableTask {
@@ -95,8 +97,7 @@ export function useDeferredLoad(
     dependencies: React.DependencyList = [],
     options?: { timeout?: number; priority?: 'high' | 'normal' | 'low' }
 ): void {
-    const React = require('react');
-    const { useEffect } = React;
+    // useEffect is already imported at the top of this file
 
     useEffect(() => {
         deferTask(`component-load-${Date.now()}`, callback, options);

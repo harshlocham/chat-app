@@ -31,6 +31,7 @@ const MessageContainer = ({ conversationId }: MessageContainerProps) => {
     const { user } = useUser();
     const currentUserId = user?._id ?? null;
     const [newMessages, setNewMessages] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [loading, setLoading] = useState(false);
 
     useConversationPresence(conversationId);
